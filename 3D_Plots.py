@@ -1,49 +1,63 @@
 from base_ep_cycle import ElectricPumpCycle
 from base_gg_cycle import GasGeneratorCycle
-from optimization import InitialMassOpt, DeltaVOpt, optimal_cycle_variables
+from optimization import InitialMassOpt, DeltaVOpt, fast_optimize
 import arguments as args
 import matplotlib.pyplot as plt
 import numpy as np
 from typing import Tuple
 
-base_args = args.base_arguments
-del base_args['mass_mixture_ratio']
+base_args = args.base_arguments_o
+plot_defaults = {'pressure_range': (1E5, 3E7), 'mixture_range': (1.5, 4.0), 'detail_number': 50}
 
 
-def threed_plot_cycle(thrust: float, burn_time: float, is_frozen: bool = False, verbose: bool = False,
-                      pressure_range: Tuple[float, float] = (1E6, 20E6), log: bool = True,
-                      mixture_range: Tuple[float, float] = (1.8, 3.5), cycle_type='ep', detail_number=20,
-                      attribute='mass', base_arguments: dict = base_args):
+def set_attribute_cycle(attribute: str, cycle_type: str, compare: bool = False):
     cycle_types = ['ep', 'gg', 'ex', 'sc']
-    assert cycle_type in cycle_types, f'Invalid cycle_type. Must be one of {cycle_types}'
     if cycle_type == 'ep':
-        extra_arguments = args.ep_arguments
         cycle = ElectricPumpCycle
+        extra_arguments = args.ep_arguments
     elif cycle_type == 'ex':
         raise NotImplementedError
     elif cycle_type == 'gg':
-        extra_arguments = args.gg_arguments
         cycle = GasGeneratorCycle
+        extra_arguments = args.gg_arguments
     elif cycle_type == 'sc':
         raise NotImplementedError
+    else:
+        raise ValueError(f'Invalid cycle_type. Must be one of {cycle_types}')
 
     attribute_options = ['mass', 'dv']
-    assert attribute in attribute_options, f'Invalid attribute. Must be one of {attribute_options}'
     if attribute == 'mass':
-        def attribute_function(x): return x.mass
+        def attribute_function(x):
+            return x.mass
 
         z_label = r'$m_{0_{' + cycle_type + r'}}$ [kg]'
+        z_label_compare = r'$m_{0_{ep}}$/$m_{0_{' + cycle_type + r'}}$ [kg]'
         title = 'Initial Mass'
-    if attribute == 'dv':
-        def attribute_function(x): return x.ideal_delta_v
+    elif attribute == 'dv':
+        def attribute_function(x):
+            return x.ideal_delta_v
 
-        z_label = r'$\Delta V_{' + cycle_type + r'}$ [m/s]'
+        z_label = r'$\Delta V_{' + cycle_type + r'}$ [km/s]'
+        z_label_compare = r'$\Delta V_{ep}$/$\Delta V_{' + cycle_type + r'}$ [km/s]'
         title = r'Ideal $\Delta$V'
+    else:
+        raise ValueError(f'Invalid attribute. Must be one of {attribute_options}')
 
+    if compare:
+        return cycle, extra_arguments, title, attribute_function, z_label_compare
+    else:
+        return cycle, extra_arguments, title, attribute_function, z_label
+
+
+def threed_plot_cycle(thrust: float, burn_time: float, is_frozen: bool = False, verbose: bool = False,
+                      pressure_range: Tuple[float, float] = plot_defaults['pressure_range'], log: bool = True,
+                      mixture_range: Tuple[float, float] = plot_defaults['mixture_range'], cycle_type='ep',
+                      detail_number=plot_defaults['detail_number'],
+                      attribute='dv', base_arguments: dict = base_args, savefig: bool = False):
+    cycle, extra_arguments, title, attribute_function, z_label = set_attribute_cycle(attribute, cycle_type)
     mmr_range = np.linspace(*mixture_range, detail_number)
     pcc_range = np.logspace(*np.log10(pressure_range), detail_number) if log else np.linspace(*pressure_range,
                                                                                               detail_number)
-
     attributes = [[attribute_function(cycle(mass_mixture_ratio=mmr,
                                             combustion_chamber_pressure=pcc,
                                             thrust=thrust,
@@ -76,36 +90,30 @@ def threed_plot_cycle(thrust: float, burn_time: float, is_frozen: bool = False, 
     mode_name = 'Frozen at Throat' if is_frozen else 'Shifting Equilibrium'
     ax.set_title(
         f'{cycle_type.upper()}-Cycle {title} - {mode_name} \n' + r'$F_T$=' + f'{thrust * 1E-3:.1f}kN ' + r'$t_b$=' + f'{burn_time:.0f}s')
+    if savefig:
+        plt.savefig(
+            'plots/3Dplots/' +
+            f'Base_{attribute.upper()}_{cycle_type}_FT{thrust * 1e-3:.0f}_tb{burn_time}_{"frozen" if is_frozen else "equilibrium"}'
+        )
     plt.show()
+
+    # Print min or max outputs and associated inputs
+    a, arg = (np.amax, np.argmax) if attribute == 'dv' else (np.amin, np.argmin)
+    Z_ult = a(Z)
+    Z_index = np.unravel_index(arg(Z), np.shape(Z))
+    print(
+        f'{cycle_type.upper()}-Cycle, {thrust * 1e-3} kN, {burn_time} s, {mode_name}: {Z_ult:.0f} '
+        f'{z_label.split(" ")[-1].strip("[]")}, {X[Z_index] * 1e-6:.4f} MPa, {Y[Z_index]:.4f} O/F'
+    )
 
 
 def threed_plot_comparison_cycle(thrust: float, burn_time: float, is_frozen: bool = False, verbose: bool = False,
-                                 pressure_range: Tuple[float, float] = (1E6, 20E6), log: bool = True,
-                                 mixture_range: Tuple[float, float] = (1.8, 3.5), cycle_type='ep', detail_number=20,
-                                 attribute='mass', base_arguments: dict = base_args):
-    cycle_types = ['gg', 'ex', 'sc']
-    assert cycle_type in cycle_types, f'Invalid cycle_type. Must be one of {cycle_types}'
-    if cycle_type == 'ex':
-        raise NotImplementedError
-    elif cycle_type == 'gg':
-        extra_arguments = args.gg_arguments
-        cycle = GasGeneratorCycle
-    elif cycle_type == 'sc':
-        raise NotImplementedError
-
-    attribute_options = ['mass', 'dv']
-    assert attribute in attribute_options, f'Invalid attribute. Must be one of {attribute_options}'
-    if attribute == 'mass':
-        def attribute_function(x): return x.mass
-
-        z_label = r'$m_{0_{ep}}$/$m_{0_{' + cycle_type + r'}}$ [kg]'
-        title = 'Initial Mass'
-    if attribute == 'dv':
-        def attribute_function(x): return x.ideal_delta_v
-
-        z_label = r'$\Delta V_{ep}$/$\Delta V_{' + cycle_type + r'}$ [m/s]'
-        title = r'Ideal $\Delta$V'
-
+                                 pressure_range: Tuple[float, float] = plot_defaults['pressure_range'],
+                                 log: bool = True, mixture_range: Tuple[float, float] = plot_defaults['mixture_range'],
+                                 cycle_type='gg', detail_number=20, attribute='mass', base_arguments: dict = base_args,
+                                 savefig: bool = False):
+    cycle, extra_arguments, title, attribute_function, z_label = set_attribute_cycle(attribute, cycle_type,
+                                                                                     compare=True)
     mmr_range = np.linspace(*mixture_range, detail_number)
     pcc_range = np.logspace(*np.log10(pressure_range), detail_number) if log else np.linspace(*pressure_range,
                                                                                               detail_number)
@@ -123,6 +131,10 @@ def threed_plot_comparison_cycle(thrust: float, burn_time: float, is_frozen: boo
                           for mmr in mmr_range]
     ep_attributes = [[attribute_function(ElectricPumpCycle(mass_mixture_ratio=mmr,
                                                            combustion_chamber_pressure=pcc,
+                                                           thrust=thrust,
+                                                           burn_time=burn_time,
+                                                           is_frozen=is_frozen,
+                                                           verbose=verbose,
                                                            **base_arguments,
                                                            **args.ep_arguments
                                                            ))
@@ -151,88 +163,94 @@ def threed_plot_comparison_cycle(thrust: float, burn_time: float, is_frozen: boo
     mode_name = 'Frozen at Throat' if is_frozen else 'Shifting Equilibrium'
     ax.set_title(
         f'Comparison {cycle_type.upper()}- and EP-Cycle {title} - {mode_name} \n' + r'$F_T$=' + f'{thrust * 1E-3:.1f}kN ' + r'$t_b$=' + f'{burn_time:.0f}s')
+    if savefig:
+        plt.savefig(
+            'plots/3Dplots/' +
+            fr'Comparison_{attribute.upper()}_ep_{cycle_type}_FT{thrust * 1e-3:.0f}_tb{burn_time}_{"frozen" if is_frozen else "equilibrium"}_{"log" if log else ""}'
+        )
     plt.show()
 
 
-def threed_plot_cycle_opt(opt_method: str = 'Nelder-Mead', n_pop: int = 1, is_frozen: bool = False,
-                          verbose: bool = False, thrust_range: Tuple[float, float] = (1e3, 100e3),
-                          burn_time_range: Tuple[float, float] =(300, 1200), log: bool = False, cycle_type='ep',
-                          detail_number=20, attribute='mass'):
-    cycle_types = ['ep', 'gg', 'ex', 'sc']
-    assert cycle_type in cycle_types, f'Invalid cycle_type. Must be one of {cycle_types}'
-    if cycle_type == 'ep':
-        cycle = ElectricPumpCycle
-    elif cycle_type == 'ex':
-        raise NotImplementedError
-    elif cycle_type == 'gg':
-        cycle = GasGeneratorCycle
-    elif cycle_type == 'sc':
-        raise NotImplementedError
-
-    attribute_options = ['mass', 'dv']
-    assert attribute in attribute_options, f'Invalid attribute. Must be one of {attribute_options}'
-    if attribute == 'mass':
-        opt_class = InitialMassOpt
-        z_label = r'$m_{0_{' + cycle_type + r'}}$ [kg]'
-        title = 'Initial Mass'
-    if attribute == 'dv':
-        opt_class = DeltaVOpt
-        z_label = r'$\Delta V_{' + cycle_type + r'}$ [m/s]'
-        title = r'Ideal $\Delta$V'
+def threed_plot_cycle_opt(is_frozen: bool = False, verbose: bool = False,
+                          thrust_range: Tuple[float, float] = (1e3, 100e3),
+                          burn_time_range: Tuple[float, float] = (300, 1200), log: bool = False, cycle_type='ep',
+                          detail_number=25, attribute='dv', savefig: bool = False):
+    cycle, extra_arguments, title, attribute_function, z_label = set_attribute_cycle(attribute, cycle_type)
 
     tb_range = np.linspace(*burn_time_range, detail_number)
-    thrust_range = np.logspace(*np.log10(thrust_range), detail_number) if log else np.linspace(*thrust_range,
-                                                                                               detail_number)
-    opt_variables = [[optimal_cycle_variables(thrust=thrust,
-                                                                                         burn_time=burn_time,
-                                                                                         is_frozen=is_frozen,
-                                                                                         verbose=verbose,
-                                                                                         cycle=cycle,
-                                                                                         method=opt_method,
-                                                                                         n_pop=n_pop,
-                                                                                         optimize_class=opt_class)
-                   for thrust in thrust_range]
-                  for burn_time in tb_range]
-    attributes = [opt_outputs[0] for opt_inputs, opt_outputs in opt_variables]
-    X, Y = np.meshgrid(thrust_range, tb_range)
-    Z = np.array(attributes)
+    ft_range = np.logspace(*np.log10(thrust_range), detail_number) if log else np.linspace(*thrust_range,
+                                                                                           detail_number)
+    opt_variables = [[fast_optimize(thrust=thrust,
+                                    burn_time=burn_time,
+                                    is_frozen=is_frozen,
+                                    verbose=verbose,
+                                    cycle_type=cycle_type)
+                      for thrust in ft_range]
+                     for burn_time in tb_range]
+    X, Y = np.meshgrid(ft_range, tb_range)
+    Z = np.array(opt_variables)
+    if attribute == 'dv':
+        Z = Z / 1e3
 
     fig = plt.figure()
     ax = plt.axes(projection='3d')
     if log:
         ax.plot_surface(np.log10(X), Y, Z, cmap='viridis', edgecolor='none')
         ticks = np.log10(np.logspace(*np.log10(thrust_range), 5))
-        labels = [f'{10 ** (x - 6):.1f}' for x in ticks]
+        labels = [f'{10 ** (x - 3):.1f}' for x in ticks]
         ax.set_xticks(ticks, labels)
     else:
         ax.plot_surface(X, Y, Z, cmap='viridis', edgecolor='none')
         ticks = np.linspace(*thrust_range, 5)
-        labels = [f'{x * 1E-6:.1f}' for x in ticks]
+        labels = [f'{x * 1E-3:.1f}' for x in ticks]
         ax.set_xticks(ticks, labels)
-    ax.set_xlabel('$F_{T}$ [N] (log)') if log else ax.set_xlabel('$F_{T}$ [N]')
+    ax.set_xlabel('$F_{T}$ [kN] (log)') if log else ax.set_xlabel('$F_{T}$ [kN]')
     ax.set_ylabel('$t_b$ [s]')
-    ax.set_zlabel(z_label)
+    ax.set_zlabel(z_label, labelpad=8)
     mode_name = 'Frozen at Throat' if is_frozen else 'Shifting Equilibrium'
     ax.set_title(f'{cycle_type.upper()}-Cycle Optimized {title} - {mode_name}')
     plt.show()
+    if savefig:
+        plt.savefig(
+            'plots/3Dplots/' +
+            fr'Base_Optimized_{attribute.upper()}__{cycle_type}_{"frozen" if is_frozen else "equilibrium"}_{"log" if log else ""}'
+        )
 
 
-# "2.71271150e+00, 1.36836975e+06]), array([-11642.43734275])" 1200
-# "2.65939854e+00, 1.01274482e+06]), array([-11521.10834996]" 300
+def make_all_base_plots(thrust: float = 10e3, attribute: str = 'dv', **kwargs):
+    for is_frozen in [True, False]:
+        for cycle in ['gg', 'ep']:
+            for burn_time in [300, 600, 1200]:
+                threed_plot_cycle(attribute=attribute, thrust=thrust, burn_time=burn_time, cycle_type=cycle,
+                                  is_frozen=is_frozen, **kwargs)
+
+
+def make_all_comparison_plots(thrust: float = 10e3, attribute: str = 'dv', **kwargs):
+    for is_frozen in [True, False]:
+        for burn_time in [300, 600, 1200]:
+            threed_plot_comparison_cycle(attribute=attribute, thrust=thrust, burn_time=burn_time, is_frozen=is_frozen,
+                                         **kwargs)
+
 
 if __name__ == '__main__':
-    # for cycle_type in ['gg', 'ep']:
-    #     for burn_time in [300, 1200]:
-    #         base_arguments['burn_time'] = burn_time
-    #         threed_plot_cycle(cycle_type=cycle_type, arguments=base_arguments, detail_number=15, log=True,
-    #                           attribute=lambda x: x.mass_ratio, title='Mass Ratio')
-    # threed_plot_comparison_cycle(cycle_type='gg', attribute=lambda x: x.mass, title='Initial Mass', detail_number=5, log=False)
-    # threed_plot_comparison_cycle(cycle_type='gg', attribute='mass', detail_number=5, log=False)
-    threed_plot_cycle(thrust=10E3,
-                      burn_time=300,
-                      pressure_range=(1E5, 20E6),
-                      cycle_type='ep',
-                      attribute='dv',
-                      detail_number=15,
-                      log=True)
+    # make_all_base_plots(savefig=True, attribute='mass')
+    # make_all_comparison_plots(savefig=True, attribute='mass', log=False)
+    # threed_plot_cycle_opt(cycle_type='ep',
+    #                       attribute='dv',
+    #                       log=False,
+    #                       detail_number=20,
+    #                       savefig=True,
+    #                       is_frozen=False)
+    threed_plot_cycle(10e3, 300)
+    # threed_plot_comparison_cycle(thrust=10e3, burn_time=300, cycle_type='gg', savefig=True)
+
+    # threed_plot_cycle(thrust=10E3,
+    #                   burn_time=300,
+    #                   pressure_range=(1E5, 3E7),
+    #                   mixture_range=(1.5, 4.0),
+    #                   cycle_type='ep',
+    #                   attribute='dv',
+    #                   detail_number=50,
+    #                   log=True,
+    #                   is_frozen=False)
     # threed_plot_cycle_opt(detail_number=2, attribute='dv')

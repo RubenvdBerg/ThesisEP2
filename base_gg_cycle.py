@@ -57,13 +57,14 @@ class GasGeneratorCycle(EngineCycle):
         self.iterate_mass_flow()
 
     def iterate_mass_flow(self):
-        while self.gg_mass_flow*1.0001 < self.gas_generator.turbine_mass_flow:
+        if self.verbose: print('Iterate Mass Flow')
+        while self.gg_mass_flow*1.00001 < self.gas_generator.turbine_mass_flow:
             if self.verbose:
                 print(f'GG:{self.gg_mass_flow:.6f}kg/s')
                 print(f'TU1:{self.gas_generator.turbine_mass_flow:.6f}kg/s')
             self.gg_mass_flow = self.gas_generator.turbine_mass_flow
         if self.verbose:
-            print(f'Mass Flow Set')
+            print(f'Mass Flow Set\n')
 
     def reiterate(self):
         if self.verbose:

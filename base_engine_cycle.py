@@ -1,9 +1,9 @@
 from math import pi, log
-from scipy.constants import g
-from cea import get_cstar_cf
+from scipy.constants import g, sigma, R
+from cea import get_cea_values, get_cstar_cf
 from typing import Optional
 from scipy.interpolate import interp1d
-
+from irt import get_kerckhove, get_expansion_ratio
 
 class Structure:
     def __init__(self, material_density, safety_factor, sigma_yield):
@@ -196,6 +196,7 @@ class ComplexCombustionChamber(CombustionChamber):
     def __init__(self, average_wall_temperature: Optional[float], **kwargs):
         self.t_w_avg = 700 if average_wall_temperature is None else average_wall_temperature  # Kelvin
         super().__init__(**kwargs)
+        # Inconel 600 Data
         temperature = [
             297,
             600,
@@ -235,12 +236,85 @@ class ComplexCombustionChamber(CombustionChamber):
 
 
 class Nozzle:
+    def __init__(self, throat_area):
+        self.a_t = throat_area
+
+    @property
+    def contour(self):
+        return
     pass
 
 
 class ThrustChamber:
     pass
 
+
+
+class HeatExchanger:
+    def __init__(self, combustion_temperature, combustion_chamber_pressure, transport_properties, contour, mass_flow):
+        self.pcc = combustion_chamber_pressure
+        self.tc = combustion_temperature
+        self.eps_cw = emissivity_chamber_wall
+        self.eps_cg = emissivity_combustion_gas
+        self.m_flow = mass_flow
+        self.tw = wall_temperature
+
+        self.areas = contour
+        self.specific_heat_capacities, _, self.viscosities, self.prandtl_numbers = transport_properties
+
+
+    @property
+    def mass(self):
+        return
+
+    @property
+    def pressure_loss(self):
+        return .15 * self.pcc  
+    
+    @property
+    def temp_diff(self):
+        return
+    
+    @property
+    def netto_average_wall_radiative_heat_flux(self):  # q_rad [W/m2]
+        # Heat Transfer Handbook, A. Benjan 2003, Eq. 8.69
+        return sigma(self.tc**4 - self.tw**4)/(1/self.eps_cg + (1/self.eps_cw) - 1)
+    
+    @property
+    def prandtl(self):
+        return 4*self.y/(9*self.y - 5)
+
+    def get_convective_heat_flux(self):
+        kwargs = {"mode": "Cornellisse", "mass_flow": self.m_flow}
+        diameters = [sqrt(x/pi) for x in self.areas]
+        heat_fluxes = [convective_heat_flux(diameters,
+                                            self.viscosities[i],
+                                            self.specific_heat_capacities[i],
+                                            self.prandtl_numbers[i],
+                                            **kwargs)
+                       for i, diameter in enumerate(diameters)]
+
+
+    @property
+    def convective_heat_flux(self):
+        if self.convective_mode == "Modified Bartz":
+            return 0.026 * 1.213 * self.mass_flow**.8 * self.diameter**-1.8 * self.mu**.2 * self.cp * self.prandtl**-.6 * (self.tc / self.tf)**.68
+        elif self.convective_mode == "Cornellisse":
+            return 0.023 * 1.213 * self.mass_flow**.8 * self.diameter**-1.8 * self.mu**.2 * self.cp * self.prandtl**-2/3
+        elif self.convective_mode == "Standard Bartz":
+            raise NotImplementedError("Convective heat transfer for the standard bartz equation has not been implemented")
+        else:
+            raise ValueError("Improper convective_mode given for calculation of the convective heat transfer")
+
+def convective_heat_flux(mode, mass_flow, diameter, dynamic_viscosity, specific_heat_capacity_p, prandtl_number, total_temperature=None, film_temperature=None):
+    if mode == "Modified Bartz":
+        return 0.026 * 1.213 * mass_flow**.8 * diameter**-1.8 * dynamic_viscosity**.2 * specific_heat_capacity_p * prandtl_number**-.6 * (total_temperature / film_temperature)**.68
+    elif mode == "Cornellisse":
+        return 0.023 * 1.213 * mass_flow**.8 * diameter**-1.8 * dynamic_viscosity**.2 * specific_heat_capacity_p * prandtl_number**-2/3
+    elif mode == "Standard Bartz":
+        raise NotImplementedError("Convective heat transfer for the standard bartz equation has not been implemented")
+    else:
+        raise ValueError("Improper convective_mode given for calculation of the convective heat transfer")
 
 class EngineCycle:
     def __init__(self, thrust: float, burn_time: float, combustion_chamber_pressure: float, oxidizer_name: str,
@@ -291,18 +365,34 @@ class EngineCycle:
         assert kwak_fix_cycle_type in ['gg', 'ep']
         self.kwak_fix_cycle_type = kwak_fix_cycle_type
         self.kwak_fix = kwak_fix
-        self.cstar, self.cf = self.set_cea()
+        self.cstar, self.cf, self.temps, self.transport, self.mw_gamma = self.set_cea()
+        self.temp_cc, self.temp_th, self.temp_ex = self.temps
+        self.mws, self.gammas = self.mw_gamma
+        self.mw_cc, self.mw_th, self.mw_ex = self.mws
+        self.y_cc, self.y_th, self.y_ex = self.gammas
 
     def set_cea(self):
-        return get_cstar_cf(chamber_pressure=self.p_cc, mixture_ratio=self.mmr, exit_pressure=self.p_ex,
+        return get_cea_values(chamber_pressure=self.p_cc, mixture_ratio=self.mmr, exit_pressure=self.p_ex,
                             fuel_name=self.fu_name, ox_name=self.ox_name, isfrozen=self.frozen)
 
     def reiterate(self):
-        self.cstar, self.cf = self.set_cea()
+        self.cstar, self.cf, self.temps, self.transport = self.set_cea()
 
     @property
     def mass_flow(self):
         return self.f_t / (self.cstar * self.cf)
+
+    @property
+    def throat_area(self):
+        return self.mass_flow * sqrt(R / self.mw_cc * self.temp_cc) / get_kerckhove(self.y_cc) * self.p_cc
+
+    @property
+    def exit_area(self):
+        return self.throat_area * get_expansion_ratio(self.pressure_ratio, self.y_cc)
+
+    @property
+    def pressure_ratio(self):
+        return self.p_cc / self.p_ex
 
     @property
     def thrust(self):
@@ -398,10 +488,15 @@ class EngineCycle:
     @property
     def ideal_delta_v(self):
         return self.simple_specific_impulse * log(1 / self.mass_ratio) * g
+
+    @property
+    def gravity_delta_v(self, vertical_fraction: float = 0.2):
+        return self.ideal_delta_v - g * self.t_b * vertical_fraction
     
     @property
     def payload_delta_v(self):
-        return self.simple_specific_impulse * log() * g
+        payload = 10 # kg
+        return self.simple_specific_impulse * log(self.mass + payload / (self.mass - self.props_mass + payload)) * g
 
     @property
     def payload_mass_ratio(self):

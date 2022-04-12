@@ -118,7 +118,7 @@ class ElectricPumpCycle(EngineCycle):
             print(f'm_f_cc: {self.fuel.mass_flow}')
             print(
                 f'm_fp: {self.total_fuelpump_flow}, m_f_cool_act:{self.actual_battery_coolant_flow}, m_f_cool_req: {self.battery.coolant_flow_required}')
-        while self.actual_battery_coolant_flow * 1.0001 < self.battery.coolant_flow_required:
+        while self.actual_battery_coolant_flow * 1.00001 < self.battery.coolant_flow_required:
             self.fuelpumpflow = self.total_fuelpump_flow
             if self.verbose:
                 print(
