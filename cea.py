@@ -49,7 +49,7 @@ def get_cea_values(chamber_pressure, mixture_ratio=2.45, fuel_name='RP1_NASA', o
     cea = CEA_Obj(oxName=ox_name, fuelName=fuel_name, )
     kwargs = {'Pc': chamber_pressure, 'MR': mixture_ratio, 'frozen': frozen, 'frozenAtThroat': frozenAtThroat}
 
-    print(cea.get_full_cea_output(**kwargs, PcOvPe=p_ratio, eps=None, short_output=1))
+    # print(cea.get_full_cea_output(**kwargs, PcOvPe=p_ratio, eps=None, short_output=1))
     eps = cea.get_eps_at_PcOvPe(**kwargs, PcOvPe=p_ratio)
     kwargs['eps'] = eps
     kwargs2 = {i: kwargs[i] for i in kwargs if i != 'frozenAtThroat'}
@@ -71,7 +71,14 @@ def get_cea_values(chamber_pressure, mixture_ratio=2.45, fuel_name='RP1_NASA', o
     mw_gamma_th = cea.get_Throat_MolWt_gamma(**kwargs2)
     mw_gamma_ex = cea.get_exit_MolWt_gamma(**kwargs2)
     mw_gamma = list((zip(mw_gamma_cc, mw_gamma_th, mw_gamma_ex)))
-    return c_star_m, c_f, temps_K, transport, mw_gamma
+    mw_gamma = mw_gamma_unit_fixer(mw_gamma)
+    return c_star_m, c_f, temps_K, transport, mw_gamma, eps
+
+
+def mw_gamma_unit_fixer(mw_gamma_list):
+    mw_gamma_list[0] = [x * 1E-3 for x in mw_gamma_list[0]]  # g/mol to kg/mol (not SI, but required)
+    mw_gamma_list[1] = [x * 1 for x in mw_gamma_list[1]]
+    return mw_gamma_list
 
 
 def transport_unit_fixer(transport_list):

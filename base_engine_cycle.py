@@ -1,9 +1,12 @@
-from math import pi, log
+from math import pi, log, tan, radians, sqrt, cos, sin, asin
 from scipy.constants import g, sigma, R
+from numpy import roots
 from cea import get_cea_values, get_cstar_cf
 from typing import Optional
 from scipy.interpolate import interp1d
 from irt import get_kerckhove, get_expansion_ratio
+from dataclasses import dataclass
+
 
 class Structure:
     def __init__(self, material_density, safety_factor, sigma_yield):
@@ -157,13 +160,38 @@ class Pump:
         return self.power_required / self.sp
 
 
-class Injector:
-    pass
+class Injector(Structure):
+    def __init__(self, combustion_chamber_area, combustion_chamber_pressure, propellant_is_gas=False, **kwargs):
+        self.a_cc = combustion_chamber_area
+        self.p_cc = combustion_chamber_pressure
+        self.is_gas = propellant_is_gas
+        super().__init__(**kwargs)
+
+    @property
+    def pressure_drop(self):
+        # Mota 2008 -> Kesaev and Almeida 2005
+        f = .4 if self.is_gas else .8
+        return f * 10E2 * sqrt(10 * self.p_cc)
+
+    @property
+    def thickness(self):
+        # Zandbergen -> 4 times pressure drop, ASME code for welded flat caps on internal pressure vessels
+        diameter = 2 * sqrt(self.a_cc / pi)
+        pressure = 4 * self.pressure_drop
+        c = 6 * 3.3 / 64
+        return diameter * sqrt(c * pressure / self.sy) * self.sf
+
+    @property
+    def mass(self):
+        return self.a_c * self.thickness * self.md
 
 
 class CombustionChamber(Structure):
-    def __init__(self, propellant_mix: str, throat_area: float, combustion_chamber_pressure,
+    def __init__(self, throat_area: float, combustion_chamber_pressure, convergent_half_angle: float,
+                 in_radians: bool = False, throat_bend_ratio: float = 1., chamber_bend_ratio: float = .8,
+                 propellant_mix: Optional[str] = None,
                  characteristic_length: Optional[float] = None, **kwargs):
+
         # Set default value for characteristic length
         options = {
             'LOX/GH2': 0.635,
@@ -180,7 +208,11 @@ class CombustionChamber(Structure):
             self.l_star = characteristic_length
         # Initialize other parameters
         self.a_t = throat_area  # m2
+        self.r_t = sqrt(self.a_t / pi)  # m
         self.p_cc = combustion_chamber_pressure  # Pa
+        self.cc_bend = chamber_bend_ratio
+        self.th_bend = throat_bend_ratio
+        self.ha_conv = convergent_half_angle if in_radians else radians(convergent_half_angle)
         super().__init__(**kwargs)
 
     @property
@@ -190,6 +222,63 @@ class CombustionChamber(Structure):
     @property
     def mass(self):
         return self.md * self.sf / self.sy * 2 * self.volume * self.p_cc
+
+    @property
+    def length(self):
+        return self.volume / self.area
+
+    def convergent_radius(self, distance_from_throat):
+        length_q = self.r_u * sin(self.ha_conv)
+        radius_q = self.r_t + self.r_u * (1 - cos(self.ha_conv))
+        radius_p = self.radius - self.r_a * (1 - cos(self.ha_conv))
+        length_p = self.length_p
+        if distance_from_throat > self.convergent_length or distance_from_throat < 0:
+            raise ValueError(
+                f'Radius of the convergent cannot be calculated above its length ({self.convergent_length:.4e} or downstream of the throat')
+        elif distance_from_throat > length_p:
+            distance = self.convergent_length - distance_from_throat
+            alpha = asin(distance / self.r_a) / 2
+            radius = self.radius - distance * tan(alpha)
+        elif distance_from_throat > length_q:
+            radius = radius_q + (distance_from_throat - length_q) * tan(self.ha_conv)
+        else:
+            alpha = asin(distance_from_throat / self.r_u) / 2
+            radius = self.r_t + distance_from_throat * tan(alpha)
+        return radius
+
+    @property
+    def area(self):
+        # Humble 1995 p.222
+        nozzle_throat_diameter = 2 * sqrt(self.a_t / pi)
+        ac_at = 8.0 * nozzle_throat_diameter ** 2.4 + 1.25
+        return ac_at * self.a_t
+
+    @property
+    def radius(self):
+        return sqrt(self.area / pi)
+
+    @property
+    def convergent_length(self):
+        return self.length_p + self.r_a * sin(self.ha_conv)
+
+    @property
+    def length_p(self):
+        z = self.radius - self.r_t - (self.r_u + self.r_a) * (1 - cos(self.ha_conv))
+        return self.r_u * sin(self.ha_conv) + z / tan(self.ha_conv)
+
+    @property
+    def total_length(self):
+        return self.convergent_length + self.length
+
+    @property
+    def r_u(self):
+        # Longitudinal radius at throat [m]
+        return self.th_bend * self.r_t
+
+    @property
+    def r_a(self):
+        # Longitudinal radius between cylindrical chamber and convergent
+        return self.cc_bend * self.radius
 
 
 class ComplexCombustionChamber(CombustionChamber):
@@ -226,42 +315,93 @@ class ComplexCombustionChamber(CombustionChamber):
         sigma_ult_function = interp1d(temperature, ultimate_tensile_strength)
         self.sy = sigma_ult_function(self.t_w_avg)
 
-    @property
-    def volume(self):
-        return self.l_star * self.a_t
-
-    @property
-    def mass(self):
-        return self.md * self.sf / self.sy * 2 * self.volume * self.p_cc
-
 
 class Nozzle:
-    def __init__(self, throat_area):
+    def __init__(self, throat_area, nozzle_type, area_ratio, throat_divergence_half_angle, exit_divergence_half_angle,
+                 angles_in_rad=True):
         self.a_t = throat_area
+        self.eps = area_ratio
+        self.type = nozzle_type
+        self.half_angle_th = throat_divergence_half_angle if angles_in_rad else radians(throat_divergence_half_angle)
+        self.half_angle_ex = exit_divergence_half_angle if angles_in_rad else radians(exit_divergence_half_angle)
+        if self.type == 'bell':
+            # [MODERN ENGINEERING FOR DESIGN OF LIQUID-PROPELLANT ROCKET ENGINES, Huzel&Huang 1992, p.76, fig. 4-15]
+            # radius of the nozzle after the throat curve and distance between throat and end of throat curve
+            self.radius_p = 1.382 * self.throat_radius - 0.382 * self.throat_radius * cos(self.half_angle_th)
+            self.length_p = 0.382 * self.throat_radius * sin(self.half_angle_th)
+            # parabolic equation parameters
+            self.a = tan(pi / 2 - self.half_angle_ex) - tan(pi / 2 - self.half_angle_th) / (
+                    2 * (self.exit_radius - self.radius_p))
+            self.b = tan(pi / 2 - self.half_angle_th) - 2 * self.a * self.radius_p
+            self.c = self.length_p - self.a * self.radius_p ** 2 - self.b * self.radius_p
+            a = 10
+        else:
+            raise NotImplementedError('Only bell nozzles have been implemented at this stage')
 
     @property
-    def contour(self):
-        return
-    pass
+    def length(self):
+        if self.type == 'bell':
+            return self.a * self.exit_radius ** 2 + self.b * self.exit_radius + self.c
+        elif self.type == 'conical':
+            raise NotImplementedError
+
+    def radius(self, distance_from_throat: float):
+        if distance_from_throat > self.length or distance_from_throat < 0:
+            raise ValueError(
+                f'Nozzle diameter cannot be calculated before the throat [<0m] or after the nozzle exit [>{self.length:.4E}m].')
+        if distance_from_throat < self.length_p:
+            alpha = asin(distance_from_throat / (0.382 * self.throat_radius)) / 2
+            radius = self.throat_radius + distance_from_throat * tan(alpha)
+        else:
+            radius = roots([self.a, self.b, self.c - distance_from_throat])[0]
+        return radius
+
+    @property
+    def exit_area(self):
+        return self.a_t * self.eps
+
+    @property
+    def throat_radius(self):
+        return sqrt(self.a_t / pi)
+
+    @property
+    def exit_radius(self):
+        return sqrt(self.exit_area / pi)
 
 
 class ThrustChamber:
-    pass
+    def __init__(self, nozzle: type(Nozzle), combustion_chamber: type(CombustionChamber)):
+        self.nozzle = nozzle
+        self.cc = combustion_chamber
 
+    def radius(self, distance_from_throat):
+        if distance_from_throat < -self.cc.total_length:
+            raise ValueError(
+                f'Radius of thrust chamber cannot be calculated before the injector plate ({self.cc.total_length:.4e} m before the throat)')
+        elif distance_from_throat < -self.cc.convergent_length:
+            return self.cc.radius
+        elif distance_from_throat < 0:
+            return self.cc.convergent_radius(-distance_from_throat)
+        else:
+            return self.nozzle.radius(distance_from_throat)
+
+    def show_contour(self):
+        distances = linspace(-self.cc.convergent_length, self.nozzle.length, 1000)
+        plt.plot(distances, [self.radius(x) for x in distances])
+        plt.show()
 
 
 class HeatExchanger:
-    def __init__(self, combustion_temperature, combustion_chamber_pressure, transport_properties, contour, mass_flow):
+    def __init__(self, combustion_temperature, combustion_chamber_pressure, transport_properties, contour_function,
+                 mass_flow):
         self.pcc = combustion_chamber_pressure
         self.tc = combustion_temperature
         self.eps_cw = emissivity_chamber_wall
         self.eps_cg = emissivity_combustion_gas
         self.m_flow = mass_flow
         self.tw = wall_temperature
-
-        self.areas = contour
+        self.f_contour = contour_radius_function
         self.specific_heat_capacities, _, self.viscosities, self.prandtl_numbers = transport_properties
-
 
     @property
     def mass(self):
@@ -269,52 +409,96 @@ class HeatExchanger:
 
     @property
     def pressure_loss(self):
-        return .15 * self.pcc  
-    
+        return .15 * self.pcc
+
     @property
     def temp_diff(self):
         return
-    
+
     @property
     def netto_average_wall_radiative_heat_flux(self):  # q_rad [W/m2]
         # Heat Transfer Handbook, A. Benjan 2003, Eq. 8.69
-        return sigma(self.tc**4 - self.tw**4)/(1/self.eps_cg + (1/self.eps_cw) - 1)
-    
+        return sigma(self.tc ** 4 - self.tw ** 4) / (1 / self.eps_cg + (1 / self.eps_cw) - 1)
+
     @property
     def prandtl(self):
-        return 4*self.y/(9*self.y - 5)
+        return 4 * self.y / (9 * self.y - 5)
 
-    def get_convective_heat_flux(self):
-        kwargs = {"mode": "Cornellisse", "mass_flow": self.m_flow}
-        diameters = [sqrt(x/pi) for x in self.areas]
-        heat_fluxes = [convective_heat_flux(diameters,
-                                            self.viscosities[i],
-                                            self.specific_heat_capacities[i],
-                                            self.prandtl_numbers[i],
-                                            **kwargs)
-                       for i, diameter in enumerate(diameters)]
+    def get_convective_heat_flux(self, distance_from_throat):
+        diameter = 2 * self.f_contour(distance_from_throat)
+        return convective_heat_flux(
+            mode="Cornellisse",
+            mass_flow=self.m_flow,
+            diameter=diameter,
+            dynamic_viscosity=self.viscosities[1],
+            specific_heat_capacity_p=self.specific_heat_capacities[1],
+            prandtl_number=self.prandtl_numbers[1],
+            )
+
+    # @property
+    # def convective_heat_flux(self):
+    #     if self.convective_mode == "Modified Bartz":
+    #         return 0.026 * 1.213 * self.mass_flow**.8 * self.diameter**-1.8 * self.mu**.2 * self.cp * self.prandtl**-.6 * (self.tc / self.tf)**.68
+    #     elif self.convective_mode == "Cornellisse":
+    #         return 0.023 * 1.213 * self.mass_flow**.8 * self.diameter**-1.8 * self.mu**.2 * self.cp * self.prandtl**-2/3
+    #     elif self.convective_mode == "Standard Bartz":
+    #         raise NotImplementedError("Convective heat transfer for the standard bartz equation has not been implemented")
+    #     else:
+    #         raise ValueError("Improper convective_mode given for calculation of the convective heat transfer")
 
 
-    @property
-    def convective_heat_flux(self):
-        if self.convective_mode == "Modified Bartz":
-            return 0.026 * 1.213 * self.mass_flow**.8 * self.diameter**-1.8 * self.mu**.2 * self.cp * self.prandtl**-.6 * (self.tc / self.tf)**.68
-        elif self.convective_mode == "Cornellisse":
-            return 0.023 * 1.213 * self.mass_flow**.8 * self.diameter**-1.8 * self.mu**.2 * self.cp * self.prandtl**-2/3
-        elif self.convective_mode == "Standard Bartz":
-            raise NotImplementedError("Convective heat transfer for the standard bartz equation has not been implemented")
-        else:
-            raise ValueError("Improper convective_mode given for calculation of the convective heat transfer")
-
-def convective_heat_flux(mode, mass_flow, diameter, dynamic_viscosity, specific_heat_capacity_p, prandtl_number, total_temperature=None, film_temperature=None):
+def convective_heat_flux(mode: str, mass_flow: float, diameter: float, dynamic_viscosity: float,
+                         specific_heat_capacity_p: float, prandtl_number: float, total_temperature: float = None,
+                         film_temperature: float = None):
+    # Zandbergen 2017 p.161
     if mode == "Modified Bartz":
-        return 0.026 * 1.213 * mass_flow**.8 * diameter**-1.8 * dynamic_viscosity**.2 * specific_heat_capacity_p * prandtl_number**-.6 * (total_temperature / film_temperature)**.68
+        return 0.026 * 1.213 * mass_flow ** .8 * diameter ** -1.8 * dynamic_viscosity ** .2 * specific_heat_capacity_p * prandtl_number ** -.6 * (
+                total_temperature / film_temperature) ** .68
     elif mode == "Cornellisse":
-        return 0.023 * 1.213 * mass_flow**.8 * diameter**-1.8 * dynamic_viscosity**.2 * specific_heat_capacity_p * prandtl_number**-2/3
+        return 0.023 * 1.213 * mass_flow ** .8 * diameter ** -1.8 * dynamic_viscosity ** .2 * specific_heat_capacity_p * prandtl_number ** -2 / 3
     elif mode == "Standard Bartz":
         raise NotImplementedError("Convective heat transfer for the standard bartz equation has not been implemented")
     else:
-        raise ValueError("Improper convective_mode given for calculation of the convective heat transfer")
+        raise ValueError(
+            "Improper convective_mode given for calculation of the convective heat transfer, pick one of [Modified Bartz, Cornellise, Standard Bartz]")
+
+
+@dataclass
+class BaseEngineInput:
+    thrust: float
+    burn_time: float
+    combustion_chamber_pressure: float
+    oxidizer_name: str
+    fuel_name: str
+    is_frozen: bool
+    exit_pressure: float
+    max_acceleration: float
+    heat_ratio_pressurant: float
+    mass_mixture_ratio: float
+    pressurant_initial_pressure: float
+    pressurant_final_pressure: float
+    oxidizer_iniital_pressure: float
+    fuel_initial_pressure: float
+    fuel_pump_pressure_factor: float
+    oxidizer_pump_pressure_factor: float
+    fuel_pump_specific_power: float
+    oxidizer_pump_specific_power: float
+    pressurant_gas_constant: float
+    pressurant_initial_temperature: float
+    oxidizer_pump_efficiency: float
+    fuel_pump_efficiency: float
+    pressurant_margin_factor: float
+    pressurant_tank_structural_factor: float
+    propellant_margin_factor: float
+    propellant_tanks_structural_factor: float
+    ullage_volume_factor: float
+    oxidizer_density: float
+    fuel_density: float
+    propellant_tanks_material_density: float
+    pressurant_tank_material_density: float
+    propellant_tanks_yield_strength: float
+    pressurant_tank_yield_strength: float
+
 
 class EngineCycle:
     def __init__(self, thrust: float, burn_time: float, combustion_chamber_pressure: float, oxidizer_name: str,
@@ -365,7 +549,7 @@ class EngineCycle:
         assert kwak_fix_cycle_type in ['gg', 'ep']
         self.kwak_fix_cycle_type = kwak_fix_cycle_type
         self.kwak_fix = kwak_fix
-        self.cstar, self.cf, self.temps, self.transport, self.mw_gamma = self.set_cea()
+        self.cstar, self.cf, self.temps, self.transport, self.mw_gamma, self.eps = self.set_cea()
         self.temp_cc, self.temp_th, self.temp_ex = self.temps
         self.mws, self.gammas = self.mw_gamma
         self.mw_cc, self.mw_th, self.mw_ex = self.mws
@@ -373,7 +557,7 @@ class EngineCycle:
 
     def set_cea(self):
         return get_cea_values(chamber_pressure=self.p_cc, mixture_ratio=self.mmr, exit_pressure=self.p_ex,
-                            fuel_name=self.fu_name, ox_name=self.ox_name, isfrozen=self.frozen)
+                              fuel_name=self.fu_name, ox_name=self.ox_name, isfrozen=self.frozen)
 
     def reiterate(self):
         self.cstar, self.cf, self.temps, self.transport = self.set_cea()
@@ -384,7 +568,7 @@ class EngineCycle:
 
     @property
     def throat_area(self):
-        return self.mass_flow * sqrt(R / self.mw_cc * self.temp_cc) / get_kerckhove(self.y_cc) * self.p_cc
+        return self.mass_flow * sqrt(R / self.mw_cc * self.temp_cc) / (get_kerckhove(self.y_cc) * self.p_cc)
 
     @property
     def exit_area(self):
@@ -492,10 +676,10 @@ class EngineCycle:
     @property
     def gravity_delta_v(self, vertical_fraction: float = 0.2):
         return self.ideal_delta_v - g * self.t_b * vertical_fraction
-    
+
     @property
     def payload_delta_v(self):
-        payload = 10 # kg
+        payload = 10  # kg
         return self.simple_specific_impulse * log(self.mass + payload / (self.mass - self.props_mass + payload)) * g
 
     @property
@@ -503,3 +687,38 @@ class EngineCycle:
         if self.mass_u is None:
             ValueError('Payload mass not given, impossible to calculate mass ratio with payload mass')
         return (self.mass + self.mass_u - self.props_mass) / (self.mass + self.mass_u)
+
+
+if __name__ == '__main__':
+    from arguments import base_arguments_o
+    import matplotlib.pyplot as plt
+    from numpy import linspace
+
+    b = EngineCycle(thrust=6770e3,
+                    burn_time=160,
+                    combustion_chamber_pressure=7E6,
+                    mass_mixture_ratio=2.27,
+                    is_frozen=False,
+                    fuel_pump_specific_power=15E3,
+                    oxidizer_pump_specific_power=20E3,
+                    kwak_fix_cycle_type='ep',
+                    **base_arguments_o)
+    # print(b.throat_area)
+    a = Nozzle(throat_area=b.throat_area,
+               nozzle_type='bell',
+               area_ratio=16,
+               throat_divergence_half_angle=radians(45),
+               exit_divergence_half_angle=radians(15)
+               )
+    d = CombustionChamber(throat_area=b.throat_area,
+                          combustion_chamber_pressure=7E6,
+                          convergent_half_angle=30,
+                          propellant_mix='LOX/RP1', safety_factor=1, material_density=1, sigma_yield=1)
+    c = ThrustChamber(a, d)
+    print(sqrt(b.exit_area / pi), sqrt(b.throat_area / pi))
+    print(a.length)
+    print(a.radius(a.length), a.exit_radius)
+    print(a.radius(a.length_p), a.radius_p)
+    print(a.radius(0), a.throat_radius)
+    c.show_contour()
+    e = HeatExchanger()
