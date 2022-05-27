@@ -1,35 +1,32 @@
 from math import pi, log, radians, sqrt
 from functools import cache
 import scipy.optimize
-from scipy.constants import g, sigma, R
+import scipy.constants as constants
 import scipy.integrate as integrate
 from BaseEngineCycle.ThrustChamber import ThrustChamber, Nozzle, CombustionChamber
 from cea import get_cea_values
-from typing import Optional
+from typing import Optional, Literal
 from irt import get_kerckhove, get_expansion_ratio
 from dataclasses import dataclass
 import warnings
 
+
 @dataclass
 class Structure:
-    material_density: float     # [kg/m3]
-    safety_factor: float        # [-]
-    yield_strength: float       # [Pa]
+    material_density: float  # [kg/m3]
+    safety_factor: float  # [-]
+    yield_strength: float  # [Pa]
+
 
 @dataclass
 class Tank(Structure):
-    def __init__(self, max_acceleration, ullage_factor, propellant,
-                 tank_initial_pressure, kwak_fix_cycle_type, pressurant_tank_volume=None, kwak_fix=False, **kwargs):
-        max_acceleration: float         # m/s2
-        ullage_factor: float            # -
-        propellant.volume: float        # m3
-        self.pd = propellant.density  # kg/m3
-        self.pt = propellant.type  # oxidizer or fuel
-        self.tip = tank_initial_pressure  # Pa [fuel=.25E6, ox=4E6]
-        self.ptv = pressurant_tank_volume  # m3
-        self.kwak_fix_cycle_type = kwak_fix_cycle_type
-        self.kwak_fix = kwak_fix
-        super().__init__(**kwargs)
+    max_acceleration: float  # m/s2
+    ullage_factor: float  # -
+    initial_pressure: float  # Pa
+    propellant: Propellant
+    kwak_fix_cycle_type: str
+    pressurant_tank: Optional[PressurantTank] = None
+    kwak_fix: bool = False
 
     @property
     def radius(self):
@@ -37,54 +34,55 @@ class Tank(Structure):
 
     @property
     def initial_head(self):
-        unused_volume = (self.ku - 1) * self.pv
+        unused_volume = (self.ullage_factor - 1) * self.propellant.volume
         rest_height = (unused_volume * 3 / (2 * pi)) ** (1 / 3)
         if self.kwak_fix:
             if self.kwak_fix_cycle_type == 'ep':
-                if self.pt == 'oxidizer':
+                if self.propellant.type == 'oxidizer':
                     return 1.91839449096392
-                elif self.pt == 'fuel':
+                elif self.propellant.type == 'fuel':
                     return 1.65560478870526
             elif self.kwak_fix_cycle_type == 'gg':
-                if self.pt == 'oxidizer':
+                if self.propellant.type == 'oxidizer':
                     return 1.92539045861846
-                elif self.pt == 'fuel':
+                elif self.propellant.type == 'fuel':
                     return 1.71033897378923
         return 2 * self.radius - rest_height
 
     @property
     def total_lower_pressure(self):
-        return self.tip + self.pd * self.ma * g * self.initial_head
+        return self.initial_pressure + self.propellant.density * self.max_acceleration * self.initial_head
 
     @property
     def total_upper_pressure(self):
-        return self.tip + self.pd * self.ma * g * (self.initial_head - self.radius)
+        return self.initial_pressure + self.propellant.density * self.max_acceleration * (self.initial_head -
+                                                                                          self.radius)
 
     @property
     def mass(self):  # Spherical Tanks
-        return self.sf * 3 * self.md / (4 * self.sy) * self.volume * (
-                self.total_upper_pressure + self.total_lower_pressure)
+        return (self.safety_factor * 3 * self.material_density / (4 * self.yield_strength) *
+                self.volume * (self.total_upper_pressure + self.total_lower_pressure))
 
     @property
     def volume(self):
-        if self.pt == 'oxidizer':
-            return self.pv * self.ku + self.ptv
-        elif self.pt == 'fuel':
-            return self.pv * self.ku
+        if self.propellant.type == 'oxidizer':
+            if self.pressurant_tank.volume is not None:
+                return self.propellant.volume * self.ullage_factor + self.pressurant_tank.volume
+            else:
+                warnings.warn(
+                    'No pressurant tank volume was given. Assumed pressurant tank is not submerged in oxygen tank')
+                return self.propellant.volume * self.ullage_factor
+        elif self.propellant.type == 'fuel':
+            return self.propellant.volume * self.ullage_factor
 
 
+@dataclass
 class Propellant:
-    def __init__(self, mass_flow, burn_time, density, propellant_type, margin_factor=1.01):
-        # LOX density = 1126.1
-        # RP-1 density = 804.2
-        types = {'oxidizer', 'fuel'}
-        if propellant_type not in types:
-            raise ValueError(f'propellant_type must be one of {types}')
-        self.type = propellant_type  # oxidizer or fuel
-        self.mass_flow = mass_flow  # kg/s
-        self.burn_time = burn_time  # s
-        self.density = density  # kg/m3
-        self.margin_factor = margin_factor  # -
+    type: Literal['oxidizer', 'fuel']
+    mass_flow: float  # [kg/s]
+    burn_time: float  # [s]
+    density: float  # [kg/m3]
+    margin_factor: float  # [-]
 
     @property
     def mass(self):
@@ -99,102 +97,115 @@ class Propellant:
         return self.mass_flow / self.density
 
 
-class PressurantTank(Structure):
-    def __init__(self, oxidizer_volume, fuel_volume, fuel_tank_pressure, oxidizer_tank_pressure,
-                 ullage_factor, margin_factor, structural_factor, initial_pressure,
-                 final_pressure, heat_ratio_pressurant, gas_constant_pressurant, initial_temperature_pressurant,
-                 **kwargs):
-        self.ov = oxidizer_volume  # m3
-        self.fv = fuel_volume  # m3
-        self.ftp = fuel_tank_pressure  # Pa
-        self.otp = oxidizer_tank_pressure  # Pa
-        self.ku = ullage_factor  # -
-        self.km = margin_factor  # -
-        self.kt = structural_factor  # -
-        self.p0 = initial_pressure  # Pa
-        self.p1 = final_pressure  # Pa
-        self.hy = heat_ratio_pressurant  # - [specific heat ratio of helium (helium gamma -> hy)]
-        self.Rh = gas_constant_pressurant  # J/(kg*K)
-        self.Th0 = initial_temperature_pressurant  # K
-        super().__init__(safety_factor=structural_factor, **kwargs)
+@dataclass
+class Pressurant:
+    fuel: Propellant
+    oxidizer: Propellant
+    fuel_tank: Tank
+    oxidizer_tank: Tank
+    margin_factor: float  # [-]
+    structural_factor: float  # [-]
+    initial_pressure: float  # [Pa]
+    final_pressure: float  # [Pa]
+    heat_capacity_ratio: float  # [-]
+    molar_mass: float  # [kg/mol]!!
+    initial_temperature: float  # [K]
+
+    @property
+    def specific_gas_constant(self):
+        return constants.R / self.molar_mass
 
     @property
     def mass(self):
-        return (self.km * self.ku * self.hy / (self.Rh * self.Th0) * (self.otp * self.ov + self.ftp * self.fv)
-                / (1 - (self.p1 / self.p0)))
+        fact_m = self.margin_factor
+        fact_u = self.fuel_tank.ullage_factor
+        y = self.heat_capacity_ratio
+        R_sp = self.specific_gas_constant
+        T_0 = self.initial_temperature
+        otp = self.oxidizer_tank.initial_pressure
+        ftp = self.fuel_tank.initial_pressure
+        ov = self.oxidizer.volume
+        fv = self.fuel_volume
+        p1 = self.initial_pressure
+        p0 = self.final_pressure
+        return fact_m * fact_u * y / (R_sp * T_0) * (otp * ov + ftp * fv) / (1 - (p1 / p0))
+
+
+@dataclass
+class PressurantTank(Structure):
+    pressurant: Pressurant
 
     @property
-    def tank_volume(self):
-        return self.mass * self.Rh * self.Th0 / self.p0
+    def initial_pressure(self):
+        return self.pressurant.initial_pressure
 
     @property
-    def tank_mass(self):
-        return self.kt * 3 / 2 * self.tank_volume * self.p0 * self.md / self.sy
+    def final_pressure(self):
+        return self.pressurant.final_pressure
+
+    @property
+    def volume(self):
+        return (self.pressurant.mass * self.pressurant.specific_gas_constant
+                * self.pressurant.initial_temperature / self.pressurant.initial_pressure)
+
+    @property
+    def mass(self):
+        return (self.safety_factor * 3 / 2 * self.volume * self.initial_pressure
+                * self.material_density / self.yield_strength)
 
 
+@dataclass
 class Pump:
-    def __init__(self, propellant_density: float, mass_flow: float, pressure_change: float, efficiency: float,
-                 specific_power: float):
-        self.rho_p = propellant_density  # kg/m3
-        self._mass_flow = mass_flow  # kg/s
-        self.delta_p = pressure_change  # Pa
-        self.eta = efficiency  # -
-        self.sp = specific_power  # W/kg
+    propellant: Propellant
+    mass_flow: float  # [kg/s]
+    pressure_increase: float  # [Pa]
+    efficiency: float  # [-]
+    specific_power: float  # [W/kg]
 
     @property
-    def mass_flow(self):
-        return self._mass_flow
-
-    @mass_flow.setter
-    def mass_flow(self, x):
-        self._mass_flow = x
-
-    @property
-    def q_p(self):
-        return self.mass_flow / self.rho_p
+    def volumetric_flow_rate(self):
+        return self.mass_flow / self.propellant.density
 
     @property
     def power_required(self):
-        return self.q_p * self.delta_p / self.eta
+        return self.volumetric_flow_rate * self.pressure_increase / self.efficiency
 
     @property
     def mass(self):
-        return self.power_required / self.sp
+        return self.power_required / self.specific_power
 
 
+@dataclass
 class Injector(Structure):
-    def __init__(self, combustion_chamber_area, combustion_chamber_pressure, propellant_is_gas=False, **kwargs):
-        self.a_cc = combustion_chamber_area
-        self.p_cc = combustion_chamber_pressure
-        self.is_gas = propellant_is_gas
-        super().__init__(**kwargs)
+    combustion_chamber: CombustionChamber
+    propellant_is_gas: bool
 
     @property
     def pressure_drop(self):
         # Mota 2008 -> Kesaev and Almeida 2005
-        f = .4 if self.is_gas else .8
-        return f * 10E2 * sqrt(10 * self.p_cc)
+        f = .4 if self.propellant_is_gas else .8
+        return f * 10E2 * sqrt(10 * self.combustion_chamber.p_cc)
 
     @property
     def thickness(self):
         # Zandbergen -> 4 times pressure drop, ASME code for welded flat caps on internal pressure vessels
-        diameter = 2 * sqrt(self.a_cc / pi)
+        diameter = 2 * sqrt(self.combustion_chamber.area / pi)
         pressure = 4 * self.pressure_drop
         c = 6 * 3.3 / 64
-        return diameter * sqrt(c * pressure / self.sy) * self.sf
+        return diameter * sqrt(c * pressure / self.yield_strength) * self.safety_factor
 
     @property
     def mass(self):
-        return self.a_c * self.thickness * self.md
+        return self.combustion_chamber.area * self.thickness * self.material_density
 
 
 @dataclass
 class Coolant:
-    heat_capacity_liquid: float                 # [J/mol]
-    heat_capacity_gas: float                    # [J/mol]
-    heat_of_vaporization: float                 # [J/mol]
-    molar_mass: float                           # [kg/mol]!!
-    boiling_temperature_1_bar: float            # [K]
+    heat_capacity_liquid: float  # [J/mol]
+    heat_capacity_gas: float  # [J/mol]
+    heat_of_vaporization: float  # [J/mol]
+    molar_mass: float  # [kg/mol]!!
+    boiling_temperature_1_bar: float  # [K]
 
     # Coolant properties
     @property
@@ -217,7 +228,7 @@ class Coolant:
         # Clausius-Clapeyron estimation
         T0 = self.boiling_temperature_1_bar
         Dh = self.cooolant_heat_of_vaporization
-        return (T0 ** -1 - R / Dh * log(pressure)) ** -1
+        return (T0 ** -1 - constants.R / Dh * log(pressure)) ** -1
 
     @cache
     def start_boiling_enthalpy(self, pressure):
@@ -231,12 +242,12 @@ class Coolant:
 @dataclass
 class CoolingChannels:
     coolant: Coolant
-    total_heat_transfer: float                      # [W]
-    outlet_pressure: float                           # [Pa]
-    inlet_temperature: float                        # [K]
-    mass_flow: float                                # [kg/s]
-    pressure_drop: Optional[float] = None           # [Pa]
-    _pressure_drop_ratio: float = .15                # [-]
+    total_heat_transfer: float  # [W]
+    outlet_pressure: float  # [Pa]
+    inlet_temperature: float  # [K]
+    mass_flow: float  # [kg/s]
+    pressure_drop: Optional[float] = None  # [Pa]
+    _pressure_drop_ratio: float = .15  # [-]
 
     @property
     @cache
@@ -244,14 +255,15 @@ class CoolingChannels:
         if self.pressure_drop is not None:
             return self.outlet_pressure - self.pressure_drop
         else:
-            # Humble 1995 p.209 suggest pressure drop to be 10% - 20% of combustion chamber pressure
+            # Humble 1995 p.209 suggest pressure drop to be 10% - 20% of chamber/outlet pressure
             return self.outlet_pressure * (1 + self._pressure_drop_ratio)
 
     @property
     @cache
     def inlet_enthalpy(self):
         if self.coolant.boiling_temperature(self.inlet_pressure) < self.inlet_temperature:
-            raise ValueError('The boiling temperature of the coolant is below the inlet temperature, liquid cooling expected')
+            raise ValueError(
+                'The boiling temperature of the coolant is below the inlet temperature, liquid cooling expected')
         return self.inlet_temperature * self.coolant.specific_heat_capacity_liquid
 
     @property
@@ -286,99 +298,92 @@ class CoolingChannels:
         return self.inlet_temperature + self.temperature_increase
 
 
+@dataclass
 class HeatExchanger:
-    def __init__(self, combustion_temperature, combustion_chamber_pressure, dynamic_viscosity, specific_heat_capacity,
-                 mass_flow, maximum_wall_temperature, thrust_chamber_wall_emissivity, hot_gas_emissivity, heat_capacity_ratio,
-                 convective_coefficient_mode, thrust_chamber: type(ThrustChamber), cooling_channels: CoolingChannels,
-                 recovery_factor: Optional[float] = None):
-        self.pcc = combustion_chamber_pressure
-        self.tc = combustion_temperature
-        self.eps_cw = thrust_chamber_wall_emissivity
-        self.eps_cg = hot_gas_emissivity
-        self.m_flow = mass_flow
-        self.tw = maximum_wall_temperature
-        self.thrust_chamber = thrust_chamber
-        self.f_contour = thrust_chamber.get_radius
-        self.y = heat_capacity_ratio
-        self.mu = dynamic_viscosity
-        self.cp = specific_heat_capacity
-        self.mode_c = convective_coefficient_mode
-        self.r_fact = recovery_factor if recovery_factor is not None else self.turbulent_recovery_factor
+    thrust_chamber: ThrustChamber
+    cooling_channels: CoolingChannels
+    # Properties of hot gas in combustion chamber
+    combustion_temperature: float  # [K}
+    combustion_chamber_pressure: float  # [Pa]
+    mass_flow: float  # [kg/s]
+    dynamic_viscosity: float  # [Pa*s]
+    specific_heat_capacity: float  # [J/(kg*K)]
+    prandtl_number: float  # [-]
+    hot_gas_emissivity: float  # [-]
+    heat_capacity_ratio: float  # [-]
 
-    @property
-    def mass(self):
-        return None
-
-
-    @property
-    def temp_diff(self):
-        return
+    maximum_wall_temperature: float  # [K]
+    thrust_chamber_wall_emissivity: float  # [-]
+    convective_coefficient_mode: str
+    recovery_factor: Optional[float] = None  # [-]
 
     @property
     def netto_average_wall_radiative_heat_flux(self):  # q_rad [W/m2]
         # Heat Transfer Handbook, A. Bejan 2003, Eq. 8.69
-        return sigma(self.tc ** 4 - self.tw ** 4) / (1 / self.eps_cg + (1 / self.eps_cw) - 1)
+        tc = self.combustion_temperature
+        tw = self.maximum_wall_temperature
+        e_cw = self.thrust_chamber_wall_emissivity
+        e_hg = self.hot_gas_emissivity
+        return constants.sigma(tc ** 4 - tw ** 4) / (1 / e_hg + (1 / e_cw) - 1)
 
     @property
     def total_radiative_heat_transfer(self):
         return self.netto_average_wall_radiative_heat_flux * self.thrust_chamber.surface
 
     @property
-    def prandtl(self):
-        return 4 * self.y / (9 * self.y - 5)
-        # return 0.51
-
-    @property
     def laminar_recovery_factor(self):
-        return self.prandtl ** .5
+        return self.prandtl_number ** .5
 
     @property
     def turbulent_recovery_factor(self):
         # Zandbergen 2017 p.160
-        return self.prandtl ** (1 / 3)
+        return self.prandtl_number ** (1 / 3)
 
-    def get_convective_heat_transfer_coefficient(self, distance_from_throat):
-        diameter = 2 * self.f_contour(distance_from_throat)
-        if self.mode_c == "Cornelisse":
-            mode = "Cornelisse" if distance_from_throat < -self.thrust_chamber.cc.convergent_length else "CornelisseNozzle"
-        elif self.mode_c == "Modified Bartz":
-            mode = self.mode_c
+    def get_convective_heat_transfer_coefficient(self, distance_from_throat: float):
+        diameter = 2 * self.thrust_chamber.get_radius(distance_from_throat)
+        if self.convective_coefficient_mode == "Cornelisse":
+            if distance_from_throat < -self.thrust_chamber.cc.convergent_length:
+                mode = "Cornelisse"
+            else:
+                mode = "CornelisseNozzle"
+        elif self.convective_coefficient_mode == "Modified Bartz":
+            mode = self.convective_coefficient_mode
         else:
             mode = None
-        return get_convective_heat_transfer_coefficient(
+        return convective_heat_transfer_coefficient(
             mode=mode,
-            mass_flow=self.m_flow,
+            mass_flow=self.mass_flow,
             diameter=diameter,
-            dynamic_viscosity=self.mu,
-            specific_heat_capacity_p=self.cp,
-            prandtl_number=self.prandtl,
+            dynamic_viscosity=self.dynamic_viscosity,
+            specific_heat_capacity=self.specific_heat_capacity,
+            prandtl_number=self.prandtl_number,
             film_temperature=self.get_film_temperature(distance_from_throat),
-            total_temperature=self.tc
+            total_temperature=self.combustion_temperature
         )
 
-    def get_convective_heat_flux(self, distance_from_throat):
+    def get_convective_heat_flux(self, distance_from_throat: float):
         coefficient = self.get_convective_heat_transfer_coefficient(distance_from_throat)
         if distance_from_throat < -self.thrust_chamber.cc.convergent_length:
-            temp_ref = self.tc
+            temp_ref = self.combustion_temperature
         else:
             temp_ref = self.get_adiabatic_wall_temp(distance_from_throat)
-        return coefficient * (temp_ref - self.tw)
+        return coefficient * (temp_ref - self.maximum_wall_temperature)
 
-    def get_static_temp(self, distance_from_throat):
+    def get_static_temp(self, distance_from_throat: float):
         m = self.thrust_chamber.get_mach(distance_from_throat)
-        return self.tc / (1 + (self.y - 1) / 2 * m ** 2)
+        return self.tc / (1 + (self.heat_capacity_ratio - 1) / 2 * m ** 2)
 
-    def get_film_temperature(self, distance_from_throat):
+    def get_film_temperature(self, distance_from_throat: float):
         t_0 = self.get_static_temp(distance_from_throat)
-        return float((t_0 + self.tw) / 2)
+        return float((t_0 + self.maximum_wall_temperature) / 2)
 
-    def get_adiabatic_wall_temp(self, distance_from_throat):
+    def get_adiabatic_wall_temp(self, distance_from_throat: float):
         m = self.thrust_chamber.get_mach(distance_from_throat)
-        y = self.y
-        r = self.r_fact
+        y = self.heat_capacity_ratio
+        r = self.recovery_factor
         factor1 = 1 + (y - 1) / 2 * m ** 2 * r
         factor2 = 1 + (y - 1) / 2 * m ** 2
-        return self.tc * factor1 / factor2
+        return self.combustion_temperature * factor1 / factor2
 
     @property
     def total_convective_heat_transfer(self):
@@ -411,7 +416,30 @@ class HeatExchanger:
                                           ylabel=r'Adiabatic Wall Temperature [$K$]',
                                           **kwargs)
 
-    # @property
+    @staticmethod
+    def convective_heat_transfer_coefficient(mode: str, mass_flow: float, diameter: float, dynamic_viscosity: float,
+                                             specific_heat_capacity: float, prandtl_number: float,
+                                             total_temperature: float = None,
+                                             film_temperature: float = None):
+        # Zandbergen 2017 p.161
+        modes = ["Modified Bartz", "Cornelisse", "CornelisseNozzle", "Standard Bartz"]
+        if mode == modes[0]:
+            return 0.026 * 1.213 * mass_flow ** .8 * diameter ** -1.8 * dynamic_viscosity ** .2 * specific_heat_capacity * prandtl_number ** -.6 * (
+                    total_temperature / film_temperature) ** .68
+        elif mode == modes[1]:
+            return 0.023 * 1.213 * mass_flow ** .8 * diameter ** -1.8 * dynamic_viscosity ** .2 * specific_heat_capacity * prandtl_number ** float(
+                -2 / 3)
+        elif mode == modes[2]:
+            return 0.026 * 1.213 * mass_flow ** .8 * diameter ** -1.8 * dynamic_viscosity ** .2 * specific_heat_capacity * prandtl_number ** float(
+                -2 / 3) * (
+                           total_temperature / film_temperature) ** .68
+        elif mode == modes[3]:
+            raise NotImplementedError(
+                "Convective heat transfer for the standard bartz equation has not been implemented")
+        else:
+            raise ValueError(
+                f"Improper convective_mode given for calculation of the convective heat transfer, pick one of {modes}")
+
     # def convective_heat_flux(self):
     #     if self.convective_mode == "Modified Bartz":
     #         return 0.026 * 1.213 * self.mass_flow**.8 * self.diameter**-1.8 * self.mu**.2 * self.cp * self.prandtl**-.6 * (self.tc / self.tf)**.68
@@ -421,29 +449,6 @@ class HeatExchanger:
     #         raise NotImplementedError("Convective heat transfer for the standard bartz equation has not been implemented")
     #     else:
     #         raise ValueError("Improper convective_mode given for calculation of the convective heat transfer")
-
-
-def get_convective_heat_transfer_coefficient(mode: str, mass_flow: float, diameter: float, dynamic_viscosity: float,
-                                             specific_heat_capacity_p: float, prandtl_number: float,
-                                             total_temperature: float = None,
-                                             film_temperature: float = None):
-    # Zandbergen 2017 p.161
-    modes = ["Modified Bartz", "Cornelisse", "CornelisseNozzle", "Standard Bartz"]
-    if mode == modes[0]:
-        return 0.026 * 1.213 * mass_flow ** .8 * diameter ** -1.8 * dynamic_viscosity ** .2 * specific_heat_capacity_p * prandtl_number ** -.6 * (
-                total_temperature / film_temperature) ** .68
-    elif mode == modes[1]:
-        return 0.023 * 1.213 * mass_flow ** .8 * diameter ** -1.8 * dynamic_viscosity ** .2 * specific_heat_capacity_p * prandtl_number ** float(
-            -2 / 3)
-    elif mode == modes[2]:
-        return 0.026 * 1.213 * mass_flow ** .8 * diameter ** -1.8 * dynamic_viscosity ** .2 * specific_heat_capacity_p * prandtl_number ** float(
-            -2 / 3) * (
-                       total_temperature / film_temperature) ** .68
-    elif mode == modes[3]:
-        raise NotImplementedError("Convective heat transfer for the standard bartz equation has not been implemented")
-    else:
-        raise ValueError(
-            f"Improper convective_mode given for calculation of the convective heat transfer, pick one of {modes}")
 
 
 # def get_static_temp(combustion_temperature, heat_capacity_ratio, mach_number):
@@ -516,7 +521,6 @@ class BaseEngineInput:
     chamber_throat_area_ratio: Optional[float] = None
 
 
-
 class EngineCycle:
     def __init__(self, thrust: float, burn_time: float, combustion_chamber_pressure: float, oxidizer_name: str,
                  fuel_name: str, is_frozen: bool, exit_pressure: float, max_acceleration: float,
@@ -529,14 +533,16 @@ class EngineCycle:
                  propellant_margin_factor: float, tanks_structural_factor: float, ullage_volume_factor: float,
                  oxidizer_density: float, fuel_density: float, tanks_material_density: float,
                  pressurant_tank_material_density: float, tanks_yield_strength: float,
-                 pressurant_tank_yield_strength: float, kwak_fix_cycle_type: str, combustion_chamber_material_density: float,
+                 pressurant_tank_yield_strength: float, kwak_fix_cycle_type: str,
+                 combustion_chamber_material_density: float,
                  combustion_chamber_yield_strength: float, combustion_chamber_safety_factor: float,
-                 convergent_half_angle: float, convergent_throat_bend_ratio: float, convergent_chamber_bend_ratio: float,
+                 convergent_half_angle: float, convergent_throat_bend_ratio: float,
+                 convergent_chamber_bend_ratio: float,
                  divergent_throat_half_angle: float, divergent_exit_half_angle: float, nozzle_type: str,
-                 maximum_wall_temperature: float, thrust_chamber_wall_emissivity:float, hot_gas_emissivity: float,
+                 maximum_wall_temperature: float, thrust_chamber_wall_emissivity: float, hot_gas_emissivity: float,
                  convective_coefficient_mode: str,
                  chamber_throat_area_ratio: Optional[float] = None, recovery_factor: Optional[float] = None
-                 ,kwak_fix: bool = False):
+                 , kwak_fix: bool = False):
         self.f_t = thrust  # N
         self.t_b = burn_time  # s
         self.p_cc = combustion_chamber_pressure  # Pa
@@ -600,7 +606,6 @@ class EngineCycle:
         self.k_cc, self.k_th, self.k_ex = self.ks
         self.prandtl_cc, self.prandtl_th, self.prandtl_k = self.prandtls
 
-
     def set_cea(self):
         return get_cea_values(chamber_pressure=self.p_cc, mixture_ratio=self.mmr, exit_pressure=self.p_ex,
                               fuel_name=self.fu_name, ox_name=self.ox_name, isfrozen=self.frozen)
@@ -632,7 +637,7 @@ class EngineCycle:
 
     @property
     def throat_area(self):
-        return self.mass_flow * sqrt(R / self.mw_cc * self.temp_cc) / (get_kerckhove(self.y_cc) * self.p_cc)
+        return self.mass_flow * sqrt(constants.R / self.mw_cc * self.temp_cc) / (get_kerckhove(self.y_cc) * self.p_cc)
 
     @property
     def exit_area(self):
@@ -661,12 +666,12 @@ class EngineCycle:
     @property
     def oxidizer(self):
         return Propellant(mass_flow=self.oxidizer_flow, burn_time=self.t_b,
-                          density=self.rho_o, propellant_type='oxidizer', margin_factor=self.k_p)
+                          density=self.rho_o, type='oxidizer', margin_factor=self.k_p)
 
     @property
     def fuel(self):
         return Propellant(mass_flow=self.fuel_flow, burn_time=self.t_b,
-                          density=self.rho_f, propellant_type='fuel', margin_factor=self.k_p)
+                          density=self.rho_f, type='fuel', margin_factor=self.k_p)
 
     @property
     def pressurant(self):
@@ -680,7 +685,7 @@ class EngineCycle:
     @property
     def oxidizer_tank(self):
         return Tank(max_acceleration=self.a_max, ullage_factor=self.k_u, propellant=self.oxidizer,
-                    pressurant_tank_volume=self.pressurant.tank_volume, tank_initial_pressure=self.p_o_i,
+                    pressurant_tank=self.pressurant, tank_initial_pressure=self.p_o_i,
                     material_density=self.rho_t, yield_strength=self.s_y_t, safety_factor=self.k_t,
                     kwak_fix_cycle_type=self.kwak_fix_cycle_type, kwak_fix=self.kwak_fix)
 
@@ -708,7 +713,7 @@ class EngineCycle:
     def fuel_pump(self):
         return Pump(propellant_density=self.fuel.density, mass_flow=self.fuel.mass_flow,
                     pressure_change=self.delta_p_fuel_pump, efficiency=self.eta_fp, specific_power=self.d_fp)
-    
+
     @property
     def combustion_chamber(self):
         return CombustionChamber(
@@ -717,7 +722,7 @@ class EngineCycle:
             chamber_bend_ratio=self.convergent_chamber_bend_ratio,
             propellant_mix=self.propellant_mix_name, area_ratio_cc_throat=self.chamber_throat_area_ratio,
             safety_factor=self.combustion_chamber_safety_factor, yield_strength=self.combustion_chamber_yield_strength,
-            material_density=self.combustion_chamber_material_density )
+            material_density=self.combustion_chamber_material_density)
 
     @property
     def nozzle(self):
@@ -728,11 +733,18 @@ class EngineCycle:
 
     @property
     def thrust_chamber(self):
-        return ThrustChamber(nozzle=self.nozzle, combustion_chamber=self.combustion_chamber, heat_capacity_ratio=self.y_cc)
+        return ThrustChamber(nozzle=self.nozzle, combustion_chamber=self.combustion_chamber,
+                             heat_capacity_ratio=self.y_cc)
 
     @property
     def heat_exchanger(self):
-        return HeatExchanger(combustion_temperature=self.temp_cc, combustion_chamber_pressure=self.p_cc, dynamic_viscosity=self.mu_cc, specific_heat_capacity=self.cp_cc, mass_flow=self.mass_flow, maximum_wall_temperature=self.maximum_wall_temperature, thrust_chamber_wall_emissivity=self.thrust_chamber_wall_emissivity, hot_gas_emissivity=self.hot_gas_emissivity, heat_capacity_ratio=self.y_cc, convective_coefficient_mode=self.convective_coefficient_mode, thrust_chamber=self.thrust_chamber, recovery_factor=self.recovery_factor)
+        return HeatExchanger(combustion_temperature=self.temp_cc, combustion_chamber_pressure=self.p_cc,
+                             dynamic_viscosity=self.mu_cc, specific_heat_capacity=self.cp_cc, mass_flow=self.mass_flow,
+                             maximum_wall_temperature=self.maximum_wall_temperature,
+                             thrust_chamber_wall_emissivity=self.thrust_chamber_wall_emissivity,
+                             hot_gas_emissivity=self.hot_gas_emissivity, heat_capacity_ratio=self.y_cc,
+                             convective_coefficient_mode=self.convective_coefficient_mode,
+                             thrust_chamber=self.thrust_chamber, recovery_factor=self.recovery_factor)
 
     @property
     def pump_power_required(self):
@@ -764,7 +776,7 @@ class EngineCycle:
 
     @property
     def gravity_delta_v(self, vertical_fraction: float = 0.2):
-        return self.ideal_delta_v - g * self.t_b * vertical_fraction
+        return self.ideal_delta_v - constants.g * self.t_b * vertical_fraction
 
     @property
     def payload_delta_v(self):
@@ -776,8 +788,6 @@ class EngineCycle:
         if self.mass_u is None:
             ValueError('Payload mass not given, impossible to calculate mass ratio with payload mass')
         return (self.mass + self.mass_u - self.props_mass) / (self.mass + self.mass_u)
-
-
 
 
 if __name__ == '__main__':
@@ -812,7 +822,6 @@ if __name__ == '__main__':
                     hot_gas_emissivity=.1,
                     convective_coefficient_mode='Modified Bartz'
                     )
-
 
     b.thrust_chamber.show_contour()
     b.thrust_chamber.show_mach()
