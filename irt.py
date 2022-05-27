@@ -10,6 +10,12 @@ def get_mass_flow(chamber_pressure: float, throat_area: float, chamber_temperatu
     return get_kerckhove(specific_heat_ratio) * chamber_pressure * throat_area / sqrt(r * chamber_temperature)
 
 
+def get_area_ratio(mach_number: float, heat_capacity_ratio: float):
+    m = mach_number
+    y = heat_capacity_ratio
+    return ((y+1)/2)**-((y+1)/(2*(y-1))) * ((1 + (y-1)/2 * m**2)**((y+1)/(2*(y-1)))) / m
+
+
 def get_kerckhove(heat_capacity_ratio: float) -> float:
     y = heat_capacity_ratio
     return sqrt(y) * (2 / (y + 1)) ** ((y + 1) / (2 * (y - 1)))
@@ -112,3 +118,4 @@ def get_reynolds(dynamic_viscosity: float, density: float, flow_velocity: float,
 
 def get_sonic_velocity(specific_heat_ratio: float, molar_mass: float, temperature: float):
     return sqrt(specific_heat_ratio * (R / molar_mass) * temperature)
+

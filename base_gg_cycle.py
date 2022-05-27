@@ -1,4 +1,4 @@
-from base_engine_cycle import Structure, EngineCycle
+from BaseEngineCycle.base_engine_cycle import Structure, EngineCycle
 from scipy.constants import g
 
 

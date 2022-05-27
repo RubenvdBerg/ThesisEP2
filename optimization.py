@@ -1,10 +1,9 @@
 import numpy as np
 import pygmo as pg
-from time import perf_counter
 
 import scipy.optimize
 
-from base_engine_cycle import EngineCycle
+from BaseEngineCycle.base_engine_cycle import EngineCycle
 from base_gg_cycle import GasGeneratorCycle
 from base_ep_cycle import ElectricPumpCycle
 import matplotlib.pyplot as plt

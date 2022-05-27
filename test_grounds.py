@@ -1,8 +1,5 @@
-from scipy.interpolate import interp1d
-from rocketcea.cea_obj import CEA_Obj
 from base_gg_cycle import GasGeneratorCycle
 from base_ep_cycle import ElectricPumpCycle
-from base_engine_cycle import Nozzle
 from arguments import base_arguments, ep_arguments, gg_arguments
 # temperature = [297,
 #                600,
