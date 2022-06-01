@@ -3,7 +3,7 @@ import pygmo as pg
 
 import scipy.optimize
 
-from BaseEngineCycle.base_engine_cycle import EngineCycle
+from BaseEngineCycle.EngineCycle import EngineCycle
 from base_gg_cycle import GasGeneratorCycle
 from base_ep_cycle import ElectricPumpCycle
 import matplotlib.pyplot as plt
@@ -30,24 +30,24 @@ class EngineCycleOptimization:
 
 class InitialMassOpt(EngineCycleOptimization):
     def fitness(self, x):
-        self.ec.mmr = x[0]
-        self.ec.p_cc = x[1]
+        self.ec.mass_mixture_ratio = x[0]
+        self.ec.combustion_chamber_pressure = x[1]
         self.ec.reiterate()
         return [self.ec.mass]
 
 
 class DeltaVOpt(EngineCycleOptimization):
     def fitness(self, x):
-        self.ec.mmr = x[0]
-        self.ec.p_cc = x[1]
+        self.ec.mass_mixture_ratio = x[0]
+        self.ec.combustion_chamber_pressure = x[1]
         self.ec.reiterate()
         return [-self.ec.ideal_delta_v]
 
 
 class DeltaVOpt2(EngineCycleOptimization):
     def fitness(self, x):
-        self.ec.mmr = x[0]
-        self.ec.p_cc = x[1]
+        self.ec.mass_mixture_ratio = x[0]
+        self.ec.combustion_chamber_pressure = x[1]
         self.ec.reiterate()
         return [-self.ec.ideal_delta_v]
 

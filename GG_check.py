@@ -32,7 +32,7 @@ class GGCycleOptimization:
         self.ec = GasGeneratorCycle(**arguments, **gg_arguments)
 
     def fitness(self, x):
-        self.ec.p_cc = x[0]
+        self.ec.combustion_chamber_pressure = x[0]
         return [self.ec.mass]
 
     def get_bounds(self):

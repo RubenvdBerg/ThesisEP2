@@ -1,5 +1,5 @@
 from rocketcea.cea_obj import CEA_Obj
-
+from typing import Optional
 pa_to_psia = 1.4503773800721814532099090803672E-4
 ft_to_m = 0.3048
 rankine_to_kelvin = 5 / 9
@@ -38,10 +38,14 @@ def get_full_output(chamber_pressure, mixture_ratio=2.45, fuel_name='RP1_NASA', 
 
 
 # (1764.9487103940155, 1.8773714044430267)
+def get_cea_values_dict(**kwargs):
+    ceas = get_cea_values(**kwargs)
+    return {'c_star': ceas[0], 'C_F': ceas[1], 'T_C': ceas[2][0], 'mm_cc': ceas[4][0][0], 'y_cc': ceas[4][1][0],
+            'mu_cc': ceas[3][1][0], 'pr_cc': ceas[3][3][0], 'cp_cc': ceas[3][0][0]}
 
 
 def get_cea_values(chamber_pressure, mixture_ratio=2.45, fuel_name='RP1_NASA', ox_name='LO2_NASA',
-                   exit_pressure=0.002E6, isfrozen=0):
+                   exit_pressure=0.002E6, isfrozen=0, area_ratio: Optional[float] = None):
     p_ratio = chamber_pressure / exit_pressure
     chamber_pressure = chamber_pressure * pa_to_psia
     exit_pressure = exit_pressure * pa_to_psia
@@ -50,7 +54,7 @@ def get_cea_values(chamber_pressure, mixture_ratio=2.45, fuel_name='RP1_NASA', o
     kwargs = {'Pc': chamber_pressure, 'MR': mixture_ratio, 'frozen': frozen, 'frozenAtThroat': frozenAtThroat}
 
     # print(cea.get_full_cea_output(**kwargs, PcOvPe=p_ratio, eps=None, short_output=1))
-    eps = cea.get_eps_at_PcOvPe(**kwargs, PcOvPe=p_ratio)
+    eps = area_ratio if area_ratio is not None else cea.get_eps_at_PcOvPe(**kwargs, PcOvPe=p_ratio)
     kwargs['eps'] = eps
     kwargs2 = {i: kwargs[i] for i in kwargs if i != 'frozenAtThroat'}
     _, c_star_ft, _ = cea.get_IvacCstrTc(**kwargs)
@@ -82,10 +86,10 @@ def mw_gamma_unit_fixer(mw_gamma_list):
 
 
 def transport_unit_fixer(transport_list):
-    transport_list[0] = [x * 4.184 * 1E3 for x in transport_list[0]]   # From cal/gK to J/(kg K)
-    transport_list[1] = [x * 1E-4 for x in transport_list[1]]   # From miliPoise to Pascal second
-    transport_list[2] = [x * 4.184*1E-1 for x in transport_list[2]]  # From mcal/(K s cm) to J/(K s m)
-    transport_list[3] = [x * 1 for x in transport_list[3]]   # From [-] to [-]
+    transport_list[0] = [x * 4.184 * 1E3 for x in transport_list[0]]  # From cal/gK to J/(kg K)
+    transport_list[1] = [x * 1E-4 for x in transport_list[1]]  # From miliPoise to Pascal second
+    transport_list[2] = [x * 4.184 * 1E-1 for x in transport_list[2]]  # From mcal/(K s cm) to J/(K s m)
+    transport_list[3] = [x * 1 for x in transport_list[3]]  # From [-] to [-]
     return transport_list
 
 

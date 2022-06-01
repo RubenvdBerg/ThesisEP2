@@ -57,7 +57,7 @@ def plot_fuel_flow_battery(burn_times=burn_times_def, ylimits=ylims_def, chamber
         for main, checkengine in zip(main_flow, engines):
             if main != checkengine.fuel.mass_flow:
                 print(f'main and check should be equal, but they are: {main}, {checkengine.fuel.mass_flow} '
-                      f'for t_b {burn_time} s, pcc {checkengine.p_cc / 1E6} MPa')
+                      f'for t_b {burn_time} s, pcc {checkengine.combustion_chamber_pressure / 1E6} MPa')
 
         def plots(axiss):
             axiss.plot(chamber_pressures, total_fuel_flow, label='Fuel Pump Mass Flow w/ Regenerative Cooling')

@@ -1,4 +1,5 @@
-from BaseEngineCycle.base_engine_cycle import Structure, EngineCycle
+from BaseEngineCycle.EngineCycle import EngineCycle
+from BaseEngineCycle.Structure import Structure
 from scipy.constants import g
 
 
@@ -22,7 +23,7 @@ class GasGenerator(Structure):
 
     @property
     def mass(self):
-        return self.sf * 3 / 2 * self.md / self.sy * self.ts * self.p / self.gas_density * self.turbine_mass_flow
+        return self.safety_factor * 3 / 2 * self.material_density / self.yield_strength * self.ts * self.p / self.gas_density * self.turbine_mass_flow
 
     @property
     def gas_density(self):
@@ -50,15 +51,17 @@ class GasGeneratorCycle(EngineCycle):
         self.k_gg = gg_structural_factor  # -
         self.rho_gg = gg_material_density  # kg/m3
         self.s_y_gg = gg_yield_strength  # Pa
-        super().__init__(fuel_pump_specific_power=self.d_tp, oxidizer_pump_specific_power=self.d_tp, kwak_fix_cycle_type='gg', **kwargs)
+        super().__init__(fuel_pump_specific_power=self.d_tp, oxidizer_pump_specific_power=self.d_tp,
+                         kwak_fix_cycle_type='gg', **kwargs)
         self.k_thrust_gg = 0.002137040978335770 if self.kwak_fix else gg_thrust_contribution  # -
         self.gg_mass_flow = 0
         self.verbose = verbose
-        self.iterate_mass_flow()
+        # self.iterate_mass_flow()
 
     def iterate_mass_flow(self):
-        if self.verbose: print('Iterate Mass Flow')
-        while self.gg_mass_flow*1.00001 < self.gas_generator.turbine_mass_flow:
+        if self.verbose:
+            print('Iterate Mass Flow')
+        while self.gg_mass_flow * 1.001 < self.gas_generator.turbine_mass_flow:
             if self.verbose:
                 print(f'GG:{self.gg_mass_flow:.6f}kg/s')
                 print(f'TU1:{self.gas_generator.turbine_mass_flow:.6f}kg/s')
@@ -78,11 +81,11 @@ class GasGeneratorCycle(EngineCycle):
 
     @property
     def base_fuel_flow(self):
-        return 1 / (self.mmr + 1) * self.mass_flow
+        return 1 / (self.mass_mixture_ratio + 1) * self.mass_flow
 
     @property
     def base_oxidizer_flow(self):
-        return self.mmr / (self.mmr + 1) * self.mass_flow
+        return self.mass_mixture_ratio / (self.mass_mixture_ratio + 1) * self.mass_flow
 
     @property
     def total_mass_flow(self):
@@ -95,21 +98,20 @@ class GasGeneratorCycle(EngineCycle):
 
     @property
     def fuel_flow(self):  # Override EngineCycle flows
-        return 1 / (self.mmr + 1) * self.chamber_mass_flow + 1 / (self.mmr_gg + 1) * self.gg_mass_flow
+        return 1 / (self.mass_mixture_ratio + 1) * self.chamber_mass_flow + 1 / (self.mmr_gg + 1) * self.gg_mass_flow
 
     @property
     def oxidizer_flow(self):  # Override EngineCycle flows
-        return self.mmr / (self.mmr + 1) * self.chamber_mass_flow + self.mmr_gg / (self.mmr_gg + 1) * self.gg_mass_flow
+        return self.mass_mixture_ratio / (self.mass_mixture_ratio + 1) * self.chamber_mass_flow + self.mmr_gg / (self.mmr_gg + 1) * self.gg_mass_flow
 
     @property
     def gas_generator(self):
         return GasGenerator(oxidizer=self.oxidizer, fuel=self.fuel, mass_mixture_ratio=self.mmr_gg,
-                            gg_pressure=self.p_cc, gg_gas_constant=self.r_gg,
+                            gg_pressure=self.combustion_chamber_pressure, gg_gas_constant=self.r_gg,
                             pump_power_required=self.pump_power_required, temperature_limit=self.temp_tu,
                             stay_time=self.t_s, heat_capacity_ratio=self.y_gg, pressure_ratio=self.k_tu,
                             turbine_efficiency=self.eta_tu, specific_heat=self.cp_gg, safety_factor=self.k_gg,
-                            material_density=self.rho_gg, sigma_yield=self.s_y_gg)
-
+                            material_density=self.rho_gg, yield_strength=self.s_y_gg)
 
     @property
     def pumps_mass(self):
@@ -118,12 +120,12 @@ class GasGeneratorCycle(EngineCycle):
     @property
     def gg_propellant_mass(self):
         if self.kwak_fix:
-            return self.gg_mass_flow * self.t_b
-        return self.gg_mass_flow * self.t_b * self.k_p
+            return self.gg_mass_flow * self.burn_time
+        return self.gg_mass_flow * self.burn_time * self.propellant_margin_factor
 
     @property
     def cc_propellant_mass(self):
-        return self.chamber_mass_flow * self.t_b * self.k_p
+        return self.chamber_mass_flow * self.burn_time * self.propellant_margin_factor
 
     @property
     def feed_system_mass(self):

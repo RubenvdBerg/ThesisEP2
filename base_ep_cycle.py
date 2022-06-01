@@ -1,4 +1,5 @@
-from BaseEngineCycle.base_engine_cycle import EngineCycle, Pump
+from BaseEngineCycle.EngineCycle import EngineCycle
+from BaseEngineCycle.TurboPump import Pump
 from math import log
 
 
@@ -118,7 +119,7 @@ class ElectricPumpCycle(EngineCycle):
             print(f'm_f_cc: {self.fuel.mass_flow}')
             print(
                 f'm_fp: {self.total_fuelpump_flow}, m_f_cool_act:{self.actual_battery_coolant_flow}, m_f_cool_req: {self.battery.coolant_flow_required}')
-        while self.actual_battery_coolant_flow * 1.00001 < self.battery.coolant_flow_required:
+        while self.actual_battery_coolant_flow * 1.001 < self.battery.coolant_flow_required:
             self.fuelpumpflow = self.total_fuelpump_flow
             if self.verbose:
                 print(
@@ -133,8 +134,8 @@ class ElectricPumpCycle(EngineCycle):
     # Rewrite of fuel_pump to accommodate for recirculation of battery cooling fuel flow
     @property
     def fuel_pump(self):
-        return Pump(propellant_density=self.fuel.density, mass_flow=self.fuelpumpflow,
-                    pressure_change=self.delta_p_fuel_pump, efficiency=self.eta_fp, specific_power=self.d_fp)
+        return Pump(propellant=self.fuel, mass_flow=self.fuelpumpflow,
+                    pressure_increase=self.delta_p_fuel_pump, efficiency=self.fuel_pump_efficiency, specific_power=self.fuel_pump_specific_power)
 
     @property
     def total_fuelpump_flow(self):
@@ -155,13 +156,13 @@ class ElectricPumpCycle(EngineCycle):
         if self.kwak_fix:
             return KwakBattery(specific_power=self.d_bat_p, specific_energy=self.d_bat_e,
                                battery_packing_factor=self.k_bat,
-                               output_power=self.electric_motor.output_power, burn_time=self.t_b,
+                               output_power=self.electric_motor.output_power, burn_time=self.burn_time,
                                fuel_specific_heat=self.cp_f,
                                coolant_allowable_temperature_change=self.delta_temp,
                                inverter_efficiency=self.inverter.eta, electric_motor_efficiency=self.electric_motor.eta)
         else:
             return Battery(specific_power=self.d_bat_p, specific_energy=self.d_bat_e, battery_packing_factor=self.k_bat,
-                           output_power=self.inverter.input_power, burn_time=self.t_b, fuel_specific_heat=self.cp_f,
+                           output_power=self.inverter.input_power, burn_time=self.burn_time, fuel_specific_heat=self.cp_f,
                            coolant_allowable_temperature_change=self.delta_temp)
 
     @property

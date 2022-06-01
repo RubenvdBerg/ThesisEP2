@@ -1,6 +1,6 @@
 from base_ep_cycle import ElectricPumpCycle
 from base_gg_cycle import GasGeneratorCycle
-from BaseEngineCycle.base_engine_cycle import EngineCycle
+from BaseEngineCycle.EngineCycle import EngineCycle
 from typing import Optional, Tuple, Callable
 import arguments as args
 import matplotlib.pyplot as plt

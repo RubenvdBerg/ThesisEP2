@@ -1,5 +1,8 @@
+import datetime
+
 import pandas as pd
 import arguments as args
+from scipy import constants
 from base_gg_cycle import GasGeneratorCycle
 from base_ep_cycle import ElectricPumpCycle
 from itertools import zip_longest
@@ -8,15 +11,15 @@ burn_times = (300, 390, 1200)
 batt_coolant_flows = (0.979789955909310, 0.853084378343365, 0.0738446782915450)
 
 
-def full_output(kwak_fix, common_args=args.base_arguments, ep_args=args.ep_arguments, gg_args=args.gg_arguments):
-    gg_cycle = GasGeneratorCycle(**common_args, **gg_args, kwak_fix=kwak_fix)
-    ep_cycle = ElectricPumpCycle(**common_args, **ep_args, kwak_fix=kwak_fix)
-
+def full_output(kwak_fix, design_args=args.desgin_arguments, common_args=args.base_arguments, ep_args=args.ep_arguments, gg_args=args.gg_arguments):
+    gg_cycle = GasGeneratorCycle(**design_args, **common_args, **gg_args, kwak_fix=kwak_fix)
+    ep_cycle = ElectricPumpCycle(**design_args, **common_args, **ep_args, kwak_fix=kwak_fix)
+    arguments = args.base_arguments_kwak
     input_col1 = [
         ep_args['fuel_specific_heat'],
         gg_args['gg_gas_specific_heat'],
-        arguments['max_acceleration'] * 9.80665,
-        arguments['heat_ratio_pressurant'],
+        arguments['max_acceleration'],
+        arguments['pressurant_heat_capacity_ratio'],
         gg_args['heat_ratio_gg_gas'],
         arguments['mass_mixture_ratio'],
         gg_args['mass_mixture_ratio_gg'],
@@ -25,7 +28,7 @@ def full_output(kwak_fix, common_args=args.base_arguments, ep_args=args.ep_argum
         arguments['fuel_initial_pressure'] * 1E-6,
         arguments['oxidizer_initial_pressure'] * 1E-6,
         gg_args['turbine_pressure_ratio'],
-        arguments['pressurant_gas_constant'],
+        constants.R / arguments['pressurant_molar_mass'],
         gg_args['gas_constant_gg_gas'],
         arguments['pressurant_initial_temperature'],
         gg_args['turbine_inlet_temperature'],
@@ -47,7 +50,7 @@ def full_output(kwak_fix, common_args=args.base_arguments, ep_args=args.ep_argum
         ep_args['battery_structural_factor'],
         arguments['pressurant_margin_factor'],
         gg_args['gg_structural_factor'],
-        arguments['pressurant_tank_structural_factor'],
+        arguments['pressurant_tank_safety_factor'],
         arguments['propellant_margin_factor'],
         arguments['tanks_structural_factor'],
         arguments['ullage_volume_factor'],
@@ -64,7 +67,7 @@ def full_output(kwak_fix, common_args=args.base_arguments, ep_args=args.ep_argum
     ]
 
     ep_iter_col1 = [
-        ep_cycle.p_cc * 1E-6,
+        ep_cycle.combustion_chamber_pressure * 1E-6,
         ep_cycle.oxidizer_flow,
         ep_cycle.fuel_flow,
         ep_cycle.pump_power_required * 1E-3,
@@ -107,7 +110,7 @@ def full_output(kwak_fix, common_args=args.base_arguments, ep_args=args.ep_argum
     ]
 
     gg_iter_list = [
-        gg_cycle.p_cc * 1E-6,
+        gg_cycle.combustion_chamber_pressure * 1E-6,
         gg_cycle.base_oxidizer_flow,
         gg_cycle.base_fuel_flow,
         gg_cycle.pump_power_required * 1E-3,
@@ -135,8 +138,8 @@ def full_output(kwak_fix, common_args=args.base_arguments, ep_args=args.ep_argum
         gg_cycle.pump_power_required * 1E-3,
         None,
         gg_cycle.gas_generator.p * 1E-6,
-        gg_cycle.oxidizer_pump.delta_p * 1E-6,
-        gg_cycle.fuel_pump.delta_p * 1E-6,
+        gg_cycle.oxidizer_pump.pressure_increase * 1E-6,
+        gg_cycle.fuel_pump.pressure_increase * 1E-6,
         gg_cycle.gas_generator.gas_density
     ]
 
@@ -144,8 +147,8 @@ def full_output(kwak_fix, common_args=args.base_arguments, ep_args=args.ep_argum
         gg_cycle.gg_mass_flow,
         gg_cycle.gas_generator.mmr / (gg_cycle.gas_generator.mmr + 1) * gg_cycle.gas_generator.turbine_mass_flow,
         1 / (gg_cycle.gas_generator.mmr + 1) * gg_cycle.gas_generator.turbine_mass_flow,
-        gg_cycle.mmr / (gg_cycle.mmr + 1) * gg_cycle.chamber_mass_flow,
-        1 / (gg_cycle.mmr + 1) * gg_cycle.chamber_mass_flow,
+        gg_cycle.mass_mixture_ratio / (gg_cycle.mass_mixture_ratio + 1) * gg_cycle.chamber_mass_flow,
+        1 / (gg_cycle.mass_mixture_ratio + 1) * gg_cycle.chamber_mass_flow,
         gg_cycle.chamber_mass_flow,
         None,
         None,
@@ -164,7 +167,7 @@ def full_output(kwak_fix, common_args=args.base_arguments, ep_args=args.ep_argum
         gg_cycle.oxidizer.volume,
         gg_cycle.fuel.volume,
         gg_cycle.pressurant.mass,
-        gg_cycle.pressurant.tank_volume,
+        gg_cycle.pressurant_tank.volume,
         gg_cycle.oxidizer_tank.volume,
         gg_cycle.fuel_tank.volume,
         gg_cycle.oxidizer_tank.get_radius,
@@ -183,7 +186,7 @@ def full_output(kwak_fix, common_args=args.base_arguments, ep_args=args.ep_argum
         gg_cycle.fuel_tank.total_lower_pressure,
         gg_cycle.oxidizer_tank.mass,
         gg_cycle.fuel_tank.mass,
-        gg_cycle.pressurant.tank_mass,
+        gg_cycle.pressurant_tank.mass,
         gg_cycle.mass,
         None,
         None,
@@ -200,7 +203,7 @@ def full_output(kwak_fix, common_args=args.base_arguments, ep_args=args.ep_argum
         ep_cycle.oxidizer.volume,
         ep_cycle.fuel.volume,
         ep_cycle.pressurant.mass,
-        ep_cycle.pressurant.tank_volume,
+        ep_cycle.pressurant_tank.volume,
         ep_cycle.oxidizer_tank.volume,
         ep_cycle.fuel_tank.volume,
         ep_cycle.oxidizer_tank.get_radius,
@@ -219,7 +222,7 @@ def full_output(kwak_fix, common_args=args.base_arguments, ep_args=args.ep_argum
         ep_cycle.fuel_tank.total_lower_pressure,
         ep_cycle.oxidizer_tank.mass,
         ep_cycle.fuel_tank.mass,
-        ep_cycle.pressurant.tank_mass,
+        ep_cycle.pressurant_tank.mass,
         ep_cycle.mass
     ]
 
@@ -233,7 +236,7 @@ def full_output(kwak_fix, common_args=args.base_arguments, ep_args=args.ep_argum
         gg_cycle.tanks_mass,
         gg_cycle.oxidizer_tank.mass,
         gg_cycle.fuel_tank.mass,
-        gg_cycle.pressurant.tank_mass,
+        gg_cycle.pressurant_tank.mass,
         gg_cycle.pressurant.mass,
         gg_cycle.cc_propellant_mass + gg_cycle.gg_propellant_mass,
         gg_cycle.cc_propellant_mass,
@@ -251,7 +254,7 @@ def full_output(kwak_fix, common_args=args.base_arguments, ep_args=args.ep_argum
         ep_cycle.tanks_mass,
         ep_cycle.oxidizer_tank.mass,
         ep_cycle.fuel_tank.mass,
-        ep_cycle.pressurant.tank_mass,
+        ep_cycle.pressurant_tank.mass,
         ep_cycle.pressurant.mass,
         ep_cycle.props_mass + ep_cycle.battery.mass,
         ep_cycle.props_mass,
@@ -282,16 +285,20 @@ def full_output(kwak_fix, common_args=args.base_arguments, ep_args=args.ep_argum
                  gg_after_iter_list))
     ep_iters = pd.DataFrame(data=zip(ep_iter_col1, [None] * len(ep_iter_col1), ep_iter_col2))
     suffix = 'Fixed' if kwak_fix else 'Normal'
-    with pd.ExcelWriter(rf'data\full_output_kwak_comparison25112021_{suffix}.xlsx') as writer:  # doctest: +SKIP
+    time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    with pd.ExcelWriter(rf'data\full_output_kwak_comparison{time}_{suffix}.xlsx') as writer:  # doctest: +SKIP
         for i, data in enumerate([results, inputs, details, gg_iters, ep_iters, complete_sheet]):
             data.to_excel(writer, sheet_name=f'Sheet{i}')
 
 
 def get_outputs():
     full_outputs = {}
+    base_arguments2 = args.base_arguments.copy()
+    ep_arguments2 = args.ep_arguments.copy()
     for burn_time, batt_coolant_flow in zip(burn_times, batt_coolant_flows):
-        args.base_arguments['burn_time'] = burn_time
-        df = full_output(args.base_arguments, args.ep_arguments, args.gg_arguments, batt_coolant_flow)
+        base_arguments2['burn_time'] = burn_time
+        df = full_output(kwak_fix=True, design_args=args.desgin_arguments,
+            base_args=base_arguments2,ep_args=ep_arguments2)
         full_outputs[burn_time] = df
     return full_outputs
 
