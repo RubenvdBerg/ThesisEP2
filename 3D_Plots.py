@@ -1,6 +1,6 @@
-from base_ep_cycle import ElectricPumpCycle
+from ElectricPumpCycle.EPCycle import ElectricPumpCycle
 from base_gg_cycle import GasGeneratorCycle
-from optimization import InitialMassOpt, DeltaVOpt, fast_optimize
+from optimization import fast_optimize
 import arguments as args
 import matplotlib.pyplot as plt
 import numpy as np

@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+import warnings
+from dataclasses import dataclass, field
 from functools import cached_property
 from math import sqrt, log
 from typing import Optional
@@ -14,7 +15,8 @@ from BaseEngineCycle.PropellantTank import Propellant, Tank
 from BaseEngineCycle.ThrustChamber import ThrustChamber
 from BaseEngineCycle.TurboPump import Pump
 from cea import get_cea_values_dict
-from irt import get_kerckhove, get_expansion_ratio
+from cea_new import get_cea_dict, get_cea_chamber_dict
+from irt import get_kerckhove, get_expansion_ratio, get_pressure_ratio_fsolve
 
 
 @dataclass
@@ -22,7 +24,6 @@ class EngineCycle:
     thrust: float  # [N]
     burn_time: float  # [s]
     combustion_chamber_pressure: float  # [Pa]
-    exit_pressure: float  # [Pa]
     max_acceleration: float  # [m/s]
     mass_mixture_ratio: float  # [-]
     fuel_initial_pressure: float  # [Pa]
@@ -67,17 +68,19 @@ class EngineCycle:
 
     nozzle_type: str
     convective_coefficient_mode: str
-    kwak_fix_cycle_type: str
     oxidizer_name: str
     fuel_name: str
     is_frozen: bool
 
     # Values that override other inputs
-    area_ratio_forced: Optional[float] = None
+    expansion_ratio: Optional[float] = None  # [-]
+    pressure_ratio: Optional[float] = None  # [-]
+    exit_pressure_forced: Optional[float] = None  # [Pa]
 
     # Values that can be estimated
     recovery_factor: Optional[float] = None  # [-]
     chamber_throat_area_ratio: Optional[float] = None  # [-]
+    chamber_characteristic_length: Optional[float] = None  # [m]
 
     # Values that can be estimated by CEA
     characteristic_velocity: Optional[float] = None  # [m/s]
@@ -88,11 +91,42 @@ class EngineCycle:
     cc_hot_gas_dynamic_viscosity: Optional[float] = None  # [Pa*s]
     cc_hot_gas_prandtl_number: Optional[float] = None  # [-]
     cc_hot_gas_specific_heat_capacity: Optional[float] = None  # [J/(kg*K)]
-    kwak_fix: bool = False
+    kwak_fix: bool = True
+    verbose: bool = True
+    fast_init: bool = False  # If True needs to make less calls to rocketCEA, assumes expansion ratio is provided, ignores pressure_ratio and exit_pressure_input
 
     def __post_init__(self):
-        assert self.kwak_fix_cycle_type in ['gg', 'ep']
-        self.set_cea()
+        # Setting of internal variables
+        self._kwak_fix_cycle_type = 'base'
+        self._cea_frozen, self._cea_frozenAtThroat = (1, 1) if self.is_frozen else (0, 0)
+        if self.fast_init:
+            assert self.expansion_ratio is not None
+            self.set_cea()
+            self.pressure_ratio = get_pressure_ratio_fsolve(self.expansion_ratio, self.cc_hot_gas_heat_capacity_ratio)
+        else:
+            self.resolve_expansion_pressure_ratio_choice()
+            # Initiate CEA call if any of the CEA values is not provided
+            if any(getattr(self, key) is None for key in self.cea_dict):
+                self.set_cea()
+
+    def resolve_expansion_pressure_ratio_choice(self):
+        # Estimating the expansion ratio based on the pressure ratio or vice versa, exit_pressure_forced overrides both
+        # TODO: This breaks updating of either variable as the other will not update
+        if self.cc_hot_gas_heat_capacity_ratio is None:
+            self.cc_hot_gas_heat_capacity_ratio = self.get_heat_capacity_ratio()  # Required for following calculations
+        if self.exit_pressure_forced is not None:
+            if self.verbose:
+                warnings.warn('Exit pressure is given, pressure- and expansion ratio are ignored if provided')
+            self.pressure_ratio = self.combustion_chamber_pressure / self.exit_pressure_forced
+            self.expansion_ratio = get_expansion_ratio(self.pressure_ratio, self.cc_hot_gas_heat_capacity_ratio)
+        elif not (self.pressure_ratio is None) ^ (self.expansion_ratio is None):
+            raise ValueError(
+                'Neither or both the pressure_ratio and expansion_ratio are given. Provide one and only one')
+        elif self.pressure_ratio is None:
+            self.pressure_ratio = get_pressure_ratio_fsolve(self.expansion_ratio,
+                                                            self.cc_hot_gas_heat_capacity_ratio)
+        elif self.expansion_ratio is None:
+            self.expansion_ratio = get_expansion_ratio(self.pressure_ratio, self.cc_hot_gas_heat_capacity_ratio)
 
     @cached_property
     def cea_dict(self):
@@ -105,28 +139,37 @@ class EngineCycle:
                 'cc_hot_gas_prandtl_number': 'pr_cc',
                 'cc_hot_gas_specific_heat_capacity': 'cp_cc'}
 
-    def get_cea(self):
-        return get_cea_values_dict(
-            chamber_pressure=self.combustion_chamber_pressure, mixture_ratio=self.mass_mixture_ratio,
-            exit_pressure=self.exit_pressure, fuel_name=self.fuel_name, ox_name=self.oxidizer_name,
-            isfrozen=self.is_frozen, area_ratio=self.area_ratio_forced
-        )
+    @property
+    def cea_kwargs(self):
+        return {'Pc': self.combustion_chamber_pressure,
+                'MR': self.mass_mixture_ratio,
+                'eps': self.expansion_ratio,
+                'fuelName': self.fuel_name,
+                'oxName': self.oxidizer_name,
+                'frozen': self._cea_frozen,
+                'frozenAtThroat': self._cea_frozenAtThroat}
 
     def set_cea(self):
-        cea_values = self.get_cea()
         # Checking if value is given, if not: assign value found by CEA. Despite this check for each attribute, it is
         # recommended to either provide none of the CEA properties or all of them
         cea_attributes = self.cea_dict.keys()
+        cea_values = get_cea_dict(**self.cea_kwargs)
         for attribute in cea_attributes:
             cea_name = self.cea_dict[attribute]
             if getattr(self, attribute) is None:
                 setattr(self, attribute, cea_values[cea_name])
 
-    def reiterate(self):
+    def update_cea(self):
         cea_values = self.get_cea()
         for attribute in self.cea_dict.keys():
             cea_name = self.cea_dict[attribute]
             setattr(self, attribute, cea_values[cea_name])
+
+    def get_heat_capacity_ratio(self):
+        # Get the heat_capacity_ratio before an expansion ratio or pressure ratio is provided
+        # , which setting all CEA values at once requires
+        kwargs = {key: value for key, value in self.cea_kwargs.items() if key != 'eps'}
+        return get_cea_chamber_dict(**kwargs)['y_cc']
 
     @property
     def cstar_cf(self):
@@ -146,16 +189,12 @@ class EngineCycle:
                 get_kerckhove(self.cc_hot_gas_heat_capacity_ratio) * self.combustion_chamber_pressure)
 
     @property
-    def area_ratio(self):
-        return get_expansion_ratio(self.pressure_ratio, self.cc_hot_gas_heat_capacity_ratio)
-
-    @property
     def exit_area(self):
-        return self.throat_area * self.area_ratio
+        return self.throat_area * self.expansion_ratio
 
     @property
-    def pressure_ratio(self):
-        return self.combustion_chamber_pressure / self.exit_pressure
+    def exit_pressure(self):
+        return self.combustion_chamber_pressure / self.pressure_ratio
 
     @property
     def simple_specific_impulse(self):
@@ -224,7 +263,7 @@ class EngineCycle:
                     material_density=self.tanks_material_density,
                     yield_strength=self.tanks_yield_strength,
                     safety_factor=self.tanks_structural_factor,
-                    kwak_fix_cycle_type=self.kwak_fix_cycle_type,
+                    kwak_fix_cycle_type=self._kwak_fix_cycle_type,
                     kwak_fix=self.kwak_fix)
 
     @property
@@ -237,7 +276,7 @@ class EngineCycle:
                     material_density=self.tanks_material_density,
                     yield_strength=self.tanks_yield_strength,
                     safety_factor=self.tanks_structural_factor,
-                    kwak_fix_cycle_type=self.kwak_fix_cycle_type,
+                    kwak_fix_cycle_type=self._kwak_fix_cycle_type,
                     kwak_fix=self.kwak_fix)
 
     @property
@@ -262,6 +301,7 @@ class EngineCycle:
                                  combustion_chamber_pressure=self.combustion_chamber_pressure,
                                  propellant_mix=self.propellant_mix_name,
                                  area_ratio_chamber_throat=self.chamber_throat_area_ratio,
+                                 characteristic_length=self.chamber_characteristic_length,
                                  safety_factor=self.combustion_chamber_safety_factor,
                                  yield_strength=self.combustion_chamber_yield_strength,
                                  material_density=self.combustion_chamber_material_density)
@@ -278,7 +318,7 @@ class EngineCycle:
     @property
     def nozzle(self):
         return BellNozzle(throat_area=self.throat_area,
-                          area_ratio=self.area_ratio,
+                          area_ratio=self.expansion_ratio,
                           chamber_radius=self.combustion_chamber.radius,
                           conv_half_angle=self.convergent_half_angle,
                           conv_throat_bend_ratio=self.convergent_throat_bend_ratio,

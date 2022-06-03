@@ -1,4 +1,5 @@
-from kwak_replication_ep import ElectricPumpCycle
+from ElectricPumpCycle.EPCycle import ElectricPumpCycle
+import arguments as args
 import matplotlib.pyplot as plt
 
 arguments = {'exit_pressure': .002E6, 'max_acceleration': 4.5, 'heat_ratio_pressurant': 1.667,
@@ -14,6 +15,8 @@ arguments = {'exit_pressure': .002E6, 'max_acceleration': 4.5, 'heat_ratio_press
              'electric_motor_specific_power': 5.3E3, 'inverter_specific_power': 60E3, 'battery_specific_power': 6.95E3,
              'battery_specific_energy': 198 * 3600, 'electric_motor_efficiency': .95, 'inverter_efficiency': .85,
              'battery_structural_factor': 1.2, 'coolant_allowable_temperature_change': 40, 'verbose': False}
+
+arguments = args.base_arguments | args.ep_arguments | {'is_frozen': False}
 
 burn_times_def = (300, 390, 1200)
 # ylims = [[(7.55, 9.5), (0, 1.6)], [(7.55, 9.5), (0, 1.6)], [(7.55, 9.5), (0, 1.6)]]  # Consistent axes
@@ -44,6 +47,7 @@ def broken_axis(plotfunc, y_limits):
 def plot_fuel_flow_battery(burn_times=burn_times_def, ylimits=ylims_def, chamber_pressures=chamber_pressures_def,
                            savefig=False):
     for burn_time, ylim in zip(burn_times, ylimits):
+        print(f'Making engines for tb:{burn_time:.0f}')
         engines = [ElectricPumpCycle(
             thrust=100E3,
             burn_time=burn_time,

@@ -69,7 +69,7 @@ class GasGeneratorCycle(EngineCycle):
         if self.verbose:
             print(f'Mass Flow Set\n')
 
-    def reiterate(self):
+    def update_cea(self):
         if self.verbose:
             print('Start reiteration')
         self.cstar, self.cf = self.set_cea()

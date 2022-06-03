@@ -58,9 +58,9 @@ class ThrustChamber:
         x0 = .1 if distance_from_throat < 0 else 10
 
         def func(mach_number):
-            return array(float(get_area_ratio(mach_number, self.heat_capacity_ratio) - area_ratio))
+            return array([float(get_area_ratio(mach_number, self.heat_capacity_ratio) - area_ratio)])
 
-        mach = scipy.optimize.fsolve(func, array(float(x0)))[0]
+        mach = scipy.optimize.fsolve(func, array([float(x0)]))[0]
         check = isclose(func(mach), [0.0])
         if not check:
             warnings.warn('Implicitly calculated Mach number is not within tolerances')
@@ -73,7 +73,7 @@ class ThrustChamber:
         self.distance_plot(self.get_radius, 'Radius [m]', **kwargs)
 
     def distance_plot(self, func: Callable, ylabel: str, num=300, ytick_function: Optional[Callable] = None):
-        distances = linspace(*self.throat_distance_tuple, num)
+        distances = list(linspace(*self.throat_distance_tuple, num))
         values = [func(distance) for distance in distances]
         fig, ax = plt.subplots()
         ax.plot(distances, values)

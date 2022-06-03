@@ -27,8 +27,8 @@ class CombustionChamber(Structure):
                     f'{self.characteristic_length_options.keys}]')
         if self.area_ratio_chamber_throat is None:
             # Humble 1995 p.222
-            throat_diameter = 2 * sqrt(self.throat_area / pi)
-            self.area_ratio_chamber_throat = (8.0 * throat_diameter ** 2.4 + 1.25)
+            throat_diameter_in_cm = 2 * sqrt(self.throat_area / pi) * 1e2
+            self.area_ratio_chamber_throat = (8.0 * throat_diameter_in_cm ** -.6 + 1.25)
 
     @cached_property
     def characteristic_length_options(self):

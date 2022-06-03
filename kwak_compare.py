@@ -4,7 +4,7 @@ import pandas as pd
 import arguments as args
 from scipy import constants
 from base_gg_cycle import GasGeneratorCycle
-from base_ep_cycle import ElectricPumpCycle
+from ElectricPumpCycle.EPCycle import ElectricPumpCycle
 from itertools import zip_longest
 
 burn_times = (300, 390, 1200)
@@ -99,7 +99,7 @@ def full_output(kwak_fix, design_args=args.desgin_arguments, common_args=args.ba
         ep_cycle.pump_power_required * 1E-3,
         ep_cycle.battery.total_energy,
         ep_cycle.battery.heat_loss,
-        ep_cycle.delta_temp,
+        ep_cycle.coolant_allowable_temperature_change,
         None
     ]
 

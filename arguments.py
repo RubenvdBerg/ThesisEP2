@@ -18,7 +18,7 @@ desgin_arguments = {
 base_arguments_kwak = {
     'oxidizer_name': 'LO2_NASA',
     'fuel_name': 'RP1_NASA',
-    'exit_pressure': .002E6,
+    'exit_pressure_forced': 0.002E6,
     'max_acceleration': 4.5 * 9.80665,
     'pressurant_heat_capacity_ratio': 1.667,
     'mass_mixture_ratio': 2.45,

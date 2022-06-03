@@ -1,6 +1,4 @@
-from base_ep_cycle import ElectricPumpCycle
-from base_gg_cycle import GasGeneratorCycle
-import matplotlib.pyplot as plt
+from ElectricPumpCycle.EPCycle import ElectricPumpCycle
 import numpy as np
 mmr_range = np.linspace(2.00, 4.00, 50)
 pcc_range = np.linspace(1E5, 1E7, 50)

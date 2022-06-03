@@ -46,22 +46,26 @@ def get_cea_values_dict(**kwargs):
 
 def get_cea_values(chamber_pressure, mixture_ratio=2.45, fuel_name='RP1_NASA', ox_name='LO2_NASA',
                    exit_pressure=0.002E6, isfrozen=0, area_ratio: Optional[float] = None):
-    p_ratio = chamber_pressure / exit_pressure
     chamber_pressure = chamber_pressure * pa_to_psia
     exit_pressure = exit_pressure * pa_to_psia
+
     frozen, frozenAtThroat = (1, 1) if isfrozen else (0, 0)
     cea = CEA_Obj(oxName=ox_name, fuelName=fuel_name, )
     kwargs = {'Pc': chamber_pressure, 'MR': mixture_ratio, 'frozen': frozen, 'frozenAtThroat': frozenAtThroat}
 
-    # print(cea.get_full_cea_output(**kwargs, PcOvPe=p_ratio, eps=None, short_output=1))
-    eps = area_ratio if area_ratio is not None else cea.get_eps_at_PcOvPe(**kwargs, PcOvPe=p_ratio)
+    eps = area_ratio
+    exit_pressure = exit_pressure if area_ratio is None else chamber_pressure / cea.get_PcOvPe(**kwargs, eps=area_ratio)
+    p_ratio = chamber_pressure / exit_pressure
+    eps = cea.get_eps_at_PcOvPe(**kwargs, PcOvPe=p_ratio)
+    print(cea.get_full_cea_output(**kwargs, eps=eps, short_output=0))
     kwargs['eps'] = eps
     kwargs2 = {i: kwargs[i] for i in kwargs if i != 'frozenAtThroat'}
+    kwargs3 = {i: kwargs[i] for i in kwargs if i != 'frozen'}
     _, c_star_ft, _ = cea.get_IvacCstrTc(**kwargs)
     c_star_m = c_star_ft * ft_to_m
 
     if isfrozen:
-        c_f = cea.getFrozen_PambCf(**kwargs, Pamb=exit_pressure)[0]
+        c_f = cea.getFrozen_PambCf(**kwargs3, Pamb=exit_pressure)[0]
     else:
         c_f = cea.get_PambCf(Pamb=exit_pressure, Pc=chamber_pressure, MR=mixture_ratio, eps=eps)[0]
     temps_R = cea.get_Temperatures(**kwargs)

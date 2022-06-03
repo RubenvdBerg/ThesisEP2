@@ -1,6 +1,11 @@
 from scipy.constants import g, gas_constant, Boltzmann, pi, R
 from typing import Optional
-from sympy import nsolve, solve, Symbol, sqrt
+from scipy.optimize import fsolve
+import numpy as np
+import warnings
+
+
+# from sympy import nsolve, solve, Symbol, sqrt
 
 
 def get_mass_flow(chamber_pressure: float, throat_area: float, chamber_temperature: float, molecular_weight: float,
@@ -13,18 +18,20 @@ def get_mass_flow(chamber_pressure: float, throat_area: float, chamber_temperatu
 def get_area_ratio(mach_number: float, heat_capacity_ratio: float):
     m = mach_number
     y = heat_capacity_ratio
-    return ((y+1)/2)**-((y+1)/(2*(y-1))) * ((1 + (y-1)/2 * m**2)**((y+1)/(2*(y-1)))) / m
+    return ((y + 1) / 2) ** -((y + 1) / (2 * (y - 1))) * ((1 + (y - 1) / 2 * m ** 2) ** ((y + 1) / (2 * (y - 1)))) / m
 
 
 def get_kerckhove(heat_capacity_ratio: float) -> float:
     y = heat_capacity_ratio
-    return sqrt(y) * (2 / (y + 1)) ** ((y + 1) / (2 * (y - 1)))
+    return np.sqrt(y) * (2 / (y + 1)) ** ((y + 1) / (2 * (y - 1)))
 
 
 def get_expansion_ratio(pressure_ratio: float, specific_heat_ratio: float) -> float:
     y = specific_heat_ratio
-    pe_pc = 1 / pressure_ratio
-    return get_kerckhove(y) / sqrt((2 * y / (y - 1)) * pe_pc ** (2 / y) * (1 - pe_pc ** ((y - 1) / y)))
+    G = get_kerckhove(y)
+    pe_pc = pressure_ratio ** -1
+    p1 = (2 * y / (y - 1)) * pe_pc ** (2 / y) * (1 - pe_pc ** ((y - 1) / y))
+    return float(G / np.sqrt(p1))
 
 
 def get_pressure_ratio(expansion_ratio: float, specific_heat_ratio: float, sympy_solve: bool = False) -> float:
@@ -34,11 +41,26 @@ def get_pressure_ratio(expansion_ratio: float, specific_heat_ratio: float, sympy
     gamma = get_kerckhove(y)
     p1 = (2 * y / (y - 1)) * pe_pc ** (2 / y)
     p2 = (1 - pe_pc ** ((y - 1) / y))
-    equation = gamma / sqrt(p1 * p2) - expansion_ratio
+    equation = gamma / np.sqrt(p1 * p2) - expansion_ratio
     if sympy_solve:
         return solve(equation, pr, implicit=True)
     else:
         return nsolve(equation, pr, 100)
+
+
+def get_pressure_ratio_fsolve(expansion_ratio: float, specific_heat_ratio: float, guess: float = 2.) -> float:
+    def func(x):
+        eps = float(get_expansion_ratio(x, specific_heat_ratio))
+        return np.array(eps - expansion_ratio, dtype=float)
+    solution = float(fsolve(func, np.array(guess, dtype=float))[0])
+    return solution
+    # # Check
+    # if check:
+    #     if not np.isclose(func(solution), [0.0]):
+    #         message = f'Found pressure ratio does not match given expansion ratio. ' \
+    #                   f'Given:[{expansion_ratio}], Found:[{get_expansion_ratio(solution, specific_heat_ratio)}]'
+    #         raise ValueError(message)
+
 
 
 def get_characteristic_velocity(molecular_weight: float, chamber_temperature: float,
@@ -103,8 +125,9 @@ def get_mp_from_isp_itot(total_impulse: float, specific_impulse: float) -> float
     return total_impulse / specific_impulse / g
 
 
-def get_knudsen(temperature: float, particle_shell_diameter: float, total_pressure: float, length_scale: float) -> float:
-    return Boltzmann * temperature / (sqrt(2) * pi * particle_shell_diameter**2 * total_pressure * length_scale)
+def get_knudsen(temperature: float, particle_shell_diameter: float, total_pressure: float,
+                length_scale: float) -> float:
+    return Boltzmann * temperature / (sqrt(2) * pi * particle_shell_diameter ** 2 * total_pressure * length_scale)
 
 
 def get_mean_free_path(dynamic_viscosity: float, pressure: float, temperature: float, molar_mass: float) -> float:
@@ -118,4 +141,3 @@ def get_reynolds(dynamic_viscosity: float, density: float, flow_velocity: float,
 
 def get_sonic_velocity(specific_heat_ratio: float, molar_mass: float, temperature: float):
     return sqrt(specific_heat_ratio * (R / molar_mass) * temperature)
-

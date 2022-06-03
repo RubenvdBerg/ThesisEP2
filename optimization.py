@@ -5,7 +5,7 @@ import scipy.optimize
 
 from BaseEngineCycle.EngineCycle import EngineCycle
 from base_gg_cycle import GasGeneratorCycle
-from base_ep_cycle import ElectricPumpCycle
+from ElectricPumpCycle.EPCycle import ElectricPumpCycle
 import matplotlib.pyplot as plt
 import arguments as args
 
@@ -32,7 +32,7 @@ class InitialMassOpt(EngineCycleOptimization):
     def fitness(self, x):
         self.ec.mass_mixture_ratio = x[0]
         self.ec.combustion_chamber_pressure = x[1]
-        self.ec.reiterate()
+        self.ec.update_cea()
         return [self.ec.mass]
 
 
@@ -40,7 +40,7 @@ class DeltaVOpt(EngineCycleOptimization):
     def fitness(self, x):
         self.ec.mass_mixture_ratio = x[0]
         self.ec.combustion_chamber_pressure = x[1]
-        self.ec.reiterate()
+        self.ec.update_cea()
         return [-self.ec.ideal_delta_v]
 
 
@@ -48,7 +48,7 @@ class DeltaVOpt2(EngineCycleOptimization):
     def fitness(self, x):
         self.ec.mass_mixture_ratio = x[0]
         self.ec.combustion_chamber_pressure = x[1]
-        self.ec.reiterate()
+        self.ec.update_cea()
         return [-self.ec.ideal_delta_v]
 
     def gradient(self, x):

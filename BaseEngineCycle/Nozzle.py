@@ -85,7 +85,7 @@ class Nozzle:
         else:
             alpha = asin(distance_from_throat / r_u) / 2
             radius = self.throat_radius + distance_from_throat * tan(alpha)
-        return radius
+        return float(radius)
 
     def div_radius(self, distance_from_throat: float) -> float:
         # Distance from throat positive towards nozzle exit
@@ -132,13 +132,13 @@ class BellNozzle(Nozzle):
             div_radius = self.throat_radius + distance_from_throat * tan(alpha)
         else:
             def func(x):
-                return array(float(self.div_a * x ** 2 + self.div_b * x + self.div_c - distance_from_throat))
+                a = float(self.div_a * x ** 2 + self.div_b * x + self.div_c - distance_from_throat)
+                return array([a], dtype=float)
 
-            x0 = array(float(
-                self.throat_radius + (self.exit_radius - self.throat_radius) * (
-                        distance_from_throat / self.div_length)))
-            div_radius = scipy.optimize.fsolve(func, x0)
-        return div_radius
+            x0 = float(self.throat_radius + (self.exit_radius - self.throat_radius) * (
+                        distance_from_throat / self.div_length))
+            div_radius = scipy.optimize.fsolve(func, array([x0], dtype=float))
+        return float(div_radius)
 
 
 @dataclass

@@ -1,4 +1,4 @@
-from base_ep_cycle import ElectricPumpCycle
+from ElectricPumpCycle.EPCycle import ElectricPumpCycle
 from base_gg_cycle import GasGeneratorCycle
 from BaseEngineCycle.EngineCycle import EngineCycle
 from typing import Optional, Tuple, Callable
