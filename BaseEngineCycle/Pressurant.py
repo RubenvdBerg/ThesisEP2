@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from scipy import constants as constants
-from BaseEngineCycle.PropellantTank import Propellant
+from BaseEngineCycle.Propellant import Propellant
 from BaseEngineCycle.Structure import Structure
 
 

@@ -23,7 +23,7 @@ def cea_in_si_units(func):
                                  ('cp_cc', 4184))  # From calorie/(gram Kelvin) to Joule/(kilogram Kelvin)
         for key, unit_factor in unit_conversion_tuple:
             try:
-                output[key] += unit_factor
+                output[key] *= unit_factor
             except KeyError:
                 continue
         return output
@@ -46,6 +46,7 @@ complete_regex_dict = {
 def get_cea_dict(fuelName: str, oxName: str, regex_dict: Optional[dict] = None, **kwargs):
     cea = CEA_Obj(fuelName=fuelName, oxName=oxName)
     full_output = cea.get_full_cea_output(**kwargs, short_output=1)
+    # print(full_output)
     regex_dict = complete_regex_dict if regex_dict is None else regex_dict
     return {key: get_values_from_cea_output(variable_name=value[0],
                                             column=value[1],

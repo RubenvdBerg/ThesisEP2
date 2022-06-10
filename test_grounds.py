@@ -1,4 +1,4 @@
-from base_gg_cycle import GasGeneratorCycle
+from GasGeneratorCycle.GGCycle import GasGeneratorCycle
 from ElectricPumpCycle.EPCycle import ElectricPumpCycle
 from arguments import base_arguments, ep_arguments, gg_arguments
 # temperature = [297,

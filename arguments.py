@@ -70,10 +70,10 @@ base_arguments = base_arguments_kwak | base_arguments_own
 base_arguments_o = copy_without(base_arguments, 'mass_mixture_ratio')
 
 gg_arguments = {
-    'gg_gas_specific_heat': 2024.7, 'heat_ratio_gg_gas': 1.16, 'mass_mixture_ratio_gg': 0.320,
-    'turbine_pressure_ratio': 27, 'gas_constant_gg_gas': 274.1, 'turbine_inlet_temperature': 900,
-    'gas_generator_stay_time': 10E-3, 'turbopump_specific_power': 13.5E3, 'turbine_efficiency': .52,
-    'gg_structural_factor': 2.5, 'gg_material_density': 8220, 'gg_yield_strength': 550E6, 'gg_thrust_contribution': .01
+    'turbine_specific_heat_capacity': 2024.7, 'turbine_heat_capacity_ratio': 1.16, 'gg_mass_mixture_ratio': 0.320,
+    'turbine_pressure_ratio': 27, 'gg_gas_gas_constant': 274.1, 'turbine_maximum_temperature': 900,
+    'gg_stay_time': 10E-3, 'turbopump_specific_power': 13.5E3, 'turbine_efficiency': .52,
+    'gg_structural_factor': 2.5, 'gg_material_density': 8220, 'gg_yield_strength': 550E6, 'exhaust_thrust_contribution': .01
 }
 ep_arguments = {
     'fuel_pump_specific_power': 15E3, 'oxidizer_pump_specific_power': 20E3, 'fuel_specific_heat': 2009,

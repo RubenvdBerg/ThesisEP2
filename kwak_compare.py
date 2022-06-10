@@ -3,36 +3,43 @@ import datetime
 import pandas as pd
 import arguments as args
 from scipy import constants
-from base_gg_cycle import GasGeneratorCycle
+from GasGeneratorCycle.GGCycle import GasGeneratorCycle
 from ElectricPumpCycle.EPCycle import ElectricPumpCycle
+from KwakFix.KwakFixCycles import KwakFixElectricPumpCycle, KwakFixGasGeneratorCycle
 from itertools import zip_longest
 
 burn_times = (300, 390, 1200)
 batt_coolant_flows = (0.979789955909310, 0.853084378343365, 0.0738446782915450)
 
 
-def full_output(kwak_fix, design_args=args.desgin_arguments, common_args=args.base_arguments, ep_args=args.ep_arguments, gg_args=args.gg_arguments):
-    gg_cycle = GasGeneratorCycle(**design_args, **common_args, **gg_args, kwak_fix=kwak_fix)
-    ep_cycle = ElectricPumpCycle(**design_args, **common_args, **ep_args, kwak_fix=kwak_fix)
+def full_output(kwak_fix, design_args=args.desgin_arguments, common_args=args.base_arguments, ep_args=args.ep_arguments,
+                gg_args=args.gg_arguments):
+    combined_args = design_args | common_args
+    if kwak_fix:
+        gg_cycle = KwakFixGasGeneratorCycle(**combined_args, **gg_args, iterate=False)
+        ep_cycle = KwakFixElectricPumpCycle(**combined_args, **ep_args, iterate=False)
+    else:
+        gg_cycle = GasGeneratorCycle(**combined_args, **gg_args, iterate=False)
+        ep_cycle = ElectricPumpCycle(**combined_args, **ep_args, iterate=False)
     arguments = args.base_arguments_kwak
     input_col1 = [
         ep_args['fuel_specific_heat'],
-        gg_args['gg_gas_specific_heat'],
+        gg_args['turbine_specific_heat_capacity'],
         arguments['max_acceleration'],
         arguments['pressurant_heat_capacity_ratio'],
-        gg_args['heat_ratio_gg_gas'],
+        gg_args['turbine_heat_capacity_ratio'],
         arguments['mass_mixture_ratio'],
-        gg_args['mass_mixture_ratio_gg'],
+        gg_args['gg_mass_mixture_ratio'],
         arguments['pressurant_initial_pressure'] * 1E-6,
         arguments['pressurant_final_pressure'] * 1E-6,
         arguments['fuel_initial_pressure'] * 1E-6,
         arguments['oxidizer_initial_pressure'] * 1E-6,
         gg_args['turbine_pressure_ratio'],
         constants.R / arguments['pressurant_molar_mass'],
-        gg_args['gas_constant_gg_gas'],
+        gg_args['gg_gas_gas_constant'],
         arguments['pressurant_initial_temperature'],
-        gg_args['turbine_inlet_temperature'],
-        gg_args['gas_generator_stay_time'] * 1E3,
+        gg_args['turbine_maximum_temperature'],
+        gg_args['gg_stay_time'] * 1E3,
         gg_args['turbopump_specific_power'] * 1E-3,
         ep_args['oxidizer_pump_specific_power'] * 1E-3,
         ep_args['fuel_pump_specific_power'] * 1E-3,
@@ -105,8 +112,9 @@ def full_output(kwak_fix, design_args=args.desgin_arguments, common_args=args.ba
 
     gg_before_iter_list = [
         gg_cycle.gas_generator.turbine_mass_flow,
-        gg_cycle.gas_generator.mmr / (gg_cycle.gas_generator.mmr + 1) * gg_cycle.gas_generator.turbine_mass_flow,
-        1 / (gg_cycle.gas_generator.mmr + 1) * gg_cycle.gas_generator.turbine_mass_flow,
+        gg_cycle.gas_generator.mass_mixture_ratio / (
+                    gg_cycle.gas_generator.mass_mixture_ratio + 1) * gg_cycle.gas_generator.turbine_mass_flow,
+        1 / (gg_cycle.gas_generator.mass_mixture_ratio + 1) * gg_cycle.gas_generator.turbine_mass_flow,
     ]
 
     gg_iter_list = [
@@ -137,7 +145,7 @@ def full_output(kwak_fix, design_args=args.desgin_arguments, common_args=args.ba
         gg_cycle.fuel_pump.power_required * 1E-3,
         gg_cycle.pump_power_required * 1E-3,
         None,
-        gg_cycle.gas_generator.p * 1E-6,
+        gg_cycle.gas_generator.pressure * 1E-6,
         gg_cycle.oxidizer_pump.pressure_increase * 1E-6,
         gg_cycle.fuel_pump.pressure_increase * 1E-6,
         gg_cycle.gas_generator.gas_density
@@ -145,8 +153,9 @@ def full_output(kwak_fix, design_args=args.desgin_arguments, common_args=args.ba
 
     gg_after_iter_list = [
         gg_cycle.gg_mass_flow,
-        gg_cycle.gas_generator.mmr / (gg_cycle.gas_generator.mmr + 1) * gg_cycle.gas_generator.turbine_mass_flow,
-        1 / (gg_cycle.gas_generator.mmr + 1) * gg_cycle.gas_generator.turbine_mass_flow,
+        gg_cycle.gas_generator.mass_mixture_ratio / (
+                    gg_cycle.gas_generator.mass_mixture_ratio + 1) * gg_cycle.gas_generator.turbine_mass_flow,
+        1 / (gg_cycle.gas_generator.mass_mixture_ratio + 1) * gg_cycle.gas_generator.turbine_mass_flow,
         gg_cycle.mass_mixture_ratio / (gg_cycle.mass_mixture_ratio + 1) * gg_cycle.chamber_mass_flow,
         1 / (gg_cycle.mass_mixture_ratio + 1) * gg_cycle.chamber_mass_flow,
         gg_cycle.chamber_mass_flow,
@@ -170,8 +179,8 @@ def full_output(kwak_fix, design_args=args.desgin_arguments, common_args=args.ba
         gg_cycle.pressurant_tank.volume,
         gg_cycle.oxidizer_tank.volume,
         gg_cycle.fuel_tank.volume,
-        gg_cycle.oxidizer_tank.get_radius,
-        gg_cycle.fuel_tank.get_radius,
+        gg_cycle.oxidizer_tank.radius,
+        gg_cycle.fuel_tank.radius,
         0.,
         0.,
         0.,
@@ -206,8 +215,8 @@ def full_output(kwak_fix, design_args=args.desgin_arguments, common_args=args.ba
         ep_cycle.pressurant_tank.volume,
         ep_cycle.oxidizer_tank.volume,
         ep_cycle.fuel_tank.volume,
-        ep_cycle.oxidizer_tank.get_radius,
-        ep_cycle.fuel_tank.get_radius,
+        ep_cycle.oxidizer_tank.radius,
+        ep_cycle.fuel_tank.radius,
         0.,
         0.,
         0.,
@@ -275,7 +284,6 @@ def full_output(kwak_fix, design_args=args.desgin_arguments, common_args=args.ba
         data=zip_longest(col1, empty_col, empty_col, col2, empty_col, empty_col, col3, empty_col, col4, empty_col, col5,
                          col6, empty_col, col7, fillvalue=None))
 
-    # rows = ['CC Propellants', 'GG Propellants', 'Battery Pack', 'Feed System', 'Tanks', 'Helium', 'Total', 'MR*1E4']  #
     columns = ['GG', 'EP']
     results = pd.DataFrame(data=zip(gg_list, ep_list), columns=columns)
     inputs = pd.DataFrame(data=zip(input_col1, input_col2))
@@ -290,6 +298,14 @@ def full_output(kwak_fix, design_args=args.desgin_arguments, common_args=args.ba
         for i, data in enumerate([results, inputs, details, gg_iters, ep_iters, complete_sheet]):
             data.to_excel(writer, sheet_name=f'Sheet{i}')
 
+    rows = [
+        'Feed System', 'Turbopump', 'GG', 'Pumps', 'Electric Motor', 'Inverter', 'Tanks', 'Oxidizer Tank', 'Fuel Tank',
+        'Pressurant Tank', 'Pressurant', 'Props+Battery', 'CC Propellants', 'GG Propellants', 'Battery Pack', 'Total'
+    ]
+    results.index = rows
+    pd.options.display.float_format = '{:.2f}'.format
+    return results
+
 
 def get_outputs():
     full_outputs = {}
@@ -298,7 +314,7 @@ def get_outputs():
     for burn_time, batt_coolant_flow in zip(burn_times, batt_coolant_flows):
         base_arguments2['burn_time'] = burn_time
         df = full_output(kwak_fix=True, design_args=args.desgin_arguments,
-            base_args=base_arguments2,ep_args=ep_arguments2)
+                    base_args=base_arguments2, ep_args=ep_arguments2)
         full_outputs[burn_time] = df
     return full_outputs
 

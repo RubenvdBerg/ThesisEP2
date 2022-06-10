@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from BaseEngineCycle.PropellantTank import Propellant
+from BaseEngineCycle.Propellant import Propellant
 
 
 @dataclass
@@ -22,3 +22,5 @@ class Pump:
     @property
     def mass(self):
         return self.power_required / self.specific_power
+
+

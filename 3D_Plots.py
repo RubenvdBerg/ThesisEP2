@@ -1,5 +1,5 @@
 from ElectricPumpCycle.EPCycle import ElectricPumpCycle
-from base_gg_cycle import GasGeneratorCycle
+from GasGeneratorCycle.GGCycle import GasGeneratorCycle
 from optimization import fast_optimize
 import arguments as args
 import matplotlib.pyplot as plt

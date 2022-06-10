@@ -2,7 +2,7 @@ import warnings
 from dataclasses import dataclass, field
 from functools import cached_property
 from math import sqrt, log
-from typing import Optional
+from typing import Optional, Literal
 
 from scipy import constants as constants
 
@@ -11,9 +11,10 @@ from BaseEngineCycle.CombustionChamber import CombustionChamber, Injector
 from BaseEngineCycle.Cooling import Coolant, CoolingChannels, HeatExchanger
 from BaseEngineCycle.Nozzle import BellNozzle
 from BaseEngineCycle.Pressurant import Pressurant, PressurantTank
-from BaseEngineCycle.PropellantTank import Propellant, Tank
+from BaseEngineCycle.Propellant import Propellant
+from BaseEngineCycle.Tank import Tank
 from BaseEngineCycle.ThrustChamber import ThrustChamber
-from BaseEngineCycle.TurboPump import Pump
+from BaseEngineCycle.Pump import Pump
 from cea import get_cea_values_dict
 from cea_new import get_cea_dict, get_cea_chamber_dict
 from irt import get_kerckhove, get_expansion_ratio, get_pressure_ratio_fsolve
@@ -91,13 +92,12 @@ class EngineCycle:
     cc_hot_gas_dynamic_viscosity: Optional[float] = None  # [Pa*s]
     cc_hot_gas_prandtl_number: Optional[float] = None  # [-]
     cc_hot_gas_specific_heat_capacity: Optional[float] = None  # [J/(kg*K)]
-    kwak_fix: bool = True
     verbose: bool = True
     fast_init: bool = False  # If True needs to make less calls to rocketCEA, assumes expansion ratio is provided, ignores pressure_ratio and exit_pressure_input
+    iterate: bool = True
 
     def __post_init__(self):
         # Setting of internal variables
-        self._kwak_fix_cycle_type = 'base'
         self._cea_frozen, self._cea_frozenAtThroat = (1, 1) if self.is_frozen else (0, 0)
         if self.fast_init:
             assert self.expansion_ratio is not None
@@ -141,9 +141,12 @@ class EngineCycle:
 
     @property
     def cea_kwargs(self):
+        # CEA values always calculated from pressure ratio
+        # TODO: Give option to calculate CEA values with given expansion ratio (eps)
         return {'Pc': self.combustion_chamber_pressure,
                 'MR': self.mass_mixture_ratio,
-                'eps': self.expansion_ratio,
+                'eps': None,
+                'PcOvPe': self.pressure_ratio,
                 'fuelName': self.fuel_name,
                 'oxName': self.oxidizer_name,
                 'frozen': self._cea_frozen,
@@ -262,9 +265,7 @@ class EngineCycle:
                     initial_pressure=self.oxidizer_initial_pressure,
                     material_density=self.tanks_material_density,
                     yield_strength=self.tanks_yield_strength,
-                    safety_factor=self.tanks_structural_factor,
-                    kwak_fix_cycle_type=self._kwak_fix_cycle_type,
-                    kwak_fix=self.kwak_fix)
+                    safety_factor=self.tanks_structural_factor)
 
     @property
     def fuel_tank(self):
@@ -275,9 +276,7 @@ class EngineCycle:
                     initial_pressure=self.fuel_initial_pressure,
                     material_density=self.tanks_material_density,
                     yield_strength=self.tanks_yield_strength,
-                    safety_factor=self.tanks_structural_factor,
-                    kwak_fix_cycle_type=self._kwak_fix_cycle_type,
-                    kwak_fix=self.kwak_fix)
+                    safety_factor=self.tanks_structural_factor,)
 
     @property
     def oxidizer_pump(self):
@@ -407,3 +406,4 @@ class EngineCycle:
         if self.mass_u is None:
             ValueError('Payload mass not given, impossible to calculate mass ratio with payload mass')
         return (self.mass + self.mass_u - self.props_mass) / (self.mass + self.mass_u)
+

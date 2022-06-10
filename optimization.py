@@ -4,7 +4,7 @@ import pygmo as pg
 import scipy.optimize
 
 from BaseEngineCycle.EngineCycle import EngineCycle
-from base_gg_cycle import GasGeneratorCycle
+from GasGeneratorCycle.GGCycle import GasGeneratorCycle
 from ElectricPumpCycle.EPCycle import ElectricPumpCycle
 import matplotlib.pyplot as plt
 import arguments as args

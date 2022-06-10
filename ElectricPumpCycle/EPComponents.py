@@ -57,24 +57,9 @@ class Battery(ElectricComponent):
     def coolant_flow_required(self):
         return (1 - self.eta_e) * self.total_energy / (self.fuel_specific_heat * self.coolant_allowable_temperature_change * self.burn_time)
 
-    # Overwrite Super _mass_
-    @property
+
+    @property  # Overwrite ElectricComponent mass
     def mass(self):
         return self.battery_packing_factor * self.output_power * max(1 / self.specific_power, self.burn_time / (self.specific_energy * self.eta_e))
 
 
-@dataclass
-class KwakBattery(Battery):
-    electric_motor_efficiency: float  # [-]
-    inverter_efficiency: float  # [-]
-
-    @property
-    def total_energy(self):
-        return self.output_power * self.burn_time
-
-    # Overwrite Super _mass_
-    @property
-    def mass(self):
-        return (self.battery_packing_factor * self.output_power
-                / (self.electric_motor_efficiency * self.inverter_efficiency)
-                * max(1 / self.specific_power, self.burn_time / (self.specific_energy * self.eta_e)))

@@ -31,15 +31,13 @@ ep_arguments = {
     'battery_specific_energy': 198 * 3600, 'electric_motor_efficiency': .95, 'inverter_efficiency': .85,
     'battery_structural_factor': 1.2, 'coolant_allowable_temperature_change': 40,
 }
-initial_mass = []
-for mmr in mmr_range:
-    for pcc in pcc_range:
-        arguments['combustion_chamber_pressure'] = pcc
-        arguments['mass_mixture_ratio'] = mmr
-        initial_mass.append([ElectricPumpCycle(**arguments, **ep_arguments), mmr, pcc])
-
-print(initial_mass)
-
+# initial_mass = []
+# for mmr in mmr_range:
+#     for pcc in pcc_range:
+#         arguments['combustion_chamber_pressure'] = pcc
+#         arguments['mass_mixture_ratio'] = mmr
+#         initial_mass.append([ElectricPumpCycle(**arguments, **ep_arguments), mmr, pcc])
+#
+# print(initial_mass)
+#
 X, Y = np.meshgrid(mmr_range, pcc_range)
-Z =
-

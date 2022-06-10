@@ -60,11 +60,11 @@ class CoolingChannels:
     @property
     @cache
     def inlet_pressure(self):
-        if self.pressure_drop is not None:
-            return self.outlet_pressure - self.pressure_drop
-        else:
+        if self.pressure_drop is None:
             # Humble 1995 p.209 suggest pressure drop to be 10% - 20% of chamber/outlet pressure
             return self.outlet_pressure * (1 + self._pressure_drop_ratio)
+        else:
+            return self.outlet_pressure - self.pressure_drop
 
     @property
     @cache

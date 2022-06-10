@@ -18,6 +18,7 @@ arguments = {'exit_pressure': .002E6, 'max_acceleration': 4.5, 'heat_ratio_press
 
 arguments = args.base_arguments | args.ep_arguments | {'is_frozen': False}
 
+
 burn_times_def = (300, 390, 1200)
 # ylims = [[(7.55, 9.5), (0, 1.6)], [(7.55, 9.5), (0, 1.6)], [(7.55, 9.5), (0, 1.6)]]  # Consistent axes
 ylims_def = ([(7.2, 9.5), (0, 2.3)], [(7.55, 9.5), (0, 1.6)], [(7.55, 8.6), (0, .099)])  # Axes equal to paper

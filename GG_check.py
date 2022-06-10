@@ -1,6 +1,6 @@
 import pygmo as pg
 import numpy as np
-from base_gg_cycle import GasGeneratorCycle
+from GasGeneratorCycle.GGCycle import GasGeneratorCycle
 import matplotlib.pyplot as plt
 
 
