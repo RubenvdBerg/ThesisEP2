@@ -49,7 +49,7 @@ class KwakFixGasGeneratorCycle(GasGeneratorCycle, KwakFixEngineCycle):
 
 
 @dataclass
-class KwakFixElectricPumpCycle(KwakFixEngineCycle, ElectricPumpCycle):
+class KwakFixElectricPumpCycle(ElectricPumpCycle, KwakFixEngineCycle):
     _kwak_fix_cycle_type: str = 'ep'
 
     @property

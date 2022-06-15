@@ -62,22 +62,63 @@ base_arguments_own = {
     'maximum_wall_temperature': 850,
     'thrust_chamber_wall_emissivity': .8,
     'hot_gas_emissivity': .1,
-    'convective_coefficient_mode': 'Modified Bartz'
+    'convective_coefficient_mode': 'Modified Bartz',
+    'coolant_liquid_heat_capacity': 1,
+    'coolant_gas_heat_capacity': 1,
+    'coolant_heat_of_vaporization': 1,
+    'coolant_molar_mass': 1,
+    'coolant_boiling_temp_1_bar': 1,
+    'coolant_inlet_temperature': 1
 }
 
 base_arguments = base_arguments_kwak | base_arguments_own
 
 base_arguments_o = copy_without(base_arguments, 'mass_mixture_ratio')
 
-gg_arguments = {
-    'turbine_specific_heat_capacity': 2024.7, 'turbine_heat_capacity_ratio': 1.16, 'gg_mass_mixture_ratio': 0.320,
-    'turbine_pressure_ratio': 27, 'gg_gas_gas_constant': 274.1, 'turbine_maximum_temperature': 900,
-    'gg_stay_time': 10E-3, 'turbopump_specific_power': 13.5E3, 'turbine_efficiency': .52,
-    'gg_structural_factor': 2.5, 'gg_material_density': 8220, 'gg_yield_strength': 550E6, 'exhaust_thrust_contribution': .01
+open_arguments = {
+    'turbine_gas_specific_heat_capacity': 2024.7, 'turbine_gas_heat_capacity_ratio': 1.16,
+    'turbine_pressure_ratio': 27, 'turbopump_specific_power': 13.5E3, 'turbine_efficiency': .52,
+
 }
+gg_arguments = open_arguments | {
+    'turbine_maximum_temperature': 900, 'gg_mass_mixture_ratio': 0.320, 'gg_gas_gas_constant': 274.1, 'gg_stay_time': 10E-3,'gg_structural_factor': 2.5,
+    'gg_material_density': 8220, 'gg_yield_strength': 550E6, 'exhaust_thrust_contribution': .01
+}
+
+oe_arguments = open_arguments | {
+    'turbine_inlet_temperature': 900
+}
+
 ep_arguments = {
     'fuel_pump_specific_power': 15E3, 'oxidizer_pump_specific_power': 20E3, 'fuel_specific_heat': 2009,
     'electric_motor_specific_power': 5.3E3, 'inverter_specific_power': 60E3, 'battery_specific_power': 6.95E3,
     'battery_specific_energy': 198 * 3600, 'electric_motor_efficiency': .95, 'inverter_efficiency': .85,
     'battery_structural_factor': 1.2, 'coolant_allowable_temperature_change': 40,
+}
+
+liquid_oxygen_coolant = {
+    'coolant_liquid_heat_capacity': 1,
+    'coolant_gas_heat_capacity': 1,
+    'coolant_heat_of_vaporization': float(213./15.999),
+    'coolant_molar_mass': 15.999E-3,
+    'coolant_boiling_temp_1_bar': 90.15,
+    'coolant_inlet_temperature': 90.15
+}
+
+rp1_coolant = {
+    'coolant_liquid_heat_capacity': 1,
+    'coolant_gas_heat_capacity': None,
+    'coolant_heat_of_vaporization': float(246./170.),
+    'coolant_molar_mass': 170.0E-3,
+    'coolant_boiling_temp_1_bar': 489.45,
+    'coolant_inlet_temperature': 293.15
+}
+
+liquid_hydrogen_coolant = {
+    'coolant_liquid_heat_capacity': 1,
+    'coolant_gas_heat_capacity': 1,
+    'coolant_heat_of_vaporization': 446./2.01588,
+    'coolant_molar_mass': 2.01588E-3,
+    'coolant_boiling_temp_1_bar': 20.25,
+    'coolant_inlet_temperature': 20.25
 }

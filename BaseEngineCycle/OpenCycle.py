@@ -1,13 +1,14 @@
 from BaseEngineCycle.EngineCycle import EngineCycle
 from BaseEngineCycle.Turbine import Turbine
 from dataclasses import dataclass, field
+from scipy.constants import g
 
 
 # Abstract class that has the attributes GasGenerator and OpenExpander share
 @dataclass
 class OpenEngineCycle(EngineCycle):
-    turbine_specific_heat_capacity: float = 0  # [J/(kg*K)]
-    turbine_heat_capacity_ratio: float = 0  # [-]
+    turbine_gas_specific_heat_capacity: float = 0  # [J/(kg*K)]
+    turbine_gas_heat_capacity_ratio: float = 0  # [-]
     turbine_pressure_ratio: float = 0  # [-]
     turbine_inlet_temperature: float = 0  # [K]
     turbine_efficiency: float = 0  # [-]
@@ -33,8 +34,8 @@ class OpenEngineCycle(EngineCycle):
             print('Iterate Mass Flow')
         while self.turbine_mass_flow * 1.001 < self.turbine.mass_flow_required:
             if self.verbose:
-                print(f'GG:{self.turbine_mass_flow:.5f}kg/s')
-                print(f'TU1:{self.gas_generator.turbine_mass_flow:.6f}kg/s')
+                print(f'Actual:  {self.turbine_mass_flow:.5f} kg/s')
+                print(f'Required:{self.turbine.mass_flow_required:.5f} kg/s\n')
             self.turbine_mass_flow = self.turbine.mass_flow_required
         if self.verbose:
             print(f'Mass Flow Set\n')
@@ -47,9 +48,12 @@ class OpenEngineCycle(EngineCycle):
 
     @property
     def turbine(self):
-        return Turbine(pump_power_required=self.pump_power_required, inlet_temperature=self.turbine_inlet_temperature,
-                       efficiency=self.turbine_efficiency, specific_heat_capacity=self.turbine_specific_heat_capacity,
-                       heat_capacity_ratio=self.turbine_heat_capacity_ratio, pressure_ratio=self.turbine_pressure_ratio)
+        return Turbine(pump_power_required=self.pump_power_required,
+                       inlet_temperature=self.turbine_inlet_temperature,
+                       efficiency=self.turbine_efficiency,
+                       specific_heat_capacity=self.turbine_gas_specific_heat_capacity,
+                       heat_capacity_ratio=self.turbine_gas_heat_capacity_ratio,
+                       pressure_ratio=self.turbine_pressure_ratio)
 
     @property
     def chamber_mass_flow(self):

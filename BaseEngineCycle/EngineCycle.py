@@ -8,7 +8,8 @@ from scipy import constants as constants
 
 from BaseEngineCycle.BaseFunctions import get_propellant_mix_name
 from BaseEngineCycle.CombustionChamber import CombustionChamber, Injector
-from BaseEngineCycle.Cooling import Coolant, CoolingChannels, HeatExchanger
+from BaseEngineCycle.Cooling import Coolant, CoolingChannels
+from BaseEngineCycle.HeatExchanger import HeatExchanger
 from BaseEngineCycle.Nozzle import BellNozzle
 from BaseEngineCycle.Pressurant import Pressurant, PressurantTank
 from BaseEngineCycle.Propellant import Propellant
@@ -66,6 +67,12 @@ class EngineCycle:
     maximum_wall_temperature: float  # [K]
     thrust_chamber_wall_emissivity: float  # [-]
     hot_gas_emissivity: float  # [-]
+    coolant_liquid_heat_capacity: float  # [J/(mol*K)]
+    coolant_gas_heat_capacity: float  # [J/(mol*K)]
+    coolant_heat_of_vaporization: float  # [J/mol]
+    coolant_molar_mass: float  # [kg/mol]
+    coolant_boiling_temp_1_bar: float  # [K]
+    coolant_inlet_temperature: float  # [K]
 
     nozzle_type: str
     convective_coefficient_mode: str
@@ -171,7 +178,7 @@ class EngineCycle:
     def get_heat_capacity_ratio(self):
         # Get the heat_capacity_ratio before an expansion ratio or pressure ratio is provided
         # , which setting all CEA values at once requires
-        kwargs = {key: value for key, value in self.cea_kwargs.items() if key != 'eps'}
+        kwargs = {key: value for key, value in self.cea_kwargs.items() if key not in ('eps', 'PcOvPe')}
         return get_cea_chamber_dict(**kwargs)['y_cc']
 
     @property
@@ -333,20 +340,25 @@ class EngineCycle:
                              heat_capacity_ratio=self.cc_hot_gas_heat_capacity_ratio)
 
     @property
+    def cooling_channel_flow(self):
+        # Base assumption is that the fuel is the coolant and is completely routed through the cooling channels
+        return self.fuel_flow
+
+    @property
     def coolant(self):
-        return Coolant(heat_capacity_liquid=1,
-                       heat_capacity_gas=1,
-                       heat_of_vaporization=1,
-                       molar_mass=1,
-                       boiling_temperature_1_bar=1)
+        return Coolant(liquid_heat_capacity=self.coolant_liquid_heat_capacity,
+                       gas_heat_capacity=self.coolant_gas_heat_capacity,
+                       heat_of_vaporization=self.coolant_heat_of_vaporization,
+                       molar_mass=self.coolant_molar_mass,
+                       boiling_temperature_1_bar=self.coolant_boiling_temp_1_bar)
 
     @property
     def cooling_channels(self):
         return CoolingChannels(coolant=self.coolant,
                                total_heat_transfer=self.heat_exchanger.total_heat_transfer,
                                outlet_pressure=self.combustion_chamber_pressure,
-                               inlet_temperature=1,
-                               mass_flow=1)
+                               inlet_temperature=self.coolant_inlet_temperature,
+                               mass_flow=self.cooling_channel_flow)
 
     @property
     def heat_exchanger(self):

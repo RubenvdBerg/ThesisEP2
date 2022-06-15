@@ -1,8 +1,9 @@
 from BaseEngineCycle.EngineCycle import EngineCycle
-from BaseEngineCycle.Cooling import HeatExchanger
+from BaseEngineCycle.HeatExchanger import HeatExchanger
 from BaseEngineCycle.ThrustChamber import ThrustChamber
 from BaseEngineCycle.Nozzle import BellNozzle
 from BaseEngineCycle.CombustionChamber import CombustionChamber, Injector
+from OpenExpanderCycle.OECycle import OpenExpandercycle
 from scipy import constants
 import arguments as args
 
@@ -74,5 +75,23 @@ def convective_heat_transfer_validation():
     print(f'Thr HeatTrsfr:  {test_heat_exchanger.get_convective_heat_flux(0):{f_string}}\t{71e6:.3e}')
 
 
+def open_expander_verification():
+    base_args = args.base_arguments_o.copy()
+    del base_args['fuel_name']
+    del base_args['exit_pressure_forced']
+    engine = OpenExpandercycle(thrust=121.50E3,
+                               combustion_chamber_pressure=40E5,
+                               mass_mixture_ratio=5,
+                               burn_time=609,
+                               fuel_name='LH2_NASA',
+                               is_frozen=False,
+                               expansion_ratio=130,
+                               **base_args, **args.oe_arguments)
+
+    print(engine.simple_specific_impulse)
+    print(engine.thrust_chamber.length, engine.nozzle.exit_radius*2)
+
+
 if __name__ == '__main__':
-    convective_heat_transfer_validation()
+    # convective_heat_transfer_validation()
+    open_expander_verification()
