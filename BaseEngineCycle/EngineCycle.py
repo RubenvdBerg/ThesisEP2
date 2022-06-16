@@ -8,7 +8,7 @@ from scipy import constants as constants
 
 from BaseEngineCycle.BaseFunctions import get_propellant_mix_name
 from BaseEngineCycle.CombustionChamber import CombustionChamber, Injector
-from BaseEngineCycle.Cooling import Coolant, CoolingChannels
+from BaseEngineCycle.Cooling import CoolingChannels
 from BaseEngineCycle.HeatExchanger import HeatExchanger
 from BaseEngineCycle.Nozzle import BellNozzle
 from BaseEngineCycle.Pressurant import Pressurant, PressurantTank
@@ -72,7 +72,7 @@ class EngineCycle:
     coolant_heat_of_vaporization: float  # [J/mol]
     coolant_molar_mass: float  # [kg/mol]
     coolant_boiling_temp_1_bar: float  # [K]
-    coolant_inlet_temperature: float  # [K]
+
 
     nozzle_type: str
     convective_coefficient_mode: str
@@ -89,6 +89,7 @@ class EngineCycle:
     recovery_factor: Optional[float] = None  # [-]
     chamber_throat_area_ratio: Optional[float] = None  # [-]
     chamber_characteristic_length: Optional[float] = None  # [m]
+    coolant_inlet_temperature: Optional[float] = None  # [K]
 
     # Values that can be estimated by CEA
     characteristic_velocity: Optional[float] = None  # [m/s]
@@ -228,7 +229,8 @@ class EngineCycle:
 
     @property
     def oxidizer(self):
-        return Propellant(mass_flow=self.oxidizer_flow,
+        return Propellant(name=self.oxidizer_name,
+                          mass_flow=self.oxidizer_flow,
                           burn_time=self.burn_time,
                           density=self.oxidizer_density,
                           type='oxidizer',
@@ -236,7 +238,8 @@ class EngineCycle:
 
     @property
     def fuel(self):
-        return Propellant(mass_flow=self.fuel_flow,
+        return Propellant(name=self.fuel_name,
+                          mass_flow=self.fuel_flow,
                           burn_time=self.burn_time,
                           density=self.fuel_density,
                           type='fuel',
@@ -340,25 +343,17 @@ class EngineCycle:
                              heat_capacity_ratio=self.cc_hot_gas_heat_capacity_ratio)
 
     @property
-    def cooling_channel_flow(self):
-        # Base assumption is that the fuel is the coolant and is completely routed through the cooling channels
+    def cooling_flow(self):
+        # Initial assumption is that the fuel is the coolant and is completely routed through the cooling channels
         return self.fuel_flow
 
     @property
-    def coolant(self):
-        return Coolant(liquid_heat_capacity=self.coolant_liquid_heat_capacity,
-                       gas_heat_capacity=self.coolant_gas_heat_capacity,
-                       heat_of_vaporization=self.coolant_heat_of_vaporization,
-                       molar_mass=self.coolant_molar_mass,
-                       boiling_temperature_1_bar=self.coolant_boiling_temp_1_bar)
-
-    @property
     def cooling_channels(self):
-        return CoolingChannels(coolant=self.coolant,
+        return CoolingChannels(propellant_name=self.fuel.name,
                                total_heat_transfer=self.heat_exchanger.total_heat_transfer,
                                outlet_pressure=self.combustion_chamber_pressure,
                                inlet_temperature=self.coolant_inlet_temperature,
-                               mass_flow=self.cooling_channel_flow)
+                               mass_flow=self.cooling_flow)
 
     @property
     def heat_exchanger(self):

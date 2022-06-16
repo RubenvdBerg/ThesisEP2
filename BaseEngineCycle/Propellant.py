@@ -4,6 +4,7 @@ from typing import Literal
 
 @dataclass
 class Propellant:
+    name: str
     type: Literal['oxidizer', 'fuel']
     mass_flow: float  # [kg/s]
     burn_time: float  # [s]

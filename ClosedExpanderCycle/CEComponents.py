@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from BaseEngineCycle.Cooling import Coolant
+from BaseEngineCycle.Cooling2 import Coolant
 
 
 @dataclass

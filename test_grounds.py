@@ -1,58 +1,27 @@
-from GasGeneratorCycle.GGCycle import GasGeneratorCycle
-from ElectricPumpCycle.EPCycle import ElectricPumpCycle
-from arguments import base_arguments, ep_arguments, gg_arguments
-# temperature = [297,
-#                600,
-#                800,
-#                900,
-#                1000,
-#                1050,
-#                1100,
-#                1150,
-#                1200,
-#                1300,
-#                1373]
-# ultimate_tensile_strength = [
-#     733,
-#     689,
-#     617,
-#     468,
-#     273,
-#     212,
-#     154,
-#     113,
-#     79,
-#     50,
-#     27
-# ]
-# sigma_ult_function = interp1d(temperature, ultimate_tensile_strength)
-# cea = CEA_Obj(oxName='LO2_NASA', fuelName='LH2_NASA')
-# psia_to_pascal = 6894.75728
-#
-#
-# def pascal_to_psia(pressure_in_pascal: float):
-#     return pressure_in_pascal / psia_to_pascal
-#
-#
-# def rankine_to_kelvin(temperature_in_rankine: float):
-#     return temperature_in_rankine * 5 / 9
-#
-#
-# is_frozen = True
-# frozen, frozenAtThroat = (1, 1) if is_frozen else (0, 0)
-# mmr = 5.1
-# chamber_pressure = 10E6
-# area_ratio = 45
-# isp_vac, c_star, t_comb = cea.get_IvacCstrTc(Pc=pascal_to_psia(chamber_pressure), MR=mmr, eps=area_ratio, frozen=frozen,
-#                                              frozenAtThroat=frozenAtThroat)
-# temps = cea.get_Temperatures(Pc=pascal_to_psia(chamber_pressure), MR=mmr, eps=area_ratio, frozen=frozen,
-#                              frozenAtThroat=frozenAtThroat)
-# print(*(rankine_to_kelvin(temp) for temp in temps))
-# is_frozen = False
-# temps = cea.get_Temperatures(Pc=pascal_to_psia(chamber_pressure), MR=mmr, eps=area_ratio, frozen=frozen,
-#                              frozenAtThroat=frozenAtThroat)
-# print(*(rankine_to_kelvin(temp) for temp in temps))
+from dataclasses import dataclass, field
+
+@dataclass
+class Class1:
+    attr1: float = 1
+
+@dataclass
+class Class2:
+    attr2: Class1 = field(init=False, default=Class1())
+
+def default_factory():
+    return Class1()
+
+@dataclass
+class Class2_better:
+    attr2: Class1 = field(init=False, default_factory=default_factory)
 
 if __name__ == '__main__':
-    ep = ElectricPumpCycle(**base_arguments,**ep_arguments)
-    gg = GasGeneratorCycle(**base_arguments,**gg_arguments)
+    # c2 = Class2()
+    # c2.attr2.attr1 = 3
+    # c3 = Class2()
+    # print(c3.attr2.attr1)
+
+    c2 = Class2_better()
+    c2.attr2.attr1 = 3
+    c3 = Class2_better()
+    print(c3.attr2.attr1)

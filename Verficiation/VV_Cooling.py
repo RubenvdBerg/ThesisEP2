@@ -1,4 +1,4 @@
-from BaseEngineCycle.Cooling2 import CoolingChannels
+from BaseEngineCycle.Cooling import CoolingChannels
 
 # for propellant_name in ('LH2_NASA', 'LO2_NASA', 'RP1_NASA'):
 #     coolant = Coolant(propellant_name=propellant_name)
