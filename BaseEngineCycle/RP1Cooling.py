@@ -28,7 +28,7 @@ class RP1Coolant:
         ts = base_array[4:, 0]
         ps = base_array[0, 2:]
         cps = base_array[4:, 2:]
-        return interpolate.interp2d(ps, ts, cps)
+        return interpolate.interp2d(ps, ts, cps, bounds_error=True)
 
     @cached_property
     def cp_interpolation_func_low_t(self) -> Callable:
@@ -36,11 +36,13 @@ class RP1Coolant:
         ts = base_array[1:4, 0]
         ps = base_array[0, 1:]
         cps = base_array[1:4, 1:]
-        return interpolate.interp2d(ps, ts, cps)
+        return interpolate.interp2d(ps, ts, cps, bounds_error=True)
 
     def get_heat_capacity(self, temperature: float, pressure: float) -> float:
         if temperature < 373.42:
             heat_capacity = float(self.cp_interpolation_func_low_t(pressure, temperature))
+        if pressure < 10E6:
+            heat_capacity = float(self.cp_interpolation_charlie_taylor)
         else:
             heat_capacity = float(self.cp_interpolation_func(pressure, temperature))
         # if isnan(heat_capacity):
@@ -52,7 +54,7 @@ class RP1Coolant:
 
     def get_boiling_temperature(self, pressure: float) -> float:  # [K]
         # Clausius-Clapeyron estimation
-        T0 = self.boiling_temperature_1_bar
+        T0 = self.boil_temp_1_bar
         Dh = self.heat_of_vaporization
         P0 = 1e5  # 1 bar
         Tboil = (T0 ** -1 - (constants.R / Dh) * log(pressure/P0)) ** -1
@@ -68,7 +70,7 @@ def default_factory_rp1_coolant():
 @dataclass
 class RP1CoolingChannels:
     # Similar to Cooling2 CoolingChannels, but assuming boiling point is not reached
-    coolant: RP1Coolant = field(init=False, default_factory=default_factory_rp1_coolant)
+    rp1_coolant: RP1Coolant = field(init=False, default_factory=default_factory_rp1_coolant)
     total_heat_transfer: float  # [W]
     outlet_pressure: float  # [Pa]
     mass_flow: float  # [kg/s]
@@ -112,8 +114,8 @@ class RP1CoolingChannels:
     def inlet_pressure(self):
         return self.outlet_pressure + self.pressure_drop
 
-    def get_specific_heat_capacity(self, temperature:float) -> float:
-        return self.coolant.get_specific_heat_capacity(temperature=temperature, pressure=self.inlet_pressure)
+    def get_specific_heat_capacity(self, temperature: float) -> float:
+        return self.rp1_coolant.get_specific_heat_capacity(temperature=temperature, pressure=self.inlet_pressure)
 
     @property
     def inlet_specific_heat_capacity(self):
@@ -121,7 +123,7 @@ class RP1CoolingChannels:
 
     @cached_property
     def boiling_temperature(self):
-        return self.coolant.get_boiling_temperature(pressure=self.inlet_pressure)
+        return self.rp1_coolant.get_boiling_temperature(pressure=self.inlet_pressure)
 
     @property
     def average_coolant_specific_heat_capacity(self):
@@ -155,5 +157,7 @@ class RP1CoolingChannels:
         return outlet_temp
 
 if __name__ == '__main__':
-    coolant = RP1Coolant()
-    print(coolant.get_heat_capacity(temperature=633., pressure=9E6))
+    # rp1_coolant = RP1Coolant()
+    print(rp1_coolant.get_heat_capacity(temperature=633., pressure=9E6))
+    # coolch = RP1CoolingChannels(total_heat_transfer=1E6,outlet_pressure=10E6,mass_flow=10)
+    # print(coolch.boiling_temperature)
