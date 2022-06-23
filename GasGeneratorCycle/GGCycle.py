@@ -17,13 +17,10 @@ class GasGeneratorCycle(OpenEngineCycle):
     gg_material_density: float = 0  # [kg/m3]
     gg_yield_strength: float = 0  # [Pa]
 
-    # Override from OpenEngineCycle, is assigned later, not required at init
-    turbine_inlet_temperature: float = field(init=False, repr=False, default=None)
-
-    def __post_init__(self):
-        super().__post_init__()
-        # Different attribute name solely to make it explicit gas generator temperature is limited by the turbine
-        self.turbine_inlet_temperature = self.turbine_maximum_temperature
+    @property
+    def turbine_inlet_temperature(self):
+        # Overriden to make it explicit the turbine inlet temperature is chosen to be the maximum allowable temperature
+        return self.turbine_maximum_temperature
 
     @property
     def gg_mass_flow(self):

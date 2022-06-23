@@ -18,6 +18,7 @@ class CoolingChannels:
     verbose: bool = True
 
     def __post_init__(self):
+        CoolProp.set_reference_state(self.coolprop_name, 'NBP')
         # Set optional variables
         if self.inlet_temperature is None:
             self.inlet_temperature = self.default_inlet_temperature

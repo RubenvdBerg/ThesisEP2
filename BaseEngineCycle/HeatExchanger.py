@@ -56,7 +56,7 @@ class HeatExchanger:
         return constants.sigma * (tc ** 4 - tw ** 4) / (1 / e_hg + (1 / e_cw) - 1)
 
     @property
-    def total_radiative_heat_transfer(self):
+    def total_radiative_heat_transfer(self):  # [W]
         return self.netto_average_wall_radiative_heat_flux * self.thrust_chamber.surface
 
     @staticmethod
@@ -135,7 +135,7 @@ class HeatExchanger:
         return coefficient * (temp_ref - self.maximum_wall_temperature)
 
     @property
-    def total_convective_heat_transfer(self):
+    def total_convective_heat_transfer(self):  # [W]
         result = scipy.integrate.quad(
             lambda x: self.get_convective_heat_flux(x) * self.thrust_chamber.get_radius(x) * 2 * pi,
             *self.thrust_chamber.throat_distance_tuple)
@@ -145,7 +145,7 @@ class HeatExchanger:
         return float(result[0])
 
     @property
-    def total_heat_transfer(self):
+    def total_heat_transfer(self):  # [W]
         return self.total_convective_heat_transfer + self.total_radiative_heat_transfer
 
     def show_heat_flux_coefficient(self, **kwargs):

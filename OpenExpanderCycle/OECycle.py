@@ -16,13 +16,16 @@ class OpenExpandercycle(OpenEngineCycle):
     def fuel_flow(self):
         return 1 / (self.mass_mixture_ratio + 1) * self.chamber_mass_flow + self.turbine_mass_flow
 
+    @property
+    def turbine_inlet_temperature(self):
+        return self.cooling_channels.outlet_temperature
 
 if __name__ == '__main__':
     import arguments as args
     base_args = args.base_arguments_o
     del base_args['fuel_name']
     del base_args['exit_pressure_forced']
-    engine = OpenExpandercycle(thrust=121.50E3,
+    engine1 = OpenExpandercycle(thrust=121.50E3,
                                combustion_chamber_pressure=40E5,
                                mass_mixture_ratio=5,
                                burn_time=609,
@@ -30,5 +33,10 @@ if __name__ == '__main__':
                                is_frozen=False,
                                expansion_ratio=130,
                                **base_args, **args.oe_arguments)
+    engine2 = OpenExpandercycle(thrust=50E3,
+                                combustion_chamber_pressure=10E6,
+                                mass_mixture_ratio=2.45,
+                                )
+    print(engine.cooling_channels.outlet_temperature)
     print(engine.simple_specific_impulse)
     print(engine.thrust_chamber.length, engine.nozzle.exit_radius*2)

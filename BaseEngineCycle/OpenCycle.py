@@ -10,7 +10,6 @@ class OpenEngineCycle(EngineCycle):
     turbine_gas_specific_heat_capacity: float = 0  # [J/(kg*K)]
     turbine_gas_heat_capacity_ratio: float = 0  # [-]
     turbine_pressure_ratio: float = 0  # [-]
-    turbine_inlet_temperature: float = 0  # [K]
     turbine_efficiency: float = 0  # [-]
     turbopump_specific_power: float = 0  # [W/kg]
     exhaust_thrust_contribution: float = 0  # [-]
@@ -31,20 +30,24 @@ class OpenEngineCycle(EngineCycle):
 
     def iterate_mass_flow(self):
         if self.verbose:
-            print('Iterate Mass Flow')
+            print('Iterate Turbine Mass Flow')
         while self.turbine_mass_flow * 1.001 < self.turbine.mass_flow_required:
             if self.verbose:
                 print(f'Actual:  {self.turbine_mass_flow:.5f} kg/s')
                 print(f'Required:{self.turbine.mass_flow_required:.5f} kg/s\n')
             self.turbine_mass_flow = self.turbine.mass_flow_required
         if self.verbose:
-            print(f'Mass Flow Set\n')
+            print(f'Turbine Mass Flow Set\n')
 
     def reiterate(self):
         if self.verbose:
             print('Start reiteration')
         self.update_cea()
         self.iterate_mass_flow()
+
+    @property
+    def turbine_inlet_temperature(self):
+        return None
 
     @property
     def turbine(self):

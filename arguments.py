@@ -63,12 +63,11 @@ base_arguments_own = {
     'thrust_chamber_wall_emissivity': .8,
     'hot_gas_emissivity': .1,
     'convective_coefficient_mode': 'Modified Bartz',
-    'coolant_liquid_heat_capacity': 1,
-    'coolant_gas_heat_capacity': 1,
-    'coolant_heat_of_vaporization': 1,
-    'coolant_molar_mass': 1,
-    'coolant_boiling_temp_1_bar': 1,
-    'coolant_inlet_temperature': 1
+    # 'coolant_liquid_heat_capacity': 1,
+    # 'coolant_gas_heat_capacity': 1,
+    # 'coolant_heat_of_vaporization': 1,
+    # 'coolant_molar_mass': 1,
+    # 'coolant_boiling_temp_1_bar': 1,
 }
 
 base_arguments = base_arguments_kwak | base_arguments_own
@@ -86,7 +85,7 @@ gg_arguments = open_arguments | {
 }
 
 oe_arguments = open_arguments | {
-    'turbine_inlet_temperature': 900
+
 }
 
 ep_arguments = {

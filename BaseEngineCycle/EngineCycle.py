@@ -67,11 +67,11 @@ class EngineCycle:
     maximum_wall_temperature: float  # [K]
     thrust_chamber_wall_emissivity: float  # [-]
     hot_gas_emissivity: float  # [-]
-    coolant_liquid_heat_capacity: float  # [J/(mol*K)]
-    coolant_gas_heat_capacity: float  # [J/(mol*K)]
-    coolant_heat_of_vaporization: float  # [J/mol]
-    coolant_molar_mass: float  # [kg/mol]
-    coolant_boiling_temp_1_bar: float  # [K]
+    # coolant_liquid_heat_capacity: float  # [J/(mol*K)]
+    # coolant_gas_heat_capacity: float  # [J/(mol*K)]
+    # coolant_heat_of_vaporization: float  # [J/mol]
+    # coolant_molar_mass: float  # [kg/mol]
+    # coolant_boiling_temp_1_bar: float  # [K]
 
 
     nozzle_type: str
@@ -343,19 +343,6 @@ class EngineCycle:
                              heat_capacity_ratio=self.cc_hot_gas_heat_capacity_ratio)
 
     @property
-    def cooling_flow(self):
-        # Initial assumption is that the fuel is the coolant and is completely routed through the cooling channels
-        return self.fuel_flow
-
-    @property
-    def cooling_channels(self):
-        return CoolingChannels(propellant_name=self.fuel.name,
-                               total_heat_transfer=self.heat_exchanger.total_heat_transfer,
-                               outlet_pressure=self.combustion_chamber_pressure,
-                               inlet_temperature=self.coolant_inlet_temperature,
-                               mass_flow=self.cooling_flow)
-
-    @property
     def heat_exchanger(self):
         return HeatExchanger(combustion_temperature=self.combustion_temperature,
                              combustion_chamber_pressure=self.combustion_chamber_pressure,
@@ -370,6 +357,19 @@ class EngineCycle:
                              thrust_chamber=self.thrust_chamber,
                              recovery_factor=self.recovery_factor,
                              prandtl_number=self.cc_hot_gas_prandtl_number)
+
+    @property
+    def cooling_flow(self):
+        # Initial assumption is that the fuel is the coolant and is completely routed through the cooling channels
+        return self.fuel_flow
+
+    @property
+    def cooling_channels(self):
+        return CoolingChannels(propellant_name=self.fuel.name,
+                               total_heat_transfer=self.heat_exchanger.total_heat_transfer,
+                               outlet_pressure=self.combustion_chamber_pressure,
+                               inlet_temperature=self.coolant_inlet_temperature,
+                               mass_flow=self.cooling_flow)
 
     @property
     def pump_power_required(self):

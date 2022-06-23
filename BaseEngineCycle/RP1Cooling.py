@@ -1,3 +1,4 @@
+import warnings
 from dataclasses import dataclass, field
 from functools import cached_property
 from math import log, isclose, isnan
@@ -13,6 +14,7 @@ class RP1Coolant:
     heat_of_vaporization: float = field(init=False, default=41820.0)  # [J/mol]
     molar_mass: float = field(init=False, default=170.0E-3)  # [kg/mol]
     boil_temp_1_bar: float = field(init=False, default=489.45)  # [K]
+    _bounds_error: bool = field(init=False, default=True)
 
     @cached_property
     def specific_heat_of_vaporization(self):  # [J/kg]
@@ -20,14 +22,18 @@ class RP1Coolant:
 
     @cached_property
     def base_data(self) -> np.array:
-        return np.genfromtxt('Data/Abdulagatov2011_RP1_Heat_Capacity_Data.csv', delimiter=',')
+        return np.genfromtxt(r'C:\Users\rvand\PycharmProjects\ThesisEP2\BaseEngineCycle\Data\Abdulagatov2011_RP1_Heat_Capacity_Data.csv', delimiter=',')
+
+    @cached_property
+    def arlc_data(self) -> np.array:
+        return np.genfromtxt(r'C:\Users\rvand\PycharmProjects\ThesisEP2\BaseEngineCycle\Data\ALRC(Aerojet)1961_RP1_HeatCapacity_Data.csv', delimiter=',')
 
     @cached_property
     def cp_interpolation_func(self) -> Callable:
         base_array = self.base_data
-        ts = base_array[4:, 0]
+        ts = base_array[1:, 0]
         ps = base_array[0, 2:]
-        cps = base_array[4:, 2:]
+        cps = base_array[1:, 2:]
         return interpolate.interp2d(ps, ts, cps, bounds_error=True)
 
     @cached_property
@@ -38,19 +44,38 @@ class RP1Coolant:
         cps = base_array[1:4, 1:]
         return interpolate.interp2d(ps, ts, cps, bounds_error=True)
 
-    def get_heat_capacity(self, temperature: float, pressure: float) -> float:
-        if temperature < 373.42:
-            heat_capacity = float(self.cp_interpolation_func_low_t(pressure, temperature))
-        if pressure < 10E6:
-            heat_capacity = float(self.cp_interpolation_charlie_taylor)
-        else:
-            heat_capacity = float(self.cp_interpolation_func(pressure, temperature))
-        # if isnan(heat_capacity):
-        #     raise ValueError('No heat capacity data available in this range')
-        return heat_capacity
+    @cached_property
+    def cp_interpolation_func_alrc(self) -> Callable:
+        base_array = self.arlc_data
+        ts = base_array[1:, 2]
+        cps = base_array[1:, 3]
+        return interpolate.interp1d(ts, cps, bounds_error=True)
 
-    def get_specific_heat_capacity(self, **kwargs) -> float:  # [J/(kg*K)]
-        return self.get_heat_capacity(**kwargs) / self.molar_mass
+    @cached_property
+    def cp_interpolation_func_extrapolate(self) -> Callable:
+        base_array = self.base_data
+        ts = base_array[4:, 0]
+        ps = base_array[0, 2:]
+        cps = base_array[4:, 2:]
+        return interpolate.interp2d(ps, ts, cps, bounds_error=False)
+
+    def get_specific_heat_capacity(self, temperature: float, pressure: float) -> float:  # [J/(kg*K)]
+        try:
+            if temperature < 373.42:
+                heat_capacity = self.cp_interpolation_func_low_t(pressure, temperature)
+            else:
+                heat_capacity = self.cp_interpolation_func(pressure, temperature)
+        except ValueError:
+            try:
+                heat_capacity = self.cp_interpolation_func_alrc(temperature)
+                warnings.warn('Abdulagatov2011 RP1 data was not sufficient to interpolate the heat capacity, using 1961 ARLC data instead, which only accounts for temperature effects')
+            except ValueError:
+                warnings.warn('Neither Abdulagatov2011 nor ARLC1961 data sufficient to interpolate RP1 heat capacity, extrapolating from Abdulgatov2011 data. Large deviations likely')
+                heat_capacity = self.cp_interpolation_func_extrapolate(pressure, temperature)
+        return float(heat_capacity)
+
+    def get_heat_capacity(self, **kwargs) -> float:  # [J/(mol*K)]
+        return self.get_specific_heat_capacity(**kwargs) * self.molar_mass
 
     def get_boiling_temperature(self, pressure: float) -> float:  # [K]
         # Clausius-Clapeyron estimation
@@ -74,7 +99,7 @@ class RP1CoolingChannels:
     total_heat_transfer: float  # [W]
     outlet_pressure: float  # [Pa]
     mass_flow: float  # [kg/s]
-    inlet_temperature: float = 293.15  # [K]
+    inlet_temperature: float = 294  # [K]
     verbose: bool = True
 
     # Optional attributes that can be estimated
@@ -82,8 +107,7 @@ class RP1CoolingChannels:
 
     # Internal attributes that can be overridden if really needed
     _pressure_drop_ratio: float = field(init=False, default=.15)  # [-]
-    _outlet_temp_estimate: float = field(init=False, default=200)  # [K]
-
+    _outlet_temp_estimate: float = field(init=False, default=400)  # [K]
 
     def __post_init__(self):
         # Set optional variables
@@ -103,7 +127,7 @@ class RP1CoolingChannels:
             print('Setting specific heat capacities:')
             print(f'T_boil: {self.boiling_temperature:.2f}\n')
             print(self.verbose_message)
-        while not isclose(self.outlet_temperature, self._outlet_temp_estimate, rel_tol=0.05):
+        while not isclose(self.outlet_temperature, self._outlet_temp_estimate, rel_tol=0.01):
             self._outlet_temp_estimate = self.outlet_temperature
             print(self.verbose_message)
             sleep(1)
@@ -158,6 +182,6 @@ class RP1CoolingChannels:
 
 if __name__ == '__main__':
     # rp1_coolant = RP1Coolant()
-    print(rp1_coolant.get_heat_capacity(temperature=633., pressure=9E6))
-    # coolch = RP1CoolingChannels(total_heat_transfer=1E6,outlet_pressure=10E6,mass_flow=10)
-    # print(coolch.boiling_temperature)
+    # print(rp1_coolant.get_specific_heat_capacity(temperature=700., pressure=9E6))
+    coolch = RP1CoolingChannels(total_heat_transfer=1E6,outlet_pressure=10E6,mass_flow=10)
+    print(coolch.boiling_temperature)
