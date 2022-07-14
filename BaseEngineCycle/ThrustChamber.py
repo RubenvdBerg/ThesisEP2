@@ -8,7 +8,7 @@ from numpy import array, isclose, linspace
 from dataclasses import dataclass
 from BaseEngineCycle.CombustionChamber import CombustionChamber, Injector
 from BaseEngineCycle.Nozzle import Nozzle
-from irt import get_area_ratio
+from irt import get_expansion_ratio
 
 
 @dataclass
@@ -54,11 +54,11 @@ class ThrustChamber:
 
     def get_mach(self, distance_from_throat):
         radius = self.get_radius(distance_from_throat)
-        area_ratio = pi * radius ** 2 / self.throat_area
+        expansion_ratio = pi * radius ** 2 / self.throat_area
         x0 = .1 if distance_from_throat < 0 else 10
 
         def func(mach_number):
-            return array([float(get_area_ratio(mach_number, self.heat_capacity_ratio) - area_ratio)])
+            return array([float(get_expansion_ratio(mach_number, self.heat_capacity_ratio) - expansion_ratio)])
 
         mach = scipy.optimize.fsolve(func, array([float(x0)]))[0]
         check = isclose(func(mach), [0.0])
@@ -72,8 +72,10 @@ class ThrustChamber:
     def show_contour(self, **kwargs):
         self.distance_plot(self.get_radius, 'Radius [m]', **kwargs)
 
-    def distance_plot(self, func: Callable, ylabel: str, num=300, ytick_function: Optional[Callable] = None):
-        distances = list(linspace(*self.throat_distance_tuple, num))
+    def distance_plot(self, func: Callable, ylabel: str, num=300, ytick_function: Optional[Callable] = None, distance_tuple: Optional[tuple] = None):
+        if distance_tuple is None:
+            distance_tuple = self.throat_distance_tuple
+        distances = list(linspace(*distance_tuple, num))
         values = [func(distance) for distance in distances]
         fig, ax = plt.subplots()
         ax.plot(distances, values)

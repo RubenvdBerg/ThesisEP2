@@ -1,11 +1,13 @@
 from dataclasses import dataclass
 from math import pi
 from typing import Optional
+from copy import deepcopy
 
 import scipy.integrate
 from scipy import constants as constants
 
 from BaseEngineCycle.ThrustChamber import ThrustChamber
+from BaseEngineCycle.Nozzle import Nozzle
 
 
 @dataclass
@@ -21,15 +23,42 @@ class HeatExchanger:
     heat_capacity_ratio: float  # [-]
 
     maximum_wall_temperature: float  # [K]
+
     thrust_chamber_wall_emissivity: float  # [-]
     convective_coefficient_mode: str
+    expansion_ratio_end_cooling: Optional[float] = None  # [K]
+    post_injection_build_up_ratio: Optional[float] = None  # [-]
     prandtl_number: Optional[float] = None  # [-]
     recovery_factor: Optional[float] = None  # [-]
+    verbose: bool = True
 
     def __post_init__(self):
         # Setting recovery factor with turbulent estimate if not provided
-        self.recovery_factor = self.turbulent_recovery_factor if self.recovery_factor is None else self.recovery_factor
-        self.prandtl_number = self.prandtl_number_estimate if self.prandtl_number is None else self.prandtl_number
+        # ORDER OF THESE LINES IS IMPORTANT
+        if self.prandtl_number is None:
+            self.prandtl_number = self.prandtl_number_estimate
+        if self.recovery_factor is None:
+            self.recovery_factor = self.turbulent_recovery_factor
+        if self.expansion_ratio_end_cooling is None:
+            self.expansion_ratio_end_cooling = self.thrust_chamber.nozzle.expansion_ratio
+        if self.post_injection_build_up_ratio is None:
+            # Heat transfer to combustion chamber wall is assumed zero at injector face and builds up to a constant
+            # heat transfer based on combustion temperature as reference temperature. At which point this constant heat
+            # transfer is reached as percentage of total chamber length, is determined by post_injection_build_up_ratio
+            # Rough estimate based on Perakis2021
+            self.post_injection_build_up_ratio = 0.25
+
+    @property
+    def min_distance_from_throat(self):
+        return self.thrust_chamber.min_distance_from_throat
+
+    @property
+    def max_distance_from_throat(self):
+        # Ugly way of getting distance from throat at a certain expansion ratio for the same nozzle
+        cooling_nozzle = deepcopy(self.thrust_chamber.nozzle)
+        cooling_nozzle.expansion_ratio = self.expansion_ratio_end_cooling
+        distance = cooling_nozzle.div_length
+        return distance
 
     @property
     def laminar_recovery_factor(self):
@@ -128,17 +157,33 @@ class HeatExchanger:
 
     def get_convective_heat_flux(self, distance_from_throat: float):
         coefficient = self.get_convective_heat_transfer_coefficient(distance_from_throat)
-        if distance_from_throat < -self.thrust_chamber.nozzle.conv_length:
+        len_cc = self.thrust_chamber.chamber.length
+        dist_min = self.thrust_chamber.min_distance_from_throat
+        len_conv = self.thrust_chamber.nozzle.conv_length
+        r_build_up = self.post_injection_build_up_ratio
+        if distance_from_throat < -len_conv:
             temp_ref = self.combustion_temperature
+            # Distance from injector divided by total chamber length
+            inj_distance_ratio = (distance_from_throat - dist_min) / len_cc
+            if inj_distance_ratio < r_build_up:
+                fact_distance = ((distance_from_throat - dist_min) / (r_build_up * len_cc))
+            else:
+                fact_distance = 1
+            temp_eff = (temp_ref - self.maximum_wall_temperature) * fact_distance
         else:
             temp_ref = self.get_adiabatic_wall_temp(distance_from_throat)
-        return coefficient * (temp_ref - self.maximum_wall_temperature)
+            temp_eff = temp_ref - self.maximum_wall_temperature
+        return coefficient * temp_eff
+
+    @property
+    def distance_tuple(self):
+        return self.min_distance_from_throat, self.max_distance_from_throat
 
     @property
     def total_convective_heat_transfer(self):  # [W]
         result = scipy.integrate.quad(
             lambda x: self.get_convective_heat_flux(x) * self.thrust_chamber.get_radius(x) * 2 * pi,
-            *self.thrust_chamber.throat_distance_tuple)
+            *self.distance_tuple)
         # if self.verbose:
         #     print(
         #         f'Total Convective Heat Transfer estimated with a estimated error of {result[1] / result[0] * 100:.8f}%')
@@ -148,24 +193,25 @@ class HeatExchanger:
     def total_heat_transfer(self):  # [W]
         return self.total_convective_heat_transfer + self.total_radiative_heat_transfer
 
+    def distance_plot(self, **kwargs):
+        self.thrust_chamber.distance_plot(**kwargs, distance_tuple=self.distance_tuple)
+
     def show_heat_flux_coefficient(self, **kwargs):
-        self.thrust_chamber.distance_plot(func=self.get_convective_heat_transfer_coefficient,
-                                          ylabel=r'Convective Heat Transfer Coefficient [$kW$/$(m^2K)$]',
-                                          ytick_function=lambda x: f'{x * 1e-3:.0f}',
-                                          **kwargs)
+        self.distance_plot(func=self.get_convective_heat_transfer_coefficient,
+                           ylabel=r'Convective Heat Transfer Coefficient [$kW$/$(m^2K)$]',
+                           ytick_function=lambda x: f'{x * 1e-3:.0f}',
+                           **kwargs)
 
     def show_heat_flux(self, **kwargs):
-        self.thrust_chamber.distance_plot(func=self.get_convective_heat_flux,
-                                          ylabel=r'Convective Heat Flux [$MW$/$m^2$]',
-                                          ytick_function=lambda x: f'{x * 1e-6:.0f}',
-                                          **kwargs)
+        self.distance_plot(func=self.get_convective_heat_flux,
+                           ylabel=r'Convective Heat Flux [$MW$/$m^2$]',
+                           ytick_function=lambda x: f'{x * 1e-6:.0f}',
+                           **kwargs)
 
     def show_adiabatic_wall_temp(self, **kwargs):
-        self.thrust_chamber.distance_plot(func=self.get_adiabatic_wall_temp,
-                                          ylabel=r'Adiabatic Wall Temperature [$K$]',
-                                          **kwargs)
-
-
+        self.distance_plot(func=self.get_adiabatic_wall_temp,
+                           ylabel=r'Adiabatic Wall Temperature [$K$]',
+                           **kwargs)
 
     # def convective_heat_flux(self):
     #     if self.convective_mode == "Modified Bartz":

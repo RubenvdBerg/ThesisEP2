@@ -71,8 +71,6 @@ class Coolant:
 
 @dataclass
 class CoolingChannels:
-    # TODO: Assumed the pressure within cooling channels is equal to the inlet pressure, instead of slowly decreasing:
-    #  estimate the effect of this simplification
     coolant: Coolant
     total_heat_transfer: float  # [W]
     outlet_pressure: float  # [Pa]

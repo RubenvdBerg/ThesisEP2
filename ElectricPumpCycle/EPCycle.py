@@ -8,7 +8,7 @@ from ElectricPumpCycle.EPComponents import ElectricMotor, Inverter, Battery
 @dataclass
 class ElectricPumpCycle(EngineCycle):
     # TODO: dataclass inheritance is dumb, so all inherited classes can only have default variables if baseclass has any
-    #  Solution is to update to 3.10 and use kw_only, probably not worth the hassle
+    #  Solution is to update to 3.10 and use @dataclass(kw_only=True), probably not worth the hassle
     fuel_specific_heat: float = 0  # J/(kg*K)
     electric_motor_specific_power: float = 0  # W/kg
     inverter_specific_power: float = 0  # W/kg

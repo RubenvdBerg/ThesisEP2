@@ -15,7 +15,7 @@ def get_mass_flow(chamber_pressure: float, throat_area: float, chamber_temperatu
     return get_kerckhove(specific_heat_ratio) * chamber_pressure * throat_area / sqrt(r * chamber_temperature)
 
 
-def get_area_ratio(mach_number: float, heat_capacity_ratio: float):
+def get_expansion_ratio(mach_number: float, heat_capacity_ratio: float):
     m = mach_number
     y = heat_capacity_ratio
     return ((y + 1) / 2) ** -((y + 1) / (2 * (y - 1))) * ((1 + (y - 1) / 2 * m ** 2) ** ((y + 1) / (2 * (y - 1)))) / m
@@ -26,7 +26,7 @@ def get_kerckhove(heat_capacity_ratio: float) -> float:
     return np.sqrt(y) * (2 / (y + 1)) ** ((y + 1) / (2 * (y - 1)))
 
 
-def get_expansion_ratio(pressure_ratio: float, specific_heat_ratio: float) -> float:
+def get_expansion_ratio_from_p_ratio(pressure_ratio: float, specific_heat_ratio: float) -> float:
     y = specific_heat_ratio
     G = get_kerckhove(y)
     pe_pc = pressure_ratio ** -1
@@ -50,7 +50,7 @@ def get_pressure_ratio(expansion_ratio: float, specific_heat_ratio: float, sympy
 
 def get_pressure_ratio_fsolve(expansion_ratio: float, specific_heat_ratio: float, guess: float = 2.) -> float:
     def func(x):
-        eps = float(get_expansion_ratio(x, specific_heat_ratio))
+        eps = float(get_expansion_ratio_from_p_ratio(x, specific_heat_ratio))
         return np.array(eps - expansion_ratio, dtype=float)
     solution = float(fsolve(func, np.array(guess, dtype=float))[0])
     return solution

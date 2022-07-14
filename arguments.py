@@ -77,11 +77,11 @@ base_arguments_o = copy_without(base_arguments, 'mass_mixture_ratio')
 open_arguments = {
     'turbine_gas_specific_heat_capacity': 2024.7, 'turbine_gas_heat_capacity_ratio': 1.16,
     'turbine_pressure_ratio': 27, 'turbopump_specific_power': 13.5E3, 'turbine_efficiency': .52,
-
+    'exhaust_thrust_contribution': .01
 }
 gg_arguments = open_arguments | {
     'turbine_maximum_temperature': 900, 'gg_mass_mixture_ratio': 0.320, 'gg_gas_gas_constant': 274.1, 'gg_stay_time': 10E-3,'gg_structural_factor': 2.5,
-    'gg_material_density': 8220, 'gg_yield_strength': 550E6, 'exhaust_thrust_contribution': .01
+    'gg_material_density': 8220, 'gg_yield_strength': 550E6
 }
 
 oe_arguments = open_arguments | {
@@ -121,3 +121,30 @@ liquid_hydrogen_coolant = {
     'coolant_boiling_temp_1_bar': 20.25,
     'coolant_inlet_temperature': 20.25
 }
+
+tdc1_kwargs = base_arguments_o | {
+    'thrust': 100e3,
+    'combustion_chamber_pressure': 55e5,
+    'expansion_ratio': 22,
+    'mass_mixture_ratio': 5.6,
+    'fuel_name': 'LH2_NASA',
+    'burn_time': 100,
+    'is_frozen': True,
+    'exit_pressure_forced': None
+}
+
+le5a_kwargs = base_arguments_o | {
+    'thrust': 121.3e3,
+    'combustion_chamber_pressure': 40e5,
+    'expansion_ratio': 130,
+    'mass_mixture_ratio': 5,
+    'fuel_name': 'LH2_NASA',
+    'burn_time': 609,
+    'is_frozen': True,
+    'exit_pressure_forced': None,
+    'expansion_ratio_end_cooling': 30
+}
+
+duel_pump_kwargs = {'fuel_pump_specific_power': 15E3, 'oxidizer_pump_specific_power': 20E3}
+
+single_pump_kwargs = {'turbopump_specific_power': 13.5E3}

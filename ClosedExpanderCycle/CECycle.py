@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 @dataclass
 class ClosedExpandercycle(OpenEngineCycle):
-    # TODO: dataclasses inheritance is stupid, see EP- and GG-class
+    # TODO: dataclasses inheritance is stupid, see EP-class
     pass_attribute: float = 0
     
     def __post_init__(self):

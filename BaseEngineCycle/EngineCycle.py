@@ -18,7 +18,7 @@ from BaseEngineCycle.ThrustChamber import ThrustChamber
 from BaseEngineCycle.Pump import Pump
 from cea import get_cea_values_dict
 from cea_new import get_cea_dict, get_cea_chamber_dict
-from irt import get_kerckhove, get_expansion_ratio, get_pressure_ratio_fsolve
+from irt import get_kerckhove, get_expansion_ratio_from_p_ratio, get_pressure_ratio_fsolve
 
 
 @dataclass
@@ -90,6 +90,7 @@ class EngineCycle:
     chamber_throat_area_ratio: Optional[float] = None  # [-]
     chamber_characteristic_length: Optional[float] = None  # [m]
     coolant_inlet_temperature: Optional[float] = None  # [K]
+    expansion_ratio_end_cooling: Optional[float] = None  # [-]
 
     # Values that can be estimated by CEA
     characteristic_velocity: Optional[float] = None  # [m/s]
@@ -126,7 +127,7 @@ class EngineCycle:
             if self.verbose:
                 warnings.warn('Exit pressure is given, pressure- and expansion ratio are ignored if provided')
             self.pressure_ratio = self.combustion_chamber_pressure / self.exit_pressure_forced
-            self.expansion_ratio = get_expansion_ratio(self.pressure_ratio, self.cc_hot_gas_heat_capacity_ratio)
+            self.expansion_ratio = get_expansion_ratio_from_p_ratio(self.pressure_ratio, self.cc_hot_gas_heat_capacity_ratio)
         elif not (self.pressure_ratio is None) ^ (self.expansion_ratio is None):
             raise ValueError(
                 'Neither or both the pressure_ratio and expansion_ratio are given. Provide one and only one')
@@ -134,7 +135,7 @@ class EngineCycle:
             self.pressure_ratio = get_pressure_ratio_fsolve(self.expansion_ratio,
                                                             self.cc_hot_gas_heat_capacity_ratio)
         elif self.expansion_ratio is None:
-            self.expansion_ratio = get_expansion_ratio(self.pressure_ratio, self.cc_hot_gas_heat_capacity_ratio)
+            self.expansion_ratio = get_expansion_ratio_from_p_ratio(self.pressure_ratio, self.cc_hot_gas_heat_capacity_ratio)
 
     @cached_property
     def cea_dict(self):
@@ -327,7 +328,7 @@ class EngineCycle:
     @property
     def nozzle(self):
         return BellNozzle(throat_area=self.throat_area,
-                          area_ratio=self.expansion_ratio,
+                          expansion_ratio=self.expansion_ratio,
                           chamber_radius=self.combustion_chamber.radius,
                           conv_half_angle=self.convergent_half_angle,
                           conv_throat_bend_ratio=self.convergent_throat_bend_ratio,
@@ -356,7 +357,9 @@ class EngineCycle:
                              convective_coefficient_mode=self.convective_coefficient_mode,
                              thrust_chamber=self.thrust_chamber,
                              recovery_factor=self.recovery_factor,
-                             prandtl_number=self.cc_hot_gas_prandtl_number)
+                             prandtl_number=self.cc_hot_gas_prandtl_number,
+                             expansion_ratio_end_cooling=self.expansion_ratio_end_cooling,
+                             verbose=self.verbose)
 
     @property
     def cooling_flow(self):

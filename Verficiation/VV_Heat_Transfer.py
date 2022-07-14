@@ -20,7 +20,7 @@ def convective_heat_transfer_validation():
                               mass_mixture_ratio=5.6,
                               expansion_ratio=area_ratio,
                               burn_time=100,
-                              is_frozen=False,
+                              is_frozen=True,
                               fuel_name='LH2_NASA',
                               fuel_pump_specific_power=15e3,
                               oxidizer_pump_specific_power=20e3,
@@ -28,9 +28,9 @@ def convective_heat_transfer_validation():
     y_cc, cp_cc = test_engine.cc_hot_gas_heat_capacity_ratio, test_engine.cc_hot_gas_specific_heat_capacity
     mu_cc, pr_cc = test_engine.cc_hot_gas_dynamic_viscosity, test_engine.cc_hot_gas_prandtl_number
     t_c, m_flow = test_engine.combustion_temperature, test_engine.mass_flow
-    cea_run = False
-    if cea_run:
-        y_cc, cp_cc, mu_cc, pr_cc, t_c, m_flow = 1.1441, 8.3713e3, 1.0276e-4, 0.5175, 3395.68, 100e3/4082.3
+    # cea_run = False
+    # if cea_run:
+    #     y_cc, cp_cc, mu_cc, pr_cc, t_c, m_flow = 1.1441, 8.3713e3, 1.0276e-4, 0.5175, 3395.68, 100e3/4082.3
     test_chamber = CombustionChamber(
         material_density=1,
         safety_factor=1,
@@ -69,12 +69,13 @@ def convective_heat_transfer_validation():
                                         prandtl_number=pr_cc)
     test_thrust_chamber.show_contour()
     test_heat_exchanger.show_heat_flux()
+    # test_heat_exchanger.show_heat_flux_coefficient()
 
     f_string = '.3e'
     print(f'Parameter         Test  \t  Goal')
-    print(f'Thr HeatTrsfr:  {test_heat_exchanger.get_convective_heat_flux(0):{f_string}}\t{71e6:.3e}')
-    print(test_heat_exchanger.total_heat_transfer)
-    print(test_engine.fuel_flow)
+    print(f'Thr HeatTrsfr:  {test_heat_exchanger.get_convective_heat_flux(0):{f_string}}\t{71e6:.3e}\n')
+    print(f'Total Heattransfer:{test_heat_exchanger.total_heat_transfer:.3e}')
+    print(f'Surface: {test_thrust_chamber.surface:.2f} m2')
 
 if __name__ == '__main__':
     convective_heat_transfer_validation()

@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from functools import cached_property
 from math import pi, sqrt, cos, sin, tan, asin
-
+from typing import Optional
 import scipy.optimize
 from numpy import array
 
@@ -10,26 +10,32 @@ from numpy import array
 class Nozzle:
     # conv, div = convergent and divergent sections of the nozzle respectively
     throat_area: float  # [m2]
-    area_ratio: float  # [-]
+    expansion_ratio: float  # [-]
     chamber_radius: float  # [m]
     conv_chamber_bend_ratio: float  # [-]
     conv_throat_bend_ratio: float  # [-]
     conv_half_angle: float  # [rad]
+    div_throat_half_angle: float  # [rad]
+    div_longi_throat_radius: Optional[float] = None  # [rad]
 
     def __post_init__(self):
         if self.conv_half_angle > pi / 2 or self.conv_half_angle < 0:
             raise ValueError(
                 f'Half angle of the convergent must be between 0 and \u03C0/2 (Given:{self.conv_half_angle:.3f})')
+        # [MODERN ENGINEERING FOR DESIGN OF LIQUID-PROPELLANT ROCKET ENGINES, Huzel&Huang 1992, p.76, fig. 4-15]
+        # radius of the nozzle after the throat curve and distance between throat and end of throat curve
+        self.div_radius_p = self.throat_radius + (1 - cos(self.div_throat_half_angle)) * self.div_longi_throat_radius
+        self.div_length_p = self.div_longi_throat_radius * sin(self.div_throat_half_angle)
 
-    @cached_property
+    @property
     def exit_area(self):
-        return self.throat_area * self.area_ratio
+        return self.throat_area * self.expansion_ratio
 
     @cached_property
     def throat_radius(self):
         return sqrt(self.throat_area / pi)
 
-    @cached_property
+    @property
     def exit_radius(self):
         return sqrt(self.exit_area / pi)
 
@@ -89,7 +95,18 @@ class Nozzle:
 
     def div_radius(self, distance_from_throat: float) -> float:
         # Distance from throat positive towards nozzle exit
-        raise NotImplementedError('Abstract base class Nozzle does not have a divergent radius')
+        if distance_from_throat > self.div_length or distance_from_throat < 0:
+            raise ValueError(
+                f'Nozzle diameter cannot be calculated before the throat [<0m] or after the nozzle exit [>{self.div_length:.4E}m].')
+        if distance_from_throat < self.div_length_p:
+            alpha = asin(distance_from_throat / self.div_longi_throat_radius) / 2
+            div_radius = self.throat_radius + distance_from_throat * tan(alpha)
+        else:
+            div_radius = self.div_radius_after_throat_curve(distance_from_throat)
+        return float(div_radius)
+
+    def div_radius_after_throat_curve(self, distance_from_throat:float) -> float:
+        raise NotImplementedError('Abstract Class Nozzle does not have a defined divergent radius after the throat curve')
 
     def get_radius(self, distance_from_throat: float) -> float:
         if distance_from_throat < 0:
@@ -102,53 +119,75 @@ class Nozzle:
 
 @dataclass
 class BellNozzle(Nozzle):
-    # conv, div = convergent and divergent sections of the nozzle respectively
-    div_throat_half_angle: float  # [rad]
-    div_exit_half_angle: float  # [rad]
+    # conv, div are the convergent and divergent sections of the nozzle respectively
+    div_exit_half_angle: float = 0  # [rad]
 
     def __post_init__(self):
+        if self.div_longi_throat_radius is None:
+            # As suggested by Huzel&Huang
+            self.div_longi_throat_radius = .382 * self.throat_radius
         super().__post_init__()
         # [MODERN ENGINEERING FOR DESIGN OF LIQUID-PROPELLANT ROCKET ENGINES, Huzel&Huang 1992, p.76, fig. 4-15]
-        # radius of the nozzle after the throat curve and distance between throat and end of throat curve
-        self.div_radius_p = 1.382 * self.throat_radius - 0.382 * self.throat_radius * cos(self.div_throat_half_angle)
-        self.div_length_p = 0.382 * self.throat_radius * sin(self.div_throat_half_angle)
         # parabolic equation parameters
-        self.div_a = tan(pi / 2 - self.div_exit_half_angle) - tan(pi / 2 - self.div_throat_half_angle) / (
-                2 * (self.exit_radius - self.div_radius_p))
-        self.div_b = tan(pi / 2 - self.div_throat_half_angle) - 2 * self.div_a * self.div_radius_p
+        tan_th = tan(pi/2 - self.div_throat_half_angle)
+        tan_ex = tan(pi/2 - self.div_exit_half_angle)
+        self.div_a = ((tan_ex - tan_th) / (2 * (self.exit_radius - self.div_radius_p)))
+        self.div_b = tan_th - 2 * self.div_a * self.div_radius_p
         self.div_c = self.div_length_p - self.div_a * self.div_radius_p ** 2 - self.div_b * self.div_radius_p
 
     @property
     def div_length(self):
-        return self.div_a * self.exit_radius ** 2 + self.div_b * self.exit_radius + self.div_c
+        a = self.div_a
+        b = self.div_b
+        c = self.div_c
+        y = self.exit_radius
+        return a * y**2 + b * y + c
 
-    def div_radius(self, distance_from_throat: float) -> float:
-        # Distance from throat positive towards nozzle exit
-        if distance_from_throat > self.div_length or distance_from_throat < 0:
-            raise ValueError(
-                f'Nozzle diameter cannot be calculated before the throat [<0m] or after the nozzle exit [>{self.div_length:.4E}m].')
-        if distance_from_throat < self.div_length_p:
-            alpha = asin(distance_from_throat / (0.382 * self.throat_radius)) / 2
-            div_radius = self.throat_radius + distance_from_throat * tan(alpha)
-        else:
-            def func(x):
-                a = float(self.div_a * x ** 2 + self.div_b * x + self.div_c - distance_from_throat)
-                return array([a], dtype=float)
+    def div_radius_after_throat_curve(self, distance_from_throat:float) -> float:
+        def func(x):
+            a = float(self.div_a * x ** 2 + self.div_b * x + self.div_c - distance_from_throat)
+            return array([a], dtype=float)
 
-            x0 = float(self.throat_radius + (self.exit_radius - self.throat_radius) * (
-                        distance_from_throat / self.div_length))
-            div_radius = scipy.optimize.fsolve(func, array([x0], dtype=float))
-        return float(div_radius)
+        x0 = float(self.throat_radius + (self.exit_radius - self.throat_radius) * (
+                distance_from_throat / self.div_length))
+        div_radius = scipy.optimize.fsolve(func, array([x0], dtype=float))
+        return div_radius
+
+
+    # def div_radius(self, distance_from_throat: float) -> float:
+    #     # Distance from throat positive towards nozzle exit
+    #     if distance_from_throat > self.div_length or distance_from_throat < 0:
+    #         raise ValueError(
+    #             f'Nozzle diameter cannot be calculated before the throat [<0m] or after the nozzle exit [>{self.div_length:.4E}m].')
+    #     if distance_from_throat < self.div_length_p:
+    #         div_radius = self.div_radius_throat_curve(distance_from_throat)
+    #     else:
+    #         def func(x):
+    #             a = float(self.div_a * x ** 2 + self.div_b * x + self.div_c - distance_from_throat)
+    #             return array([a], dtype=float)
+    #
+    #         x0 = float(self.throat_radius + (self.exit_radius - self.throat_radius) * (
+    #                     distance_from_throat / self.div_length))
+    #         div_radius = scipy.optimize.fsolve(func, array([x0], dtype=float))
+    #     return float(div_radius)
 
 
 @dataclass
 class ConicalNozzle(Nozzle):
-    # conv, div = convergent and divergent sections of the nozzle respectively
-    divergent_half_angle: float  # [rad]
+
+    def __post_init__(self):
+        if self.div_longi_throat_radius is None:
+            self.div_longi_throat_radius = .5 * self.throat_radius
+        super().__post_init__()
 
     @property
     def div_length(self):
-        raise NotImplementedError
+        e = self.expansion_ratio
+        r_t = self.throat_radius
+        r_u = self.div_longi_throat_radius
+        theta = self.div_throat_half_angle
+        part = (e**.5 - 1) * r_t + r_u * (1/cos(theta) - 1)
+        return part / tan(theta)
 
-    def div_radius(self, distance_from_throat: float) -> float:
-        raise NotImplementedError
+    def div_radius_after_throat_curve(self, distance_from_throat: float) -> float:
+        return self.div_radius_p + (distance_from_throat - self.div_length_p) * tan(self.div_throat_half_angle)

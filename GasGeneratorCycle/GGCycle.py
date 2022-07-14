@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 
 @dataclass
 class GasGeneratorCycle(OpenEngineCycle):
-    # TODO: dataclasses is dumb so requires defaults for all attributes if super class has defaults
+    # TODO: dataclass inheritance is stupid see EP-class
     turbine_maximum_temperature: float = 0  # [K]
     gg_gas_gas_constant: float = 0  # [J/(kg*K)]
     gg_mass_mixture_ratio: float = 0  # [-]
