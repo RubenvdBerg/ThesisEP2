@@ -52,6 +52,12 @@ class ThrustChamber:
         result = scipy.integrate.quad(lambda x: self.get_radius(x) * 2 * pi, *self.throat_distance_tuple)
         return result[0]
 
+    def get_distance_for_divergent_expansion_ratio(self, expansion_ratio):
+        # Ugly way of getting distance from throat at a certain expansion ratio for the same nozzle
+        nozzle_copy = deepcopy(self.nozzle)
+        nozzle_copy.expansion_ratio = expansion_ratio
+        return nozzle_copy.div_length
+
     def get_mach(self, distance_from_throat):
         radius = self.get_radius(distance_from_throat)
         expansion_ratio = pi * radius ** 2 / self.throat_area

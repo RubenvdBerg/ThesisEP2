@@ -3,7 +3,7 @@ from scipy import constants
 import arguments as args
 from BaseEngineCycle.CombustionChamber import CombustionChamber, Injector
 from BaseEngineCycle.EngineCycle import EngineCycle
-from BaseEngineCycle.HeatExchanger import HeatExchanger
+from BaseEngineCycle.HeatTransferSection import HeatTransferSection
 from BaseEngineCycle.Nozzle import BellNozzle
 from BaseEngineCycle.ThrustChamber import ThrustChamber
 
@@ -55,18 +55,18 @@ def convective_heat_transfer_validation():
                                         chamber=test_chamber,
                                         injector=test_injector,
                                         heat_capacity_ratio=y_cc)
-    test_heat_exchanger = HeatExchanger(thrust_chamber=test_thrust_chamber,
-                                        combustion_temperature=t_c,
-                                        combustion_chamber_pressure=p_cc,
-                                        mass_flow=m_flow,
-                                        dynamic_viscosity=mu_cc,
-                                        specific_heat_capacity=cp_cc,
-                                        hot_gas_emissivity=args.base_arguments['hot_gas_emissivity'],
-                                        heat_capacity_ratio=y_cc,
-                                        maximum_wall_temperature=args.base_arguments['maximum_wall_temperature'],
-                                        thrust_chamber_wall_emissivity=.8,
-                                        convective_coefficient_mode='Modified Bartz',
-                                        prandtl_number=pr_cc)
+    test_heat_exchanger = HeatTransferSection(thrust_chamber=test_thrust_chamber,
+                                              combustion_temperature=t_c,
+                                              combustion_chamber_pressure=p_cc,
+                                              mass_flow=m_flow,
+                                              dynamic_viscosity=mu_cc,
+                                              specific_heat_capacity=cp_cc,
+                                              hot_gas_emissivity=args.base_arguments['hot_gas_emissivity'],
+                                              heat_capacity_ratio=y_cc,
+                                              maximum_wall_temperature=args.base_arguments['maximum_wall_temperature'],
+                                              thrust_chamber_wall_emissivity=.8,
+                                              convective_coefficient_mode='Modified Bartz',
+                                              prandtl_number=pr_cc)
     test_thrust_chamber.show_contour()
     test_heat_exchanger.show_heat_flux()
     # test_heat_exchanger.show_heat_flux_coefficient()

@@ -9,7 +9,7 @@ from scipy import constants as constants
 from BaseEngineCycle.BaseFunctions import get_propellant_mix_name
 from BaseEngineCycle.CombustionChamber import CombustionChamber, Injector
 from BaseEngineCycle.Cooling import CoolingChannels
-from BaseEngineCycle.HeatExchanger import HeatExchanger
+from BaseEngineCycle.HeatTransferSection import HeatTransferSection
 from BaseEngineCycle.Nozzle import BellNozzle
 from BaseEngineCycle.Pressurant import Pressurant, PressurantTank
 from BaseEngineCycle.Propellant import Propellant
@@ -345,21 +345,21 @@ class EngineCycle:
 
     @property
     def heat_exchanger(self):
-        return HeatExchanger(combustion_temperature=self.combustion_temperature,
-                             combustion_chamber_pressure=self.combustion_chamber_pressure,
-                             dynamic_viscosity=self.cc_hot_gas_dynamic_viscosity,
-                             specific_heat_capacity=self.cc_hot_gas_specific_heat_capacity,
-                             mass_flow=self.mass_flow,
-                             maximum_wall_temperature=self.maximum_wall_temperature,
-                             thrust_chamber_wall_emissivity=self.thrust_chamber_wall_emissivity,
-                             hot_gas_emissivity=self.hot_gas_emissivity,
-                             heat_capacity_ratio=self.cc_hot_gas_heat_capacity_ratio,
-                             convective_coefficient_mode=self.convective_coefficient_mode,
-                             thrust_chamber=self.thrust_chamber,
-                             recovery_factor=self.recovery_factor,
-                             prandtl_number=self.cc_hot_gas_prandtl_number,
-                             expansion_ratio_end_cooling=self.expansion_ratio_end_cooling,
-                             verbose=self.verbose)
+        return HeatTransferSection(combustion_temperature=self.combustion_temperature,
+                                   combustion_chamber_pressure=self.combustion_chamber_pressure,
+                                   dynamic_viscosity=self.cc_hot_gas_dynamic_viscosity,
+                                   specific_heat_capacity=self.cc_hot_gas_specific_heat_capacity,
+                                   mass_flow=self.mass_flow,
+                                   maximum_wall_temperature=self.maximum_wall_temperature,
+                                   thrust_chamber_wall_emissivity=self.thrust_chamber_wall_emissivity,
+                                   hot_gas_emissivity=self.hot_gas_emissivity,
+                                   heat_capacity_ratio=self.cc_hot_gas_heat_capacity_ratio,
+                                   convective_coefficient_mode=self.convective_coefficient_mode,
+                                   thrust_chamber=self.thrust_chamber,
+                                   recovery_factor=self.recovery_factor,
+                                   prandtl_number=self.cc_hot_gas_prandtl_number,
+                                   expansion_ratio_end_cooling=self.expansion_ratio_end_cooling,
+                                   verbose=self.verbose)
 
     @property
     def cooling_flow(self):
