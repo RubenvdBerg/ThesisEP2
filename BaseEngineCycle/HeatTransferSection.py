@@ -11,7 +11,7 @@ from BaseEngineCycle.Nozzle import Nozzle
 
 
 @dataclass
-class HeatExchanger:
+class HeatTransferSection:
     thrust_chamber: ThrustChamber
     # Properties of hot gas in combustion chamber
     combustion_temperature: float  # [K}
@@ -26,7 +26,8 @@ class HeatExchanger:
 
     thrust_chamber_wall_emissivity: float  # [-]
     convective_coefficient_mode: str
-    expansion_ratio_end_cooling: Optional[float] = None  # [K]
+    min_distance_section: Optional[float] = None  # [m]
+    max_distance_section: Optional[float] = None  # [m]
     post_injection_build_up_ratio: Optional[float] = None  # [-]
     prandtl_number: Optional[float] = None  # [-]
     recovery_factor: Optional[float] = None  # [-]
@@ -39,8 +40,6 @@ class HeatExchanger:
             self.prandtl_number = self.prandtl_number_estimate
         if self.recovery_factor is None:
             self.recovery_factor = self.turbulent_recovery_factor
-        if self.expansion_ratio_end_cooling is None:
-            self.expansion_ratio_end_cooling = self.thrust_chamber.nozzle.expansion_ratio
         if self.post_injection_build_up_ratio is None:
             # Heat transfer to combustion chamber wall is assumed zero at injector face and builds up to a constant
             # heat transfer based on combustion temperature as reference temperature. At which point this constant heat
@@ -50,15 +49,17 @@ class HeatExchanger:
 
     @property
     def min_distance_from_throat(self):
-        return self.thrust_chamber.min_distance_from_throat
+        if self.min_distance_section is None:
+            return self.thrust_chamber.min_distance_from_throat
+        else:
+            return self.min_distance_section
 
     @property
     def max_distance_from_throat(self):
-        # Ugly way of getting distance from throat at a certain expansion ratio for the same nozzle
-        cooling_nozzle = deepcopy(self.thrust_chamber.nozzle)
-        cooling_nozzle.expansion_ratio = self.expansion_ratio_end_cooling
-        distance = cooling_nozzle.div_length
-        return distance
+        if self.max_distance_section is None:
+            return self.thrust_chamber.max_distance_from_throat
+        else:
+            return self.max_distance_section
 
     @property
     def laminar_recovery_factor(self):
