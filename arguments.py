@@ -2,9 +2,10 @@ from scipy.constants import g
 from math import radians
 
 
-def copy_without(origin_dict, key):
+def copy_without(origin_dict, iterable_keys):
     copy_dict = origin_dict.copy()
-    copy_dict.pop(key)
+    for key in iterable_keys:
+        copy_dict.pop(key)
     return copy_dict
 
 
@@ -55,7 +56,6 @@ base_arguments_own = {
     'convergent_half_angle': radians(30),
     'convergent_throat_bend_ratio': 0.8,
     'convergent_chamber_bend_ratio': 1.0,
-    'chamber_throat_area_ratio': (80 / 50) ** 2,
     'divergent_throat_half_angle': radians(35),
     'divergent_exit_half_angle': radians(5),
     'nozzle_type': 'bell',
@@ -72,7 +72,20 @@ base_arguments_own = {
 
 base_arguments = base_arguments_kwak | base_arguments_own
 
-base_arguments_o = copy_without(base_arguments, 'mass_mixture_ratio')
+base_arguments_o = copy_without(base_arguments, ['mass_mixture_ratio'])
+
+
+def change_to_conical_nozzle(arg_dict, throat_half_angle=radians(15)):
+    copy_dict = copy_without(arg_dict, [
+        'divergent_throat_half_angle',
+        'divergent_exit_half_angle',
+        'nozzle_type'
+    ])
+    new_args_dict = {'divergent_throat_half_angle': throat_half_angle,
+                     'divergent_exit_half_angle': None,
+                     'nozzle_type': 'conical'}
+    return copy_dict | new_args_dict
+
 
 open_arguments = {
     'turbine_gas_specific_heat_capacity': 2024.7, 'turbine_gas_heat_capacity_ratio': 1.16,
@@ -80,7 +93,8 @@ open_arguments = {
     'exhaust_thrust_contribution': .01
 }
 gg_arguments = open_arguments | {
-    'turbine_maximum_temperature': 900, 'gg_mass_mixture_ratio': 0.320, 'gg_gas_gas_constant': 274.1, 'gg_stay_time': 10E-3,'gg_structural_factor': 2.5,
+    'turbine_maximum_temperature': 900, 'gg_mass_mixture_ratio': 0.320, 'gg_gas_gas_constant': 274.1,
+    'gg_stay_time': 10E-3, 'gg_structural_factor': 2.5,
     'gg_material_density': 8220, 'gg_yield_strength': 550E6
 }
 
@@ -98,7 +112,7 @@ ep_arguments = {
 liquid_oxygen_coolant = {
     'coolant_liquid_heat_capacity': 1,
     'coolant_gas_heat_capacity': 1,
-    'coolant_heat_of_vaporization': float(213./15.999),
+    'coolant_heat_of_vaporization': float(213. / 15.999),
     'coolant_molar_mass': 15.999E-3,
     'coolant_boiling_temp_1_bar': 90.15,
     'coolant_inlet_temperature': 90.15
@@ -107,7 +121,7 @@ liquid_oxygen_coolant = {
 rp1_coolant = {
     'coolant_liquid_heat_capacity': 1,
     'coolant_gas_heat_capacity': None,
-    'coolant_heat_of_vaporization': float(246./170.),
+    'coolant_heat_of_vaporization': float(246. / 170.),
     'coolant_molar_mass': 170.0E-3,
     'coolant_boiling_temp_1_bar': 489.45,
     'coolant_inlet_temperature': 293.15
@@ -116,21 +130,23 @@ rp1_coolant = {
 liquid_hydrogen_coolant = {
     'coolant_liquid_heat_capacity': 1,
     'coolant_gas_heat_capacity': 1,
-    'coolant_heat_of_vaporization': 446./2.01588,
+    'coolant_heat_of_vaporization': 446. / 2.01588,
     'coolant_molar_mass': 2.01588E-3,
     'coolant_boiling_temp_1_bar': 20.25,
     'coolant_inlet_temperature': 20.25
 }
 
-tdc1_kwargs = base_arguments_o | {
+tcd1_kwargs = base_arguments_o | {
     'thrust': 100e3,
     'combustion_chamber_pressure': 55e5,
-    'expansion_ratio': 22,
+    'expansion_ratio': 143.2,
     'mass_mixture_ratio': 5.6,
+    'area_ratio_chamber_throat': (80 / 55) ** 2,
     'fuel_name': 'LH2_NASA',
     'burn_time': 100,
     'is_frozen': True,
-    'exit_pressure_forced': None
+    'exit_pressure_forced': None,
+    'expansion_ratio_end_cooling': 22
 }
 
 le5a_kwargs = base_arguments_o | {
@@ -144,6 +160,20 @@ le5a_kwargs = base_arguments_o | {
     'exit_pressure_forced': None,
     'expansion_ratio_end_cooling': 30
 }
+
+lrb_kwargs = base_arguments_o | {
+    'thrust': 2118.14e3,
+    'combustion_chamber_pressure': 65e5,
+    'expansion_ratio': 15,
+    'mass_mixture_ratio': 2.4,
+    'fuel_name': 'RP1_NASA',
+    'burn_time': 100,
+    'is_frozen': True,
+    'exit_pressure_forced': None,
+    'expansion_ratio_end_cooling': 15
+}
+
+le5a_kwargs_cnozzle = change_to_conical_nozzle(le5a_kwargs)
 
 duel_pump_kwargs = {'fuel_pump_specific_power': 15E3, 'oxidizer_pump_specific_power': 20E3}
 

@@ -75,8 +75,8 @@ def full_output(kwak_fix, design_args=args.desgin_arguments, common_args=args.ba
 
     ep_iter_col1 = [
         ep_cycle.combustion_chamber_pressure * 1E-6,
-        ep_cycle.oxidizer_flow,
-        ep_cycle.fuel_flow,
+        ep_cycle.main_oxidizer_flow,
+        ep_cycle.main_fuel_flow,
         ep_cycle.pump_power_required * 1E-3,
         ep_cycle.cstar_cf[0],
         ep_cycle.cstar_cf[1]
@@ -94,7 +94,7 @@ def full_output(kwak_fix, design_args=args.desgin_arguments, common_args=args.ba
         ep_cycle.fuel_pump.power_required * 1E-3,
         ep_cycle.pump_power_required * 1E-3,
         ep_cycle.actual_battery_coolant_flow,
-        ep_cycle.mass_flow
+        ep_cycle.chamber_mass_flow
     ]
 
     ep_iter_col2 += [

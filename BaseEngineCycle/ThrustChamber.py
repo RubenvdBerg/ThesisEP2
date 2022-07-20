@@ -1,5 +1,5 @@
 import warnings
-from math import pi
+from math import pi, sqrt
 from typing import Callable, Optional
 import scipy.integrate
 import scipy.optimize
@@ -8,7 +8,8 @@ from numpy import array, isclose, linspace
 from dataclasses import dataclass
 from BaseEngineCycle.CombustionChamber import CombustionChamber, Injector
 from BaseEngineCycle.Nozzle import Nozzle
-from irt import get_expansion_ratio
+from irt import get_expansion_ratio, get_local_mach
+from copy import deepcopy
 
 
 @dataclass
@@ -60,17 +61,11 @@ class ThrustChamber:
 
     def get_mach(self, distance_from_throat):
         radius = self.get_radius(distance_from_throat)
-        expansion_ratio = pi * radius ** 2 / self.throat_area
-        x0 = .1 if distance_from_throat < 0 else 10
-
-        def func(mach_number):
-            return array([float(get_expansion_ratio(mach_number, self.heat_capacity_ratio) - expansion_ratio)])
-
-        mach = scipy.optimize.fsolve(func, array([float(x0)]))[0]
-        check = isclose(func(mach), [0.0])
-        if not check:
-            warnings.warn('Implicitly calculated Mach number is not within tolerances')
-        return float(mach)
+        local_area_ratio = pi * radius ** 2 / self.throat_area
+        is_subsonic = True if distance_from_throat < 0 else False
+        return get_local_mach(local_area_ratio=local_area_ratio,
+                              is_subsonic=is_subsonic,
+                              heat_capacity_ratio=self.heat_capacity_ratio)
 
     def show_mach(self, **kwargs):
         self.distance_plot(self.get_mach, 'Mach [-]', **kwargs)

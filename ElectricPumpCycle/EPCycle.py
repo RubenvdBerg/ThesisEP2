@@ -23,7 +23,7 @@ class ElectricPumpCycle(EngineCycle):
 
     def __post_init__(self):
         super().__post_init__()
-        self._fuelpumpflow = self.fuel.mass_flow
+        self._fuelpumpflow = self.fuel.main_mass_flow
         if self.iterate:
             self.iterate_coolant_flow()
 
@@ -49,10 +49,11 @@ class ElectricPumpCycle(EngineCycle):
     def iterate_coolant_flow(self):
         if self.verbose:
             print(f'Start Coolant Flow Iteration')
-            print(f'm_f_cc: {self.fuel.mass_flow:.5f}')
+            print(f'm_f_cc: {self.fuel.main_mass_flow:.5f}')
             print(f'm_fp: {self.total_fuelpump_flow:.5f}, m_f_cool_act:{self.actual_battery_coolant_flow:.5f}, '
                   f'm_f_cool_req: {self.battery.coolant_flow_required:.5f}')
-        while self.actual_battery_coolant_flow * 1.001 < self.battery.coolant_flow_required:
+        while abs(self.actual_battery_coolant_flow
+                  - self.battery.coolant_flow_required) > self.battery.coolant_flow_required * self.iteration_accuracy:
             self._fuelpumpflow = self.total_fuelpump_flow
             if self.verbose:
                 print(f'm_fp: {self.total_fuelpump_flow:.5f}, m_f_cool_act:{self.actual_battery_coolant_flow:.5f}, '
@@ -77,7 +78,7 @@ class ElectricPumpCycle(EngineCycle):
 
     @property
     def total_fuelpump_flow(self):
-        return self.battery.coolant_flow_required + self.fuel.mass_flow
+        return self.battery.coolant_flow_required + self.fuel.main_mass_flow
 
     @property
     def electric_motor(self):
@@ -103,7 +104,7 @@ class ElectricPumpCycle(EngineCycle):
 
     @property
     def actual_battery_coolant_flow(self):
-        return self._fuelpumpflow - self.fuel.mass_flow
+        return self._fuelpumpflow - self.fuel.main_mass_flow
 
     @property
     def feed_system_mass(self):

@@ -18,6 +18,10 @@ class GasGeneratorCycle(OpenEngineCycle):
     gg_yield_strength: float = 0  # [Pa]
 
     @property
+    def turbine_mass_flow_initial_guess(self):
+        return .03 * self.base_mass_flow
+
+    @property
     def turbine_inlet_temperature(self):
         # Overriden to make it explicit the turbine inlet temperature is chosen to be the maximum allowable temperature
         return self.turbine_maximum_temperature
@@ -33,21 +37,13 @@ class GasGeneratorCycle(OpenEngineCycle):
         return self.thrust / self.total_mass_flow / g
 
     @property
-    def base_fuel_flow(self):
-        return 1 / (self.mass_mixture_ratio + 1) * self.mass_flow
-
-    @property
-    def base_oxidizer_flow(self):
-        return self.mass_mixture_ratio / (self.mass_mixture_ratio + 1) * self.mass_flow
-
-    @property
-    def fuel_flow(self):  # Override EngineCycle flows
-        return (1 / (self.mass_mixture_ratio + 1) * self.chamber_mass_flow
+    def main_fuel_flow(self):  # Override EngineCycle flows
+        return (self.chamber_fuel_flow
                 + 1 / (self.gg_mass_mixture_ratio + 1) * self.gg_mass_flow)
 
     @property
-    def oxidizer_flow(self):  # Override EngineCycle flows
-        return (self.mass_mixture_ratio / (self.mass_mixture_ratio + 1) * self.chamber_mass_flow
+    def main_oxidizer_flow(self):  # Override EngineCycle flows
+        return (self.chamber_oxidizer_flow
                 + self.gg_mass_mixture_ratio / (self.gg_mass_mixture_ratio + 1) * self.gg_mass_flow)
 
     @property
@@ -57,10 +53,6 @@ class GasGeneratorCycle(OpenEngineCycle):
                             turbine_mass_flow=self.turbine.mass_flow_required, safety_factor=self.gg_structural_factor,
                             material_density=self.gg_material_density, yield_strength=self.gg_yield_strength,
                             turbine_temp_limit=self.turbine_maximum_temperature)
-
-    @property
-    def pumps_mass(self):
-        return self.fuel_pump.mass + self.oxidizer_pump.mass
 
     @property
     def gg_propellant_mass(self):

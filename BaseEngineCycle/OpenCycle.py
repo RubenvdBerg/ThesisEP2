@@ -25,13 +25,19 @@ class OpenEngineCycle(EngineCycle):
         super().__post_init__()
         # Total turbine, oxidizer-pump, fuel-pump-combinations seen as a single turbopump with single specific power
         self.fuel_pump_specific_power = self.oxidizer_pump_specific_power = self.turbopump_specific_power
+        self.turbine_mass_flow = self.turbine_mass_flow_initial_guess
         if self.iterate:
             self.iterate_mass_flow()
+
+    @property
+    def turbine_mass_flow_initial_guess(self):
+        return 0.0
 
     def iterate_mass_flow(self):
         if self.verbose:
             print('Iterate Turbine Mass Flow')
-        while self.turbine_mass_flow * 1.001 < self.turbine.mass_flow_required:
+        while abs(self.turbine.mass_flow_required
+                  - self.turbine_mass_flow) > self.turbine.mass_flow_required * self.iteration_accuracy:
             if self.verbose:
                 print(f'Actual:  {self.turbine_mass_flow:.5f} kg/s')
                 print(f'Required:{self.turbine.mass_flow_required:.5f} kg/s\n')
@@ -60,15 +66,7 @@ class OpenEngineCycle(EngineCycle):
 
     @property
     def chamber_mass_flow(self):
-        return (1 - self.exhaust_thrust_contribution) * self.mass_flow
-
-    @property
-    def chamber_fuel_flow(self):
-        return 1 / (self.mass_mixture_ratio + 1) * self.chamber_mass_flow
-
-    @property
-    def chamber_oxidizer_flow(self):
-        return self.mass_mixture_ratio / (self.mass_mixture_ratio + 1) * self.mass_flow
+        return (1 - self.exhaust_thrust_contribution) * self.base_mass_flow
 
     @property
     def total_mass_flow(self):

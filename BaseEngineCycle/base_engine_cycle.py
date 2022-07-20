@@ -26,9 +26,9 @@ if __name__ == '__main__':
     # b.heat_exchanger.show_heat_flux()
     # b.heat_exchanger.show_heat_flux_coefficient()
     # print(b.thrust_chamber.surface)
-    print(f'Conv. transfer: {b.heat_exchanger.total_convective_heat_transfer:.3E}')
-    print(f'Radi. transfer: {b.heat_exchanger.total_radiative_heat_transfer:.3E}')
-    print(f'Total transfer: {b.heat_exchanger.total_heat_transfer}')
+    print(f'Conv. transfer: {b.heat_transfer_section.total_convective_heat_transfer:.3E}')
+    print(f'Radi. transfer: {b.heat_transfer_section.total_radiative_heat_transfer:.3E}')
+    print(f'Total transfer: {b.heat_transfer_section.total_heat_transfer}')
     # 0.7284979653537342
     # Heat
     # transfer: 2.822E+07

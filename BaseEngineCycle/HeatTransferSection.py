@@ -121,7 +121,7 @@ class HeatTransferSection:
 
         # Cornelisse is not suited for the nozzle without a temperature correction
         if self.convective_coefficient_mode == "Cornelisse":
-            if distance_from_throat < -self.thrust_chamber.chamber.conv_length:
+            if distance_from_throat < -self.thrust_chamber.nozzle.conv_length:
                 mode = "Cornelisse"
             else:
                 mode = "CornelisseNozzle"

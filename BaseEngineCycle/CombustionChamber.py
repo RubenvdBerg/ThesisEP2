@@ -6,15 +6,18 @@ from typing import Optional
 from scipy.interpolate import interp1d
 
 from BaseEngineCycle.Structure import Structure
-
+from BaseEngineCycle.Nozzle import get_chamber_throat_area_ratio_estimate
 
 @dataclass
 class CombustionChamber(Structure):
     throat_area: float  # [m2]
     combustion_chamber_pressure: float  # [Pa]
+    convergent_volume_estimate: float  # [m3]
     area_ratio_chamber_throat: Optional[float] = None
     propellant_mix: Optional[str] = None
     characteristic_length: Optional[float] = None
+    verbose: bool = True
+
 
     def __post_init__(self):
         if self.characteristic_length is None:
@@ -26,9 +29,12 @@ class CombustionChamber(Structure):
                     f' for the combustion chamber, specify one manually or select a propellant mix that does ['
                     f'{self.characteristic_length_options.keys}]')
         if self.area_ratio_chamber_throat is None:
-            # Humble 1995 p.222
-            throat_diameter_in_cm = 2 * sqrt(self.throat_area / pi) * 1e2
-            self.area_ratio_chamber_throat = (8.0 * throat_diameter_in_cm ** -.6 + 1.25)
+            self.area_ratio_chamber_throat = get_chamber_throat_area_ratio_estimate(self.throat_area)
+        if self.convergent_volume_estimate is None:
+            self.convergent_volume_estimate = 0
+            if self.verbose:
+                warnings.warn('No estimate for the volume of the convergent given. Calculating combustion chamber length'
+                              ' based solely on the volume of the cylindrical section.')
 
     @cached_property
     def characteristic_length_options(self):
@@ -36,7 +42,7 @@ class CombustionChamber(Structure):
 
     @property
     def volume(self):
-        return self.characteristic_length * self.throat_area
+        return self.characteristic_length * self.throat_area - self.convergent_volume_estimate
 
     @property
     def area(self):

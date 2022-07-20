@@ -1,6 +1,7 @@
 from scipy.constants import g, gas_constant, Boltzmann, pi, R
 from typing import Optional
 from scipy.optimize import fsolve
+from math import sqrt
 import numpy as np
 import warnings
 
@@ -52,6 +53,7 @@ def get_pressure_ratio_fsolve(expansion_ratio: float, specific_heat_ratio: float
     def func(x):
         eps = float(get_expansion_ratio_from_p_ratio(x, specific_heat_ratio))
         return np.array(eps - expansion_ratio, dtype=float)
+
     solution = float(fsolve(func, np.array(guess, dtype=float))[0])
     return solution
     # # Check
@@ -60,7 +62,6 @@ def get_pressure_ratio_fsolve(expansion_ratio: float, specific_heat_ratio: float
     #         message = f'Found pressure ratio does not match given expansion ratio. ' \
     #                   f'Given:[{expansion_ratio}], Found:[{get_expansion_ratio(solution, specific_heat_ratio)}]'
     #         raise ValueError(message)
-
 
 
 def get_characteristic_velocity(molecular_weight: float, chamber_temperature: float,
@@ -141,3 +142,36 @@ def get_reynolds(dynamic_viscosity: float, density: float, flow_velocity: float,
 
 def get_sonic_velocity(specific_heat_ratio: float, molar_mass: float, temperature: float):
     return sqrt(specific_heat_ratio * (R / molar_mass) * temperature)
+
+
+def get_local_mach(local_area_ratio, is_subsonic=False, heat_capacity_ratio=1.14):
+    a_at = local_area_ratio
+    y = heat_capacity_ratio
+    p = 2 / (y + 1)
+    q = 1 - p
+    if is_subsonic:
+        r, a, s = a_at ** 2, p ** (1 / q), 1
+    else:
+        r, a, s = a_at ** (2 * q / p), q ** (1 / p), -1
+    r2 = (r - 1) / (2 * a)
+    initial_guess = 1 / ((1 + r2) + sqrt(r2 * (r2 + 2)))
+
+    # Python version B4Wind Method by Dennis Yoder from NASA
+
+    def get_f_and_derivs(x):
+        f = (p + q * x) ** (1 / q) - r * x
+        df = (p + q * x) ** (1 / q - 1) - r
+        ddf = p * ((p + q * x) ** (1 / q - 2))
+        return f, df, ddf
+
+    def newton_raphson_plus(x):
+        while True:
+            f, df, ddf = get_f_and_derivs(x)
+            xnew = x - 2 * f / (df - sqrt(df ** 2 - 2 * f * ddf))
+            if abs(xnew - x) / xnew < .001:
+                break
+            x = xnew
+        return xnew
+
+    final = newton_raphson_plus(initial_guess)
+    return sqrt(final) ** s

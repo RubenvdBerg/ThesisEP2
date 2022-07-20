@@ -14,7 +14,7 @@ def convective_heat_transfer_validation():
     del arguments['exit_pressure_forced']
     area_ratio = 22
     p_cc = 55e5
-    throat_area = .05**2 * constants.pi
+    throat_area = .055**2 * constants.pi
     test_engine = EngineCycle(thrust=100e3,
                               combustion_chamber_pressure=p_cc,
                               mass_mixture_ratio=5.6,
@@ -27,7 +27,7 @@ def convective_heat_transfer_validation():
                               **arguments)
     y_cc, cp_cc = test_engine.cc_hot_gas_heat_capacity_ratio, test_engine.cc_hot_gas_specific_heat_capacity
     mu_cc, pr_cc = test_engine.cc_hot_gas_dynamic_viscosity, test_engine.cc_hot_gas_prandtl_number
-    t_c, m_flow = test_engine.combustion_temperature, test_engine.mass_flow
+    t_c, m_flow = test_engine.combustion_temperature, test_engine.chamber_mass_flow
     # cea_run = False
     # if cea_run:
     #     y_cc, cp_cc, mu_cc, pr_cc, t_c, m_flow = 1.1441, 8.3713e3, 1.0276e-4, 0.5175, 3395.68, 100e3/4082.3

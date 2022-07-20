@@ -31,3 +31,4 @@ def set_if_not_none(variable, value):
 def only_one_none(a, b, c):
     a, b, c = a is None, b is None, c is None
     return a ^ b ^ c ^ all((a, b, c))
+
