@@ -19,7 +19,10 @@ class GasGeneratorCycle(OpenEngineCycle):
 
     @property
     def turbine_mass_flow_initial_guess(self):
-        return .03 * self.base_mass_flow
+        if self.iterate:
+            return .03 * self.base_mass_flow
+        else:
+            return 0
 
     @property
     def turbine_inlet_temperature(self):

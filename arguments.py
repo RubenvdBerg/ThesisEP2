@@ -173,6 +173,30 @@ lrb_kwargs = base_arguments_o | {
     'expansion_ratio_end_cooling': 15
 }
 
+se_21d_kwargs = base_arguments_o | {
+    'thrust': 1947e3,
+    'combustion_chamber_pressure': 6.649e6,
+    'expansion_ratio': 12.52,
+    'mass_mixture_ratio': 5.5,
+    'fuel_name': 'LH2_NASA',
+    'fuel_density': 70.22,
+    'burn_time': 100,
+    'is_frozen': True,
+    'exit_pressure_forced': None,
+    'expansion_ratio_end_cooling': 5,
+    'chamber_characteristic_length': 4.0,
+    'fuel_pump_efficiency': .7,
+    'oxidizer_pump_efficiency': .76,
+    'fuel_initial_pressure': .3e6,
+    'oxidizer_initial_pressure': .5e6,
+    'turbine_pressure_ratio': 27.7033333,
+    'turbine_gas_specific_heat_capacity': 14573.059625497444,
+    'turbine_gas_heat_capacity_ratio': 1.16,
+    'turbopump_specific_power': 13.5E3,
+    'turbine_efficiency': .45,
+    'exhaust_thrust_contribution': .0084,
+    'area_ratio_chamber_throat': (.985/2)**2/.286**2,
+}
 le5a_kwargs_cnozzle = change_to_conical_nozzle(le5a_kwargs)
 
 duel_pump_kwargs = {'fuel_pump_specific_power': 15E3, 'oxidizer_pump_specific_power': 20E3}

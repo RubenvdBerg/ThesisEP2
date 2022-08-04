@@ -67,7 +67,7 @@ class ElectricPumpCycle(EngineCycle):
         self.update_cea()
         self.iterate_coolant_flow()
 
-    # Rewrite of fuel_pump to accommodate for recirculation of battery cooling fuel flow
+    # Rewrite of fuel_pump to accommodate for recirculation of battery cooling fuel flow (instead of actual split flow)
     @property
     def fuel_pump(self):
         return Pump(propellant=self.fuel,

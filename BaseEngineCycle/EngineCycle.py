@@ -312,7 +312,8 @@ class EngineCycle:
                     pressure_increase=self.delta_p_oxidizer_pump,
                     efficiency=self.oxidizer_pump_efficiency,
                     specific_power=self.oxidizer_pump_specific_power,
-                    mass_flow=self.main_oxidizer_flow)
+                    mass_flow=self.main_oxidizer_flow,
+                    inlet_pressure=self.oxidizer_initial_pressure)
 
     @property
     def fuel_pump(self):
@@ -320,7 +321,8 @@ class EngineCycle:
                     pressure_increase=self.delta_p_fuel_pump,
                     efficiency=self.fuel_pump_efficiency,
                     specific_power=self.fuel_pump_specific_power,
-                    mass_flow=self.main_fuel_flow)
+                    mass_flow=self.main_fuel_flow,
+                    inlet_pressure=self.fuel_initial_pressure)
 
     @property
     def injector(self):
@@ -409,6 +411,7 @@ class EngineCycle:
     def cooling_channels(self):
         return CoolingChannels(propellant_name=self.fuel.name,
                                total_heat_transfer=self.heat_transfer_section.total_heat_transfer,
+                               # total_heat_transfer=90e6,
                                outlet_pressure=self.combustion_chamber_pressure,
                                inlet_temperature=self.coolant_inlet_temperature,
                                mass_flow=self.cooling_flow)

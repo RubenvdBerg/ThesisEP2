@@ -209,6 +209,7 @@ class HeatTransferSection:
                            ytick_function=lambda x: f'{x * 1e-6:.0f}',
                            **kwargs)
 
+
     def show_adiabatic_wall_temp(self, **kwargs):
         self.distance_plot(func=self.get_adiabatic_wall_temp,
                            ylabel=r'Adiabatic Wall Temperature [$K$]',

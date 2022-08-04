@@ -2,6 +2,7 @@ from BaseEngineCycle.EngineCycle import EngineCycle
 from BaseEngineCycle.Turbine import Turbine
 from dataclasses import dataclass, field
 from scipy.constants import g
+from typing import Optional
 
 
 # Abstract class that has the attributes GasGenerator and OpenExpander share
@@ -9,10 +10,13 @@ from scipy.constants import g
 class OpenEngineCycle(EngineCycle):
     turbine_gas_specific_heat_capacity: float = 0  # [J/(kg*K)]
     turbine_gas_heat_capacity_ratio: float = 0  # [-]
-    turbine_pressure_ratio: float = 0  # [-]
+
     turbine_efficiency: float = 0  # [-]
     turbopump_specific_power: float = 0  # [W/kg]
     exhaust_thrust_contribution: float = 0  # [-]
+    turbine_pressure_ratio: Optional[float] = None  # [-]
+    turbine_inlet_pressure: Optional[float] = None  # [Pa]
+    turbine_outlet_pressure: Optional[float] = None  # [Pa]
 
     # Iteration attribute, not required at init
     turbine_mass_flow: float = field(init=False, default=0)  # [kg/s]
@@ -25,13 +29,10 @@ class OpenEngineCycle(EngineCycle):
         super().__post_init__()
         # Total turbine, oxidizer-pump, fuel-pump-combinations seen as a single turbopump with single specific power
         self.fuel_pump_specific_power = self.oxidizer_pump_specific_power = self.turbopump_specific_power
+        self.resolve_turbine_pressure_ratio_choice()
         self.turbine_mass_flow = self.turbine_mass_flow_initial_guess
         if self.iterate:
             self.iterate_mass_flow()
-
-    @property
-    def turbine_mass_flow_initial_guess(self):
-        return 0.0
 
     def iterate_mass_flow(self):
         if self.verbose:
@@ -50,6 +51,21 @@ class OpenEngineCycle(EngineCycle):
             print('Start reiteration')
         self.update_cea()
         self.iterate_mass_flow()
+
+    def resolve_turbine_pressure_ratio_choice(self):
+        if not ((self.turbine_pressure_ratio is None) ^ (self.turbine_outlet_pressure is None)):
+            raise ValueError('Both or neither turbine_pressure_ratio and turbine_outlet_pressure are provided. '
+                             'Provide one and only one')
+        elif self.turbine_pressure_ratio is None:
+            if self.turbine_inlet_pressure is None:
+                self.turbine_inlet_pressure = self.combustion_chamber_pressure + self.injector.pressure_drop
+                warnings.warn('No turbine inlet pressure provided, estimated to be equal to the pressure of the flow '
+                              'before the main chamber injecotr')
+            self.turbine_pressure_ratio = self.turbine_inlet_pressure / self.turbine_outlet_pressure
+
+    @property
+    def turbine_mass_flow_initial_guess(self):
+        return 0.0
 
     @property
     def turbine_inlet_temperature(self):
@@ -75,3 +91,4 @@ class OpenEngineCycle(EngineCycle):
     @property  # Override EngineCycle.simple_specific_impulse to use total mass flow
     def simple_specific_impulse(self):
         return self.thrust / self.total_mass_flow / g
+

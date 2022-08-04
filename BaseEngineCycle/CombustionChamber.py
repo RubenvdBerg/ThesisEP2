@@ -8,6 +8,7 @@ from scipy.interpolate import interp1d
 from BaseEngineCycle.Structure import Structure
 from BaseEngineCycle.Nozzle import get_chamber_throat_area_ratio_estimate
 
+
 @dataclass
 class CombustionChamber(Structure):
     throat_area: float  # [m2]
@@ -17,7 +18,6 @@ class CombustionChamber(Structure):
     propellant_mix: Optional[str] = None
     characteristic_length: Optional[float] = None
     verbose: bool = True
-
 
     def __post_init__(self):
         if self.characteristic_length is None:
@@ -33,16 +33,21 @@ class CombustionChamber(Structure):
         if self.convergent_volume_estimate is None:
             self.convergent_volume_estimate = 0
             if self.verbose:
-                warnings.warn('No estimate for the volume of the convergent given. Calculating combustion chamber length'
-                              ' based solely on the volume of the cylindrical section.')
+                warnings.warn(
+                    'No estimate for the volume of the convergent given. Calculating combustion chamber length'
+                    ' based solely on the volume of the cylindrical section.')
 
     @cached_property
     def characteristic_length_options(self):
         return {'LOX/GH2': 0.635, 'LOX/LH2': 0.89, 'LOX/RP1': 1.145}
 
     @property
-    def volume(self):
+    def cylinder_volume(self):
         return self.characteristic_length * self.throat_area - self.convergent_volume_estimate
+
+    @property
+    def volume_incl_convergent(self):
+        return self.characteristic_length * self.throat_area
 
     @property
     def area(self):
@@ -54,11 +59,11 @@ class CombustionChamber(Structure):
 
     @property
     def length(self):
-        return self.volume / self.area
+        return self.cylinder_volume / self.area
 
     @property
     def mass(self):
-        return self.material_density * self.safety_factor / self.yield_strength * (2 * self.volume
+        return self.material_density * self.safety_factor / self.yield_strength * (2 * self.cylinder_volume
                                                                                    * self.combustion_chamber_pressure)
 
 
@@ -86,30 +91,30 @@ class ComplexCombustionChamber(CombustionChamber):
     def yield_strength_data(self):
         # Temps in [K], sigmas [MPa]
         return {'inconel600':
-                {'temps': [
-                    297,
-                    600,
-                    800,
-                    900,
-                    1000,
-                    1050,
-                    1100,
-                    1150,
-                    1200,
-                    1300,
-                    1373],
-                    'sigmas': [
-                        733,
-                        689,
-                        617,
-                        468,
-                        273,
-                        212,
-                        154,
-                        113,
-                        79,
-                        50,
-                        27]}}
+            {'temps': [
+                297,
+                600,
+                800,
+                900,
+                1000,
+                1050,
+                1100,
+                1150,
+                1200,
+                1300,
+                1373],
+                'sigmas': [
+                    733,
+                    689,
+                    617,
+                    468,
+                    273,
+                    212,
+                    154,
+                    113,
+                    79,
+                    50,
+                    27]}}
 
 
 @dataclass
@@ -117,12 +122,19 @@ class Injector(Structure):
     combustion_chamber_pressure: float  # [Pa]
     combustion_chamber_area: float  # [m2]
     propellant_is_gas: bool
+    _pressure_drop_factor = .3  # [-]
 
     @property
     def pressure_drop(self):
+        option1 = self.combustion_chamber_pressure * self._pressure_drop_factor
         # Mota 2008 -> Kesaev and Almeida 2005
         f = .4 if self.propellant_is_gas else .8
-        return f * 10E2 * sqrt(10 * self.combustion_chamber_pressure)
+        option2 = f * 10E2 * sqrt(10 * self.combustion_chamber_pressure)
+        return option1
+
+    @property
+    def inlet_pressure(self):
+        return self.combustion_chamber_pressure + self.pressure_drop
 
     @property
     def thickness(self):

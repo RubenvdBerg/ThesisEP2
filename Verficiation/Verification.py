@@ -1,4 +1,4 @@
-from OpenExpanderCycle.OECycle import OpenExpandercycle
+from OpenExpanderCycle.OECycle import OpenExpanderCycle
 import arguments as args
 from Verficiation.VV_Heat_Transfer_Old import convective_heat_transfer_validation
 
@@ -7,7 +7,7 @@ def open_expander_verification():
     base_args = args.base_arguments_o.copy()
     del base_args['fuel_name']
     del base_args['exit_pressure_forced']
-    engine = OpenExpandercycle(thrust=121.50E3,
+    engine = OpenExpanderCycle(thrust=121.50E3,
                                combustion_chamber_pressure=40E5,
                                mass_mixture_ratio=5,
                                burn_time=609,

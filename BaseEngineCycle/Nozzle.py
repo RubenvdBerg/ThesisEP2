@@ -158,6 +158,14 @@ class BellNozzle(Nozzle):
         self.div_b = tan_th - 2 * self.div_a * self.div_radius_p
         self.div_c = self.div_length_p - self.div_a * self.div_radius_p ** 2 - self.div_b * self.div_radius_p
 
+        cot_th = 1 / tan(self.div_throat_half_angle)
+        cot_ex = 1 / tan(self.div_exit_half_angle)
+        self.a = (cot_ex - cot_th) / (2 * (self.exit_radius - self.div_radius_p))
+        self.b = cot_ex - 2 * self.a * self.exit_radius
+        self.b2 = cot_th - 2 * self.a * self.div_radius_p
+        self.c = self.div_length_p - self.a * (self.div_radius_p ** 2) - self.b * self.div_radius_p
+        print()
+
     @property
     def div_length(self):
         a = self.div_a
@@ -214,3 +222,9 @@ class ConicalNozzle(Nozzle):
 
     def div_radius_after_throat_curve(self, distance_from_throat: float) -> float:
         return self.div_radius_p + (distance_from_throat - self.div_length_p) * tan(self.div_throat_half_angle)
+
+
+if __name__ == '__main__':
+    from math import radians
+    nozzle = BellNozzle(throat_area=(.1**2)*pi,expansion_ratio=50, conv_throat_bend_ratio=.8, conv_half_angle=radians(20), conv_chamber_bend_ratio=1., div_throat_half_angle=radians(30), div_exit_half_angle=radians(5))
+    print()

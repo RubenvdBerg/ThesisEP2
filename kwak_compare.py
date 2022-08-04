@@ -24,10 +24,10 @@ def full_output(kwak_fix, design_args=args.desgin_arguments, common_args=args.ba
     arguments = args.base_arguments_kwak
     input_col1 = [
         ep_args['fuel_specific_heat'],
-        gg_args['turbine_specific_heat_capacity'],
+        gg_args['turbine_gas_specific_heat_capacity'],
         arguments['max_acceleration'],
         arguments['pressurant_heat_capacity_ratio'],
-        gg_args['turbine_heat_capacity_ratio'],
+        gg_args['turbine_gas_heat_capacity_ratio'],
         arguments['mass_mixture_ratio'],
         gg_args['gg_mass_mixture_ratio'],
         arguments['pressurant_initial_pressure'] * 1E-6,
@@ -119,8 +119,8 @@ def full_output(kwak_fix, design_args=args.desgin_arguments, common_args=args.ba
 
     gg_iter_list = [
         gg_cycle.combustion_chamber_pressure * 1E-6,
-        gg_cycle.base_oxidizer_flow,
-        gg_cycle.base_fuel_flow,
+        gg_cycle.chamber_oxidizer_flow,
+        gg_cycle.chamber_fuel_flow,
         gg_cycle.pump_power_required * 1E-3,
         gg_cycle.cstar_cf[0],
         gg_cycle.cstar_cf[1]

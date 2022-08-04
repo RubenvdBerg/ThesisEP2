@@ -10,6 +10,7 @@ class Pump:
     pressure_increase: float  # [Pa]
     efficiency: float  # [-]
     specific_power: float  # [W/kg]
+    inlet_pressure: float  # [Pa]
 
     @property
     def volumetric_flow_rate(self):
@@ -23,4 +24,7 @@ class Pump:
     def mass(self):
         return self.power_required / self.specific_power
 
+    @property
+    def outlet_pressure(self):
+        return self.inlet_pressure + self.pressure_increase
 
