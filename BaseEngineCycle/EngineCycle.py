@@ -8,8 +8,8 @@ from scipy import constants as constants
 
 from BaseEngineCycle.BaseFunctions import get_propellant_mix_name
 from BaseEngineCycle.CombustionChamber import CombustionChamber, Injector
-from BaseEngineCycle.Cooling import CoolingChannels
-from BaseEngineCycle.HeatTransferSection import HeatTransferSection
+from BaseEngineCycle.Cooling import CoolingChannelSection
+from BaseEngineCycle.HeatTransferSection import HeatTransferSection, ConvectiveHeatTransfer, RadiativeHeatTransfer
 from BaseEngineCycle.Nozzle import BellNozzle, ConicalNozzle
 from BaseEngineCycle.Pressurant import Pressurant, PressurantTank
 from BaseEngineCycle.Propellant import Propellant
@@ -92,6 +92,7 @@ class EngineCycle:
     expansion_ratio_end_cooling: Optional[float] = None  # [-]
     distance_from_throat_end_cooling: Optional[float] = None  # [m]
     distance_from_throat_start_cooling: Optional[float] = None  # [m]
+    cooling_section_pressure_drop: Optional[float] = None  # [Pa]
 
     # Values that can be estimated by CEA
     characteristic_velocity: Optional[float] = None  # [m/s]
@@ -103,7 +104,7 @@ class EngineCycle:
     cc_hot_gas_prandtl_number: Optional[float] = None  # [-]
     cc_hot_gas_specific_heat_capacity: Optional[float] = None  # [J/(kg*K)]
 
-    iteration_accuracy = 0.01
+    iteration_accuracy = 0.0001
     verbose: bool = True
     fast_init: bool = False  # If True needs to make less calls to rocketCEA, assumes expansion ratio is provided, ignores pressure_ratio and exit_pressure_input
     iterate: bool = True
@@ -183,8 +184,8 @@ class EngineCycle:
             setattr(self, attribute, cea_values[cea_name])
 
     def get_heat_capacity_ratio(self):
-        # Get the heat_capacity_ratio before an expansion ratio or pressure ratio is provided
-        # , which setting all CEA values at once requires
+        # Get the heat_capacity_ratio before an expansion ratio or pressure ratio is provided,
+        #  required for setting all CEA values at once
         kwargs = {key: value for key, value in self.cea_kwargs.items() if key not in ('eps', 'PcOvPe')}
         return get_cea_chamber_dict(**kwargs)['y_cc']
 
@@ -384,23 +385,42 @@ class EngineCycle:
         return self.distance_from_throat_start_cooling
 
     @property
+    def convective_heat_transfer_args(self):
+        return {'combustion_temperature': self.combustion_temperature,
+                'combustion_chamber_pressure': self.combustion_chamber_pressure,
+                'dynamic_viscosity': self.cc_hot_gas_dynamic_viscosity,
+                'specific_heat_capacity': self.cc_hot_gas_specific_heat_capacity,
+                'mass_flow': self.chamber_mass_flow,
+                'maximum_wall_temperature': self.maximum_wall_temperature,
+                'thrust_chamber_wall_emissivity': self.thrust_chamber_wall_emissivity,
+                'hot_gas_emissivity': self.hot_gas_emissivity,
+                'heat_capacity_ratio': self.cc_hot_gas_heat_capacity_ratio,
+                'convective_coefficient_mode': self.convective_coefficient_mode,
+                'thrust_chamber': self.thrust_chamber,
+                'recovery_factor': self.recovery_factor,
+                'prandtl_number': self.cc_hot_gas_prandtl_number,
+                'verbose': self.verbose, }
+
+    @cached_property
+    def theoretical_convective_heat_transfer(self):
+        return ConvectiveHeatTransfer(**self.convective_heat_transfer_args)
+
+    @cached_property
+    def radiative_heat_transfer(self):
+        return RadiativeHeatTransfer(
+            thrust_chamber=self.thrust_chamber,
+            combustion_temperature=self.combustion_temperature,
+            maximum_wall_temperature=self.maximum_wall_temperature,
+            thrust_chamber_wall_emissivity=self.thrust_chamber_wall_emissivity,
+            hot_gas_emissivity=self.hot_gas_emissivity,
+            theoretical_total_convective_heat_transfer=self.theoretical_convective_heat_transfer.total_convective_heat_transfer, )
+
+    @property
     def heat_transfer_section(self):
-        return HeatTransferSection(combustion_temperature=self.combustion_temperature,
-                                   combustion_chamber_pressure=self.combustion_chamber_pressure,
-                                   dynamic_viscosity=self.cc_hot_gas_dynamic_viscosity,
-                                   specific_heat_capacity=self.cc_hot_gas_specific_heat_capacity,
-                                   mass_flow=self.chamber_mass_flow,
-                                   maximum_wall_temperature=self.maximum_wall_temperature,
-                                   thrust_chamber_wall_emissivity=self.thrust_chamber_wall_emissivity,
-                                   hot_gas_emissivity=self.hot_gas_emissivity,
-                                   heat_capacity_ratio=self.cc_hot_gas_heat_capacity_ratio,
-                                   convective_coefficient_mode=self.convective_coefficient_mode,
-                                   thrust_chamber=self.thrust_chamber,
-                                   recovery_factor=self.recovery_factor,
-                                   prandtl_number=self.cc_hot_gas_prandtl_number,
+        return HeatTransferSection(**self.convective_heat_transfer_args,
                                    max_distance_section=self.max_distance_from_throat_heat_transfer_section,
                                    min_distance_section=self.min_distance_from_throat_heat_transfer_section,
-                                   verbose=self.verbose)
+                                   radiative_heat_transfer_factor=self.radiative_heat_transfer.radiative_factor)
 
     @property
     def cooling_flow(self):
@@ -408,13 +428,13 @@ class EngineCycle:
         return self.main_fuel_flow
 
     @property
-    def cooling_channels(self):
-        return CoolingChannels(propellant_name=self.fuel.name,
-                               total_heat_transfer=self.heat_transfer_section.total_heat_transfer,
-                               # total_heat_transfer=90e6,
-                               outlet_pressure=self.combustion_chamber_pressure,
-                               inlet_temperature=self.coolant_inlet_temperature,
-                               mass_flow=self.cooling_flow)
+    def cooling_channel_section(self):
+        return CoolingChannelSection(propellant_name=self.fuel.name,
+                                     total_heat_transfer=self.heat_transfer_section.total_heat_transfer,
+                                     outlet_pressure=self.injector.inlet_pressure,
+                                     inlet_temperature=self.coolant_inlet_temperature,
+                                     mass_flow=self.cooling_flow,
+                                     pressure_drop=self.cooling_section_pressure_drop)
 
     @property
     def pump_power_required(self):

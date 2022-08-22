@@ -11,7 +11,34 @@ from BaseEngineCycle.Nozzle import Nozzle
 
 
 @dataclass
-class HeatTransferSection:
+class RadiativeHeatTransfer:
+    thrust_chamber: ThrustChamber
+    combustion_temperature: float  # [K}
+    hot_gas_emissivity: float  # [-]
+    maximum_wall_temperature: float  # [K]
+    thrust_chamber_wall_emissivity: float  # [-]
+    theoretical_total_convective_heat_transfer: float  # [-] Theoretical total heat transfer to complete surface of the thrust chamber
+
+    @property
+    def netto_average_wall_radiative_heat_flux(self):  # q_rad [W/m2]
+        # Heat Transfer Handbook, A. Bejan 2003, Eq. 8.69
+        tc = self.combustion_temperature
+        tw = self.maximum_wall_temperature
+        e_cw = self.thrust_chamber_wall_emissivity
+        e_hg = self.hot_gas_emissivity
+        return constants.sigma * (tc ** 4 - tw ** 4) / (1 / e_hg + (1 / e_cw) - 1)
+
+    @property
+    def theoretical_total_radiative_heat_transfer(self):  # [W]
+        return self.netto_average_wall_radiative_heat_flux * self.thrust_chamber.surface
+
+    @property
+    def radiative_factor(self):
+        return self.theoretical_total_radiative_heat_transfer / self.theoretical_total_convective_heat_transfer
+
+
+@dataclass
+class ConvectiveHeatTransfer:
     thrust_chamber: ThrustChamber
     # Properties of hot gas in combustion chamber
     combustion_temperature: float  # [K}
@@ -26,8 +53,6 @@ class HeatTransferSection:
 
     thrust_chamber_wall_emissivity: float  # [-]
     convective_coefficient_mode: str
-    min_distance_section: Optional[float] = None  # [m]
-    max_distance_section: Optional[float] = None  # [m]
     post_injection_build_up_ratio: Optional[float] = None  # [-]
     prandtl_number: Optional[float] = None  # [-]
     recovery_factor: Optional[float] = None  # [-]
@@ -49,21 +74,11 @@ class HeatTransferSection:
 
     @property
     def min_distance_from_throat(self):
-        if self.min_distance_section is None:
-            return self.thrust_chamber.min_distance_from_throat
-        else:
-            return self.min_distance_section
+        return self.thrust_chamber.min_distance_from_throat
 
     @property
     def max_distance_from_throat(self):
-        if self.max_distance_section is None:
-            return self.thrust_chamber.max_distance_from_throat
-        else:
-            return self.max_distance_section
-
-    @property
-    def laminar_recovery_factor(self):
-        return self.prandtl_number ** .5
+        return self.thrust_chamber.max_distance_from_throat
 
     @property
     def turbulent_recovery_factor(self):
@@ -75,19 +90,6 @@ class HeatTransferSection:
         # Zandbergen 2017 p.159
         y = self.heat_capacity_ratio
         return 4 * y / (9 * y - 5)
-
-    @property
-    def netto_average_wall_radiative_heat_flux(self):  # q_rad [W/m2]
-        # Heat Transfer Handbook, A. Bejan 2003, Eq. 8.69
-        tc = self.combustion_temperature
-        tw = self.maximum_wall_temperature
-        e_cw = self.thrust_chamber_wall_emissivity
-        e_hg = self.hot_gas_emissivity
-        return constants.sigma * (tc ** 4 - tw ** 4) / (1 / e_hg + (1 / e_cw) - 1)
-
-    @property
-    def total_radiative_heat_transfer(self):  # [W]
-        return self.netto_average_wall_radiative_heat_flux * self.thrust_chamber.surface
 
     @staticmethod
     def convective_heat_transfer_coefficient(mode: str, mass_flow: float, diameter: float, dynamic_viscosity: float,
@@ -176,6 +178,10 @@ class HeatTransferSection:
             temp_eff = temp_ref - self.maximum_wall_temperature
         return coefficient * temp_eff
 
+    def get_convective_heat_transfer_per_axial_meter(self, distance_from_throat: float):
+        return (2 * pi * self.get_convective_heat_flux(distance_from_throat)
+                * self.thrust_chamber.get_radius(distance_from_throat))
+
     @property
     def distance_tuple(self):
         return self.min_distance_from_throat, self.max_distance_from_throat
@@ -183,16 +189,12 @@ class HeatTransferSection:
     @property
     def total_convective_heat_transfer(self):  # [W]
         result = scipy.integrate.quad(
-            lambda x: self.get_convective_heat_flux(x) * self.thrust_chamber.get_radius(x) * 2 * pi,
+            lambda x: self.get_convective_heat_transfer_per_axial_meter(x),
             *self.distance_tuple)
         # if self.verbose:
         #     print(
         #         f'Total Convective Heat Transfer estimated with a estimated error of {result[1] / result[0] * 100:.8f}%')
         return float(result[0])
-
-    @property
-    def total_heat_transfer(self):  # [W]
-        return self.total_convective_heat_transfer + self.total_radiative_heat_transfer
 
     def distance_plot(self, **kwargs):
         self.thrust_chamber.distance_plot(**kwargs, distance_tuple=self.distance_tuple)
@@ -209,11 +211,43 @@ class HeatTransferSection:
                            ytick_function=lambda x: f'{x * 1e-6:.0f}',
                            **kwargs)
 
+    def show_heat_transfer(self, **kwargs):
+        self.distance_plot(func=self.get_convective_heat_transfer_per_axial_meter,
+                           ylabel=r'Convective Heat Transfer/m [$MW$/$m$]',
+                           ytick_function=lambda x: f'{x * 1e-6:.1f}',
+                           **kwargs)
 
     def show_adiabatic_wall_temp(self, **kwargs):
         self.distance_plot(func=self.get_adiabatic_wall_temp,
                            ylabel=r'Adiabatic Wall Temperature [$K$]',
                            **kwargs)
+
+
+@dataclass
+class HeatTransferSection(ConvectiveHeatTransfer):
+    min_distance_section: Optional[float] = None  # [m]
+    max_distance_section: Optional[float] = None  # [m]
+    radiative_heat_transfer_factor: float = 0
+
+    @property
+    def min_distance_from_throat(self):
+        if self.min_distance_section is None:
+            return self.thrust_chamber.min_distance_from_throat
+        else:
+            return self.min_distance_section
+
+    @property
+    def max_distance_from_throat(self):
+        if self.max_distance_section is None:
+            return self.thrust_chamber.max_distance_from_throat
+        else:
+            return self.max_distance_section
+
+    @property
+    def total_heat_transfer(self):
+        return self.total_convective_heat_transfer * (self.radiative_heat_transfer_factor + 1)
+
+
 
     # def convective_heat_flux(self):
     #     if self.convective_mode == "Modified Bartz":

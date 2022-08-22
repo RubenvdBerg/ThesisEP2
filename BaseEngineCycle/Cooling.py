@@ -4,7 +4,7 @@ import CoolProp.CoolProp as CoolProp
 
 
 @dataclass
-class CoolingChannels:
+class CoolingChannelSection:
     # TODO: Assumed the pressure within cooling channels is equal to the inlet pressure, instead of slowly decreasing:
     #  estimate the effect of this simplification
     propellant_name: str
@@ -35,10 +35,12 @@ class CoolingChannels:
             return 'Hydrogen'
         if 'O2' in p_name or 'OX' in p_name:
             return 'Oxygen'
+        if 'CH4' in p_name:
+            return 'Methane'
 
     @property
     def default_inlet_temperature(self):
-        _temp_in_dict = {'Hydrogen': 20.25, 'Oxygen': 90.15, 'n-Dodecane': 293.15}
+        _temp_in_dict = {'Hydrogen': 20.25, 'Oxygen': 90.15, 'n-Dodecane': 293.15, 'Methane': 111.66}
         return _temp_in_dict[self.coolprop_name]
 
     @property
@@ -59,6 +61,5 @@ class CoolingChannels:
 
     @property
     def outlet_temperature(self):
-        return CoolProp.PropsSI('T', 'H', self.outlet_mass_specific_enthalpy, 'P', self.inlet_pressure, self.coolprop_name)
-
-
+        return CoolProp.PropsSI('T', 'H', self.outlet_mass_specific_enthalpy, 'P', self.outlet_pressure,
+                                self.coolprop_name)

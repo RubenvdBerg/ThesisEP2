@@ -20,8 +20,8 @@ class OpenExpanderCycle(OpenEngineCycle):
 
     @property
     def turbine_inlet_temperature(self):
-        if self.cooling_channels.outlet_temperature > self.maximum_wall_temperature:
+        if self.cooling_channel_section.outlet_temperature > self.maximum_wall_temperature:
             warnings.warn('Cooling outlet temperature cannot be higher than maximum wall temperature, cooling flow must be increased manually')
-        return self.cooling_channels.outlet_temperature
+        return self.cooling_channel_section.outlet_temperature
 
 

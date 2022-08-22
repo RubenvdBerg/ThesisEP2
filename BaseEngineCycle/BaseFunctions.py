@@ -11,6 +11,8 @@ def get_propellant_mix_name(fuel_name: str, oxidizer_name: str) -> str:
             fuel = 'H2'
     elif any(name in fuel_name.lower() for name in ['rp1', 'rocket-propellant1', 'rp-1']):
         fuel = 'RP1'
+    elif any(name in fuel_name.lower() for name in ['ch4', 'methane']):
+        fuel = 'LCH4'
     else:
         fuel = None
 
