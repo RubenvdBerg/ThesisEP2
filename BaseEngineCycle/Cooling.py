@@ -5,9 +5,7 @@ import CoolProp.CoolProp as CoolProp
 
 @dataclass
 class CoolingChannelSection:
-    # TODO: Assumed the pressure within cooling channels is equal to the inlet pressure, instead of slowly decreasing:
-    #  estimate the effect of this simplification
-    propellant_name: str
+    coolprop_name: str
     total_heat_transfer: float  # [W]
     outlet_pressure: float  # [Pa]
     mass_flow: float  # [kg/s]
@@ -25,18 +23,6 @@ class CoolingChannelSection:
         if self.pressure_drop is None:
             # Humble 1995 p.209 suggest pressure drop to be 10% - 20% of chamber/outlet pressure
             self.pressure_drop = self.outlet_pressure * self._pressure_drop_ratio
-
-    @property
-    def coolprop_name(self):
-        p_name = self.propellant_name.upper()
-        if 'RP' in p_name:
-            return 'n-Dodecane'
-        if 'H2' in p_name:
-            return 'Hydrogen'
-        if 'O2' in p_name or 'OX' in p_name:
-            return 'Oxygen'
-        if 'CH4' in p_name:
-            return 'Methane'
 
     @property
     def default_inlet_temperature(self):

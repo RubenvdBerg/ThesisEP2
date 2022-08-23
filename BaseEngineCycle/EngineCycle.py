@@ -427,14 +427,27 @@ class EngineCycle:
         # Initial assumption is that the fuel is the coolant and is completely routed through the cooling channels
         return self.main_fuel_flow
 
+    @staticmethod
+    def coolprop_name(propellant_name):
+        p_name = propellant_name.upper()
+        if 'RP' in p_name:
+            return 'n-Dodecane'
+        if 'H2' in p_name:
+            return 'Hydrogen'
+        if 'O2' in p_name or 'OX' in p_name:
+            return 'Oxygen'
+        if 'CH4' in p_name:
+            return 'Methane'
+
     @property
     def cooling_channel_section(self):
-        return CoolingChannelSection(propellant_name=self.fuel.name,
+        return CoolingChannelSection(coolprop_name=self.coolprop_name(self.fuel.name),
                                      total_heat_transfer=self.heat_transfer_section.total_heat_transfer,
                                      outlet_pressure=self.injector.inlet_pressure,
                                      inlet_temperature=self.coolant_inlet_temperature,
                                      mass_flow=self.cooling_flow,
-                                     pressure_drop=self.cooling_section_pressure_drop)
+                                     pressure_drop=self.cooling_section_pressure_drop,
+                                     )
 
     @property
     def pump_power_required(self):

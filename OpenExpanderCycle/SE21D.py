@@ -13,6 +13,7 @@ class SE21D(OpenExpanderCycle):
     def post_fuel_pump_splitter(self):
         return Splitter(split_ratios=(1 - 0.17500560436393138123552205984393, 0.17500560436393138123552205984393),
                         input_mass_flow=self.main_fuel_flow)
+
     #
     # @property
     # def post_cooling_splitter(self):
@@ -57,6 +58,7 @@ class SE21D(OpenExpanderCycle):
     def pump_power_required(self):
         return self.fuel_pump.power_required + self.fuel_pump2.power_required + self.oxidizer_pump.power_required
 
+
 @dataclass
 class SE21D_PressureExact(SE21D):
 
@@ -74,12 +76,12 @@ class SE21D_PressureExact(SE21D):
 
     @property
     def cooling_channel_section(self):
-        return CoolingChannelSection(propellant_name=self.fuel.name,
+        return CoolingChannelSection(coolprop_name=self.coolprop_name(self.fuel.name),
                                      total_heat_transfer=self.heat_transfer_section.total_heat_transfer,
                                      outlet_pressure=8.749e6,
                                      inlet_temperature=self.coolant_inlet_temperature,
                                      mass_flow=self.cooling_flow,
-                                     pressure_drop=12.109e6-8.749e6)
+                                     pressure_drop=12.109e6 - 8.749e6)
 
     def turbine2(self):
         return Turbine(pump_power_required=self.pump_power_required,
@@ -94,10 +96,14 @@ if __name__ == '__main__':
 
     import arguments as args
     from BaseEngineCycle.Turbine import Turbine
+
     # test_turbine = Turbine(pump_power_required=20.768e6, efficiency=.45, specific_heat_capacity=14515.8, heat_capacity_ratio=1.398, pressure_ratio=27.7033333, inlet_temperature=506)
     # print(test_turbine.mass_flow_required)
-    for EngineClass, pressurething in zip((SE21D_PressureExact, SE21D),('exact', 'estimated')):
-        engine = EngineClass(**args.change_to_conical_nozzle(args.se_21d_kwargs), iterate=True)
+    new_args = args.se_21d_kwargs | {'turbine_gas_specific_heat_capacity': None,
+                                     'turbine_gas_heat_capacity_ratio': None, }
+    for EngineClass, pressurething in zip((SE21D_PressureExact, SE21D), ('exact', 'estimated')):
+        # engine = EngineClass(**args.change_to_conical_nozzle(args.se_21d_kwargs), iterate=True)
+        engine = EngineClass(**args.change_to_conical_nozzle(new_args), iterate=True)
         engine.thrust_chamber.show_contour()
         engine.heat_transfer_section.show_heat_flux()
         print(f'Data comparison for SE21 with {pressurething.upper()} pressures')
@@ -108,13 +114,13 @@ if __name__ == '__main__':
                 ('Throat Radius', '[m]', engine.nozzle.throat_radius, 0.286),
                 ('Nozzle Length', '[m]', engine.nozzle.total_length, 2.548),
                 # ('TC Length', '[m]', engine.thrust_chamber.length, 0),
-                ('Heat Transfer', '[MW]', engine.heat_transfer_section.total_heat_transfer*1e-6, 111.037),
+                ('Heat Transfer', '[MW]', engine.heat_transfer_section.total_heat_transfer * 1e-6, 111.037),
                 ('Turb. In. Temp.', '[K]', engine.turbine_inlet_temperature, 506),
                 ('Turb. Mass Flow', '[kg/s]', engine.turbine_mass_flow, 10.174),
                 ('Cool. Mass Flow', '[kg/s]', engine.cooling_flow, 16.394),
                 ('Main Fuel Flow', '[kg/s]', engine.main_fuel_flow, 93.677),
                 ('Main Oxid. Flow', '[kg/s]', engine.main_oxidizer_flow, 456.323),
-                ('Fuel Pump1 Power Req.', '[MW]', engine.fuel_pump.power_required*1e-6, 15.443),
+                ('Fuel Pump1 Power Req.', '[MW]', engine.fuel_pump.power_required * 1e-6, 15.443),
                 ('Fuel Pump2 Power Req.', '[MW]', engine.fuel_pump2.power_required * 1e-6, 1.01),
                 ('Oxid. Pump Power Req.', '[MW]', engine.oxidizer_pump.power_required * 1e-6, 4.315),
                 ('Total Pump Power Req.', '[MW]', engine.pump_power_required * 1e-6, 20.768),

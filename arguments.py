@@ -147,7 +147,9 @@ tcd1_kwargs = base_arguments_o | {
     'burn_time': 100,
     'is_frozen': True,
     'exit_pressure_forced': None,
-    'expansion_ratio_end_cooling': 22
+    'expansion_ratio_end_cooling': 22,
+    'nozzle_type': 'conical',
+    'maximum_wall_temperature': 850,
 }
 
 le5a_kwargs = base_arguments_o | {
@@ -197,6 +199,7 @@ se_21d_kwargs = base_arguments_o | {
     'turbine_efficiency': .45,
     'exhaust_thrust_contribution': .0084,
     'area_ratio_chamber_throat': (.985/2)**2/.286**2,
+    'exhaust_expansion_ratio': 1.655,
 }
 
 mira_kwargs = base_arguments_o | {
@@ -226,6 +229,7 @@ mira_kwargs = base_arguments_o | {
     'exhaust_thrust_contribution': .012,
     'area_ratio_chamber_throat': (.985/2)**2/.286**2,
     'divergent_throat_half_angle': radians(79),
+    'exhaust_expansion_ratio': 20
 
 }
 le5a_kwargs_cnozzle = change_to_conical_nozzle(le5a_kwargs)

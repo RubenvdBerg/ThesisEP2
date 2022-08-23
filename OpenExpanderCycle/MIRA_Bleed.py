@@ -53,7 +53,7 @@ class MIRA(OpenExpanderCycle):
 
     @property
     def cooling_channel_section(self):
-        return CoolingChannelSection(propellant_name=self.fuel.name,
+        return CoolingChannelSection(coolprop_name=self.turbine_gas_coolprop_name,
                                      total_heat_transfer=self.heat_transfer_section.total_heat_transfer,
                                      # total_heat_transfer=6.749e6,
                                      outlet_pressure=self.injector.inlet_pressure,
@@ -62,7 +62,7 @@ class MIRA(OpenExpanderCycle):
 
     @property
     def cooling_channel_section_2(self):
-        return CoolingChannelSection(propellant_name=self.fuel.name,
+        return CoolingChannelSection(coolprop_name=self.turbine_gas_coolprop_name,
                                      # total_heat_transfer=self.heat_transfer_section_2.total_heat_transfer,
                                      total_heat_transfer=.302e6,
                                      outlet_pressure=self.injector.inlet_pressure,
@@ -75,7 +75,7 @@ class MIRA_Exact(MIRA):
 
     @property
     def cooling_channel_section(self):
-        return CoolingChannelSection(propellant_name=self.fuel.name,
+        return CoolingChannelSection(coolprop_name=self.turbine_gas_coolprop_name,
                                      # total_heat_transfer=self.heat_transfer_section.total_heat_transfer,
                                      total_heat_transfer=6.749e6,
                                      outlet_pressure=66.6e5,
@@ -85,7 +85,7 @@ class MIRA_Exact(MIRA):
 
     @property
     def cooling_channel_section_2(self):
-        return CoolingChannelSection(propellant_name=self.fuel.name,
+        return CoolingChannelSection(coolprop_name=self.turbine_gas_coolprop_name,
                                      # total_heat_transfer=self.heat_transfer_section_2.total_heat_transfer,
                                      total_heat_transfer=.302e6,
                                      outlet_pressure=66.6e5,

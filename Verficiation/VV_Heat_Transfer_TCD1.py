@@ -9,8 +9,7 @@ from numpy import linspace
 import matplotlib.pyplot as plt
 from math import radians
 import pandas as pd
-filename =  r'C:\Users\rvand\PycharmProjects\ThesisEP2\BaseEngineCycle\Data\Perakis2021_HeatTransfer'
-file1 = np.genfromtxt(fname=filename+'.txt', delimiter=',')
+
 # file2 = pd.read_excel(filename +'.xlsx')
 
 
@@ -27,18 +26,21 @@ print(engine.thrust_chamber.min_distance_from_throat)
 distance_tuple = engine.heat_transfer_section.distance_tuple
 distances = list(linspace(*distance_tuple, 300))
 heat_transfer_vals = [engine.heat_transfer_section.get_convective_heat_flux(distance) for distance in distances]
-heat_transfer_vals_cornelis = [engine_cornelis.heat_transfer_section.get_convective_heat_flux(distance) for distance in distances]
+heat_transfer_vals_cornelis = [engine_cornelis.heat_transfer_section.get_convective_heat_flux(distance) for distance in
+                               distances]
 contour_vals = [engine.thrust_chamber.get_radius(distance) for distance in distances]
+
+filename = r'C:\Users\rvand\PycharmProjects\ThesisEP2\BaseEngineCycle\Data\Perakis2021_HeatTransfer'
+file1 = np.genfromtxt(fname=filename + '.txt', delimiter=',')
+distances_exp = file1[1:, 0] * 1e-3 + distance_tuple[0]
+values_exp = file1[1:, 1] * 1e6
+
 fig, ax1 = plt.subplots()
-
-distances_exp = file1[1:,0]*1e-3 + distance_tuple[0]
-values_exp = file1[1:,1]*1e6
-
 ax1.set_xlabel('Distance from injection plate [mm]')
-ticks3 = list(linspace(0+distance_tuple[0], 1+distance_tuple[0], 6))
+ticks3 = list(linspace(0 + distance_tuple[0], 1 + distance_tuple[0], 6))
 ax1.set_xticks(ticks3)
-ax1.set_xticklabels([f'{(x-distance_tuple[0])*1e3:.0f}' for x in ticks3])
-ax1.set_xlim((0+distance_tuple[0], 1+distance_tuple[0]))
+ax1.set_xticklabels([f'{(x - distance_tuple[0]) * 1e3:.0f}' for x in ticks3])
+ax1.set_xlim((0 + distance_tuple[0], 1 + distance_tuple[0]))
 ax2 = ax1.twinx()
 
 ax1.plot(distances, heat_transfer_vals, linestyle='-', label='Mod. Bartz', color='C0')
@@ -47,7 +49,7 @@ ax1.plot(distances_exp, values_exp, linestyle='-', label='Perakis et al.', color
 ax1.set_ylabel(r'Convective Heat Flux [$MW$/$m^2$]')
 ticks1 = [x for x in range(0, 80000001, 10000000)]
 ax1.set_yticks(ticks1)
-ax1.set_yticklabels([f'{x*1e-6:.1f}' for x in ticks1])
+ax1.set_yticklabels([f'{x * 1e-6:.1f}' for x in ticks1])
 ax1.set_ylim((0., 80.e6))
 
 ax2color = 'lightgrey'
@@ -55,10 +57,9 @@ ax2.plot(distances, contour_vals, linestyle='--', color=ax2color)
 ax2.set_ylabel(r'Radius [mm]')
 ticks2 = list(linspace(50e-3, 300e-3, 6))
 ax2.set_yticks(ticks2)
-ax2.set_yticklabels([f'{x*1e3:.0f}' for x in ticks2])
+ax2.set_yticklabels([f'{x * 1e3:.0f}' for x in ticks2])
 ax2.set_ylim((50e-3, .3))
 ax1.legend(loc='upper left')
 plt.show()
 # engine.heat_exchanger.show_heat_flux()
 # engine.thrust_chamber.show_contour()
-
