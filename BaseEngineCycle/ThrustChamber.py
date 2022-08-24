@@ -6,7 +6,8 @@ import scipy.optimize
 from matplotlib import pyplot as plt
 from numpy import array, isclose, linspace
 from dataclasses import dataclass
-from BaseEngineCycle.CombustionChamber import CombustionChamber, Injector
+from BaseEngineCycle.CombustionChamber import CombustionChamber
+from BaseEngineCycle.Injector import Injector
 from BaseEngineCycle.Nozzle import Nozzle
 from irt import get_expansion_ratio, get_local_mach
 from copy import deepcopy

@@ -1,7 +1,8 @@
 from scipy import constants
 
 import arguments as args
-from BaseEngineCycle.CombustionChamber import CombustionChamber, Injector
+from BaseEngineCycle.CombustionChamber import CombustionChamber
+from BaseEngineCycle.Injector import Injector
 from BaseEngineCycle.EngineCycle import EngineCycle
 from BaseEngineCycle.HeatTransferSection import HeatTransferSection
 from BaseEngineCycle.Nozzle import BellNozzle

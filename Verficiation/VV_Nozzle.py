@@ -1,6 +1,7 @@
 from BaseEngineCycle.Nozzle import BellNozzle, ConicalNozzle
 from BaseEngineCycle.ThrustChamber import ThrustChamber
-from BaseEngineCycle.CombustionChamber import Injector, CombustionChamber
+from BaseEngineCycle.CombustionChamber import CombustionChamber
+from BaseEngineCycle.Injector import Injector
 from math import pi, radians
 
 # Variables from LE5A engine as given in Kakuma2000

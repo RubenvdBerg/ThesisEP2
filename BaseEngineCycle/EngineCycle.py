@@ -7,7 +7,8 @@ from typing import Optional, Literal
 from scipy import constants as constants
 
 from BaseEngineCycle.BaseFunctions import get_propellant_mix_name
-from BaseEngineCycle.CombustionChamber import CombustionChamber, Injector
+from BaseEngineCycle.CombustionChamber import CombustionChamber
+from BaseEngineCycle.Injector import Injector
 from BaseEngineCycle.Cooling import CoolingChannelSection
 from BaseEngineCycle.HeatTransferSection import HeatTransferSection, ConvectiveHeatTransfer, RadiativeHeatTransfer
 from BaseEngineCycle.Nozzle import BellNozzle, ConicalNozzle

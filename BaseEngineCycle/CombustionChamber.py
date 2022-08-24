@@ -7,7 +7,7 @@ from scipy.interpolate import interp1d
 
 from BaseEngineCycle.Structure import Structure
 from BaseEngineCycle.Nozzle import get_chamber_throat_area_ratio_estimate
-
+from FlowComponent import FluidComponent
 
 @dataclass
 class CombustionChamber(Structure):
@@ -66,7 +66,6 @@ class CombustionChamber(Structure):
         return self.material_density * self.safety_factor / self.yield_strength * (2 * self.cylinder_volume
                                                                                    * self.combustion_chamber_pressure)
 
-
 @dataclass
 class ComplexCombustionChamber(CombustionChamber):
     max_wall_temperature: Optional[float] = None  # [K]
@@ -78,6 +77,7 @@ class ComplexCombustionChamber(CombustionChamber):
             self.yield_strength = self.yield_strength_from_temp(
                 temp_list=data['temps'], sigma_list=data['sigmas'], max_temperature=self.max_wall_temperature
             )
+        super().__post_init__()
 
     @staticmethod
     def yield_strength_from_temp(temp_list: list, sigma_list: list, max_temperature: float) -> float:
@@ -115,35 +115,3 @@ class ComplexCombustionChamber(CombustionChamber):
                     79,
                     50,
                     27]}}
-
-
-@dataclass
-class Injector(Structure):
-    combustion_chamber_pressure: float  # [Pa]
-    combustion_chamber_area: float  # [m2]
-    propellant_is_gas: bool
-    _pressure_drop_factor = .3  # [-]
-
-    @property
-    def pressure_drop(self):
-        option1 = self.combustion_chamber_pressure * self._pressure_drop_factor
-        # Mota 2008 -> Kesaev and Almeida 2005
-        f = .4 if self.propellant_is_gas else .8
-        option2 = f * 10E2 * sqrt(10 * self.combustion_chamber_pressure)
-        return option1
-
-    @property
-    def inlet_pressure(self):
-        return self.combustion_chamber_pressure + self.pressure_drop
-
-    @property
-    def thickness(self):
-        # Zandbergen -> 4 times pressure drop, ASME code for welded flat caps on internal pressure vessels
-        diameter = 2 * sqrt(self.combustion_chamber_area / pi)
-        pressure = 4 * self.pressure_drop
-        c = 6 * 3.3 / 64
-        return diameter * sqrt(c * pressure / self.yield_strength) * self.safety_factor
-
-    @property
-    def mass(self):
-        return self.combustion_chamber_area * self.thickness * self.material_density
