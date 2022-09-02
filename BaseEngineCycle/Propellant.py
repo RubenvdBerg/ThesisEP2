@@ -1,19 +1,23 @@
 from dataclasses import dataclass
-from typing import Literal
-
+from BaseEngineCycle.FlowState import FlowState
 
 @dataclass
 class Propellant:
-    name: str
-    type: Literal['oxidizer', 'fuel']
-    main_mass_flow: float  # [kg/s] (can generally be seen as mass flow exiting the propellant tank)
+    initial_flow_state: FlowState
     burn_time: float  # [s]
-    density: float  # [kg/m3]
     margin_factor: float  # [-]
 
     @property
+    def mass_flow(self):
+        return self.initial_flow_state.mass_flow
+
+    @property
+    def density(self):
+        return self.initial_flow_state.density
+
+    @property
     def mass(self):
-        return self.main_mass_flow * self.burn_time * self.margin_factor
+        return self.mass_flow * self.burn_time * self.margin_factor
 
     @property
     def volume(self):
@@ -21,7 +25,7 @@ class Propellant:
 
     @property
     def volumetric_flow(self):
-        return self.main_mass_flow / self.density
+        return self.mass_flow / self.density
 
 
 

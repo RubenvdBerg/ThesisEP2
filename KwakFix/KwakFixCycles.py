@@ -12,23 +12,21 @@ class KwakFixEngineCycle(EngineCycle):
 
     @property
     def oxidizer_tank(self):
-        return KwakTank(material_density=self.tanks_material_density,
+        return KwakTank(inlet_flow_state=self.oxidizer_initial_flow_state,
+                        material_density=self.tanks_material_density,
                         safety_factor=self.tanks_structural_factor,
                         yield_strength=self.tanks_yield_strength,
-                        propellant=self.oxidizer,
                         max_acceleration=self.max_acceleration,
                         ullage_factor=self.ullage_volume_factor,
-                        initial_pressure=self.oxidizer_initial_pressure,
                         pressurant_tank_volume=self.pressurant_tank.volume,
                         _kwak_fix_cycle_type=self._kwak_fix_cycle_type)
 
     @property
     def fuel_tank(self):
-        return KwakTank(max_acceleration=self.max_acceleration,
+        return KwakTank(inlet_flow_state=self.fuel_initial_flow_state,
+                        max_acceleration=self.max_acceleration,
                         ullage_factor=self.ullage_volume_factor,
-                        propellant=self.fuel,
                         pressurant_tank_volume=None,
-                        initial_pressure=self.fuel_initial_pressure,
                         material_density=self.tanks_material_density,
                         yield_strength=self.tanks_yield_strength,
                         safety_factor=self.tanks_structural_factor,

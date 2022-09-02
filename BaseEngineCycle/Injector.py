@@ -3,7 +3,7 @@ from math import sqrt, pi
 from typing import Optional
 
 from BaseEngineCycle.Structure import Structure
-from FlowComponent import FlowComponent
+from BaseEngineCycle.FlowComponent import FlowComponent
 
 @dataclass
 class Injector(Structure, FlowComponent):

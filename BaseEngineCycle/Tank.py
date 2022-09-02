@@ -2,18 +2,20 @@ import warnings
 from dataclasses import dataclass
 from math import pi
 from typing import Optional
-
 from BaseEngineCycle.Propellant import Propellant
 from BaseEngineCycle.Structure import Structure
+from BaseEngineCycle.FlowComponent import FlowComponent
 
 
 @dataclass
-class Tank(Structure):
-    propellant: Propellant
+class Tank(FlowComponent, Structure):
     max_acceleration: float  # [m/s2]
     ullage_factor: float  # [-]
-    initial_pressure: float  # [Pa]
     pressurant_tank_volume: Optional[float] = None  # [m3]
+
+    @property
+    def initial_pressure(self):
+        return self.inlet_flow_state.pressure
 
     @property
     def radius(self):
@@ -27,12 +29,12 @@ class Tank(Structure):
 
     @property
     def total_lower_pressure(self):
-        return self.initial_pressure + self.propellant.density * self.max_acceleration * self.initial_head
+        return self.initial_pressure + self.inlet_flow_state.density * self.max_acceleration * self.initial_head
 
     @property
     def total_upper_pressure(self):
-        return self.initial_pressure + self.propellant.density * self.max_acceleration * (self.initial_head -
-                                                                                          self.radius)
+        return self.initial_pressure + self.inlet_flow_state.density * self.max_acceleration * (self.initial_head -
+                                                                                                self.radius)
 
     @property
     def mass(self):  # Spherical Tanks
@@ -45,7 +47,7 @@ class Tank(Structure):
             return self.propellant.volume * self.ullage_factor + self.pressurant_tank_volume
         else:
             warnings.warn(
-                f'No pressurant tank volume was given. Assumed pressurant tank is not submerged in {self.propellant.type} tank')
+                f'No pressurant tank volume was given. Assumed pressurant tank is not submerged in {self.inlet_flow_state.propellant_name} tank')
             return self.propellant.volume * self.ullage_factor
 
 # @dataclass

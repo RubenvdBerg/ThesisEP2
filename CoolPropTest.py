@@ -41,3 +41,5 @@ in_out((t_in_m, t_out_m), (p_in_m, p_out_m), 'Methane')
 
 print(PropsSI('D', 'T', 115, 'P', .3E6, 'Methane'))
 print(PropsSI('D', 'T', 90, 'P', .3E6, 'Oxygen'))
+print(PropsSI('D','T', 263.6, 'P', .25E6, 'n-Dodecane'))
+print(771.6239669759389/804.2)

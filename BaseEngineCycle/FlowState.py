@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 from CoolProp.CoolProp import PropsSI
+from functools import cached_property
+from typing import Literal
 
 
 @dataclass
@@ -8,22 +10,25 @@ class FlowState:
     temperature: float  # [K]
     pressure: float  # [Pa]
     mass_flow: float  # [kg/s]
+    type: Literal['oxidizer', 'fuel']
 
     @cached_property
     def coolprop_name(self):
         p_name = self.propellant_name.upper()
         if 'RP' in p_name:
             return 'n-Dodecane'
-        if 'H2' in p_name:
+        elif 'H2' in p_name:
             return 'Hydrogen'
-        if 'O2' in p_name or 'OX' in p_name:
+        elif 'O2' in p_name or 'OX' in p_name:
             return 'Oxygen'
-        if 'CH4' in p_name:
+        elif 'CH4' in p_name:
             return 'Methane'
+        else:
+            raise ValueError('No matching coolprop_name was recognized for propellant_name')
 
-    @property
+    @cached_property
     def molar_mass(self):
-        return PropsSI('MOLAR_MASS',self.coolprop_name)
+        return PropsSI('MOLAR_MASS', self.coolprop_name)
 
     @property
     def state_inputs(self):
@@ -43,6 +48,9 @@ class FlowState:
 
     @property
     def density(self):
+        if self.coolprop_name == 'n-Dodecane':
+            # Known correction RP-1 generally 3-4% heavier than dodecane
+            return PropsSI('DMASS', *self.state_inputs) * 1.04
         return PropsSI('DMASS', *self.state_inputs)
 
     @property
@@ -51,3 +59,15 @@ class FlowState:
 
     def propssi(self, string_input: str):
         return PropsSI(string_input, *self.state_inputs)
+
+
+@dataclass
+class DefaultFlowState(FlowState):
+    propellant_name: str = 'Default'
+    temperature: float = 0  # [K]
+    pressure: float = 0  # [Pa]
+    mass_flow: float = 0  # [kg/s]
+    type: str = 'Default'
+
+    def coolprop_name(self):
+        raise ValueError('Called a function or class that requires a FlowState without defining it')

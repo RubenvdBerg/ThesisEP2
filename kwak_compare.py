@@ -113,7 +113,7 @@ def full_output(kwak_fix, design_args=args.desgin_arguments, common_args=args.ba
     gg_before_iter_list = [
         gg_cycle.gas_generator.turbine_mass_flow,
         gg_cycle.gas_generator.mass_mixture_ratio / (
-                    gg_cycle.gas_generator.mass_mixture_ratio + 1) * gg_cycle.gas_generator.turbine_mass_flow,
+                gg_cycle.gas_generator.mass_mixture_ratio + 1) * gg_cycle.gas_generator.turbine_mass_flow,
         1 / (gg_cycle.gas_generator.mass_mixture_ratio + 1) * gg_cycle.gas_generator.turbine_mass_flow,
     ]
 
@@ -154,7 +154,7 @@ def full_output(kwak_fix, design_args=args.desgin_arguments, common_args=args.ba
     gg_after_iter_list = [
         gg_cycle.gg_mass_flow,
         gg_cycle.gas_generator.mass_mixture_ratio / (
-                    gg_cycle.gas_generator.mass_mixture_ratio + 1) * gg_cycle.gas_generator.turbine_mass_flow,
+                gg_cycle.gas_generator.mass_mixture_ratio + 1) * gg_cycle.gas_generator.turbine_mass_flow,
         1 / (gg_cycle.gas_generator.mass_mixture_ratio + 1) * gg_cycle.gas_generator.turbine_mass_flow,
         gg_cycle.mass_mixture_ratio / (gg_cycle.mass_mixture_ratio + 1) * gg_cycle.chamber_mass_flow,
         1 / (gg_cycle.mass_mixture_ratio + 1) * gg_cycle.chamber_mass_flow,
@@ -314,7 +314,7 @@ def get_outputs():
     for burn_time, batt_coolant_flow in zip(burn_times, batt_coolant_flows):
         base_arguments2['burn_time'] = burn_time
         df = full_output(kwak_fix=True, design_args=args.desgin_arguments,
-                    base_args=base_arguments2, ep_args=ep_arguments2)
+                         base_args=base_arguments2, ep_args=ep_arguments2)
         full_outputs[burn_time] = df
     return full_outputs
 

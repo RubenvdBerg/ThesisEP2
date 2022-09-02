@@ -1,4 +1,4 @@
-# from dataclasses import dataclass, field
+from dataclasses import dataclass, field
 #
 # @dataclass
 # class Class1:
@@ -25,6 +25,17 @@
 #     c2.attr2.attr1 = 3
 #     c3 = Class2_better()
 #     print(c3.attr2.attr1)
-a =1
-b = -a
-print(b)
+@dataclass
+class Class1:
+    attr1: float
+
+    def __post_init__(self):
+        setattr(self, 'attr2', 2)
+
+    @property
+    def whatever(self):
+        return 1
+
+d1 = Class1(1)
+print(d1.attr2)
+print((1,2) + (1,))

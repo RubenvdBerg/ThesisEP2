@@ -1,26 +1,42 @@
-from dataclasses import dataclass, replace
-from FlowState import FlowState
+from dataclasses import dataclass, replace, field
+from BaseEngineCycle.FlowState import FlowState, DefaultFlowState
 
 
 @dataclass
-class FlowComponent:
-    inlet_flow_state: FlowState
+class BaseFlowComponent:
+    # These parameters are back-ups in case child class does not define them
+    #  ,so FlowComponents can always change the pressure, temperature or mass flow
+    _temperature_change: float = 0
+    _pressure_change: float = 0
+    _mass_flow_change: float = 0
+
+    @property
+    def _inlet_flow_state(self) -> FlowState:
+        raise NotImplementedError
 
     @property
     def inlet_pressure(self):
-        return self.inlet_flow_state.pressure
+        return self._inlet_flow_state.pressure
 
     @property
     def inlet_temperature(self):
-        return self.inlet_flow_state.temperature
+        return self._inlet_flow_state.temperature
+
+    @property
+    def inlet_mass_flow(self):
+        return self._inlet_flow_state.mass_flow
 
     @property
     def temperature_change(self):
-        return 0
+        return self._temperature_change
 
     @property
     def pressure_change(self):
-        return 0
+        return self._pressure_change
+
+    @property
+    def mass_flow_change(self):
+        return self._mass_flow_change
 
     @property
     def outlet_pressure(self):
@@ -31,8 +47,22 @@ class FlowComponent:
         return self.inlet_temperature + self.temperature_change
 
     @property
-    def output_flow_state(self):
-        return self.inlet_flow_state.replace(
-            pressure=self.outlet_pressure,
-            temperature=self.outlet_temperature,
-        )
+    def outlet_mass_flow(self):
+        return self.inlet_mass_flow + self.mass_flow_change
+
+    @property
+    def outlet_flow_state(self):
+        return replace(self._inlet_flow_state,
+                       pressure=self.outlet_pressure,
+                       temperature=self.outlet_temperature,
+                       mass_flow=self.outlet_mass_flow,
+                       )
+
+
+@dataclass
+class FlowComponent(BaseFlowComponent):
+    inlet_flow_state: FlowState = DefaultFlowState()
+
+    @property
+    def _inlet_flow_state(self):
+        return self.inlet_flow_state

@@ -70,8 +70,8 @@ class ElectricPumpCycle(EngineCycle):
     # Rewrite of fuel_pump to accommodate for recirculation of battery cooling fuel flow (instead of actual split flow)
     @property
     def fuel_pump(self):
-        return Pump(propellant=self.fuel,
-                    mass_flow=self._fuelpumpflow,
+        # TODO: FIX EP FlowState
+        return Pump(inlet_flow_state=self.fuel_tank.outlet_flow_state,
                     pressure_increase=self.delta_p_fuel_pump,
                     efficiency=self.fuel_pump_efficiency,
                     specific_power=self.fuel_pump_specific_power)

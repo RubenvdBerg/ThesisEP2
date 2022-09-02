@@ -46,6 +46,8 @@ base_arguments_kwak = {
     'pressurant_tank_yield_strength': 1100E6,
 }
 base_arguments_own = {
+    'fuel_initial_temperature': 263.6,  # To get the as close as possible to density given by Kwak with his initial pressure of 2.5 bar
+    'oxidizer_initial_temperature': 93.340,  # To get the same density as Kwak with his initial pressure of 4 bar
     'combustion_chamber_material_density': 8470,
     'combustion_chamber_yield_strength': 300e6,
     'combustion_chamber_safety_factor': 1,

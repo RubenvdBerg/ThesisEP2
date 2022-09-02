@@ -17,6 +17,7 @@ from BaseEngineCycle.Propellant import Propellant
 from BaseEngineCycle.Tank import Tank
 from BaseEngineCycle.ThrustChamber import ThrustChamber
 from BaseEngineCycle.Pump import Pump
+from BaseEngineCycle.FlowState import FlowState
 from cea import get_cea_values_dict
 from cea_new import get_cea_dict, get_cea_chamber_dict
 from irt import get_kerckhove, get_expansion_ratio_from_p_ratio, get_pressure_ratio_fsolve
@@ -30,11 +31,13 @@ class EngineCycle:
     max_acceleration: float  # [m/s]
     mass_mixture_ratio: float  # [-]
     fuel_initial_pressure: float  # [Pa]
+    fuel_initial_temperature: float  # [k]
     fuel_pump_pressure_factor: float  # [Pa]
     fuel_pump_specific_power: float  # [W]
     fuel_pump_efficiency: float  # [-]
     fuel_density: float  # [kg/m3]
     oxidizer_initial_pressure: float  # [Pa]
+    oxidizer_initial_temperature: float  # [k]
     oxidizer_pump_pressure_factor: float  # [Pa]
     oxidizer_pump_specific_power: float  # [W]
     oxidizer_pump_efficiency: float  # [-]
@@ -248,27 +251,37 @@ class EngineCycle:
         return self.combustion_chamber_pressure * self.fuel_pump_pressure_factor - self.fuel_initial_pressure
 
     @property
+    def oxidizer_initial_flow_state(self):
+        return FlowState(propellant_name=self.oxidizer_name,
+                         temperature=self.oxidizer_initial_temperature,
+                         pressure=self.oxidizer_initial_pressure,
+                         mass_flow=self.main_oxidizer_flow,
+                         type='oxidizer',)
+
+    @property
+    def fuel_initial_flow_state(self):
+        return FlowState(propellant_name=self.fuel_name,
+                         temperature=self.fuel_initial_temperature,
+                         pressure=self.fuel_initial_pressure,
+                         mass_flow=self.main_fuel_flow,
+                         type='fuel',)
+
+    @property
     def oxidizer(self):
-        return Propellant(name=self.oxidizer_name,
-                          main_mass_flow=self.main_oxidizer_flow,
+        return Propellant(initial_flow_state=self.oxidizer_initial_flow_state,
                           burn_time=self.burn_time,
-                          density=self.oxidizer_density,
-                          type='oxidizer',
                           margin_factor=self.propellant_margin_factor)
 
     @property
     def fuel(self):
-        return Propellant(name=self.fuel_name,
-                          main_mass_flow=self.main_fuel_flow,
+        return Propellant(initial_flow_state=self.fuel_initial_flow_state,
                           burn_time=self.burn_time,
-                          density=self.fuel_density,
-                          type='fuel',
                           margin_factor=self.propellant_margin_factor)
 
     @property
     def pressurant(self):
-        return Pressurant(fuel=self.fuel,
-                          oxidizer=self.oxidizer,
+        return Pressurant(oxidizer_volume=self.oxidizer.volume,
+                          fuel_volume=self.fuel.volume,
                           fuel_tank_initial_pressure=self.fuel_initial_pressure,
                           oxidizer_tank_initial_pressure=self.oxidizer_initial_pressure,
                           margin_factor=self.pressurant_margin_factor,
@@ -288,47 +301,42 @@ class EngineCycle:
 
     @property
     def oxidizer_tank(self):
-        return Tank(max_acceleration=self.max_acceleration,
+        return Tank(inlet_flow_state=self.oxidizer_initial_flow_state,
+                    max_acceleration=self.max_acceleration,
                     ullage_factor=self.ullage_volume_factor,
-                    propellant=self.oxidizer,
                     pressurant_tank_volume=self.pressurant_tank.volume,
-                    initial_pressure=self.oxidizer_initial_pressure,
                     material_density=self.tanks_material_density,
                     yield_strength=self.tanks_yield_strength,
                     safety_factor=self.tanks_structural_factor)
 
     @property
     def fuel_tank(self):
-        return Tank(max_acceleration=self.max_acceleration,
+        return Tank(inlet_flow_state=self.fuel_initial_flow_state,
+                    max_acceleration=self.max_acceleration,
                     ullage_factor=self.ullage_volume_factor,
-                    propellant=self.fuel,
                     pressurant_tank_volume=None,
-                    initial_pressure=self.fuel_initial_pressure,
                     material_density=self.tanks_material_density,
                     yield_strength=self.tanks_yield_strength,
                     safety_factor=self.tanks_structural_factor, )
 
     @property
     def oxidizer_pump(self):
-        return Pump(propellant=self.oxidizer,
+        return Pump(inlet_flow_state=self.oxidizer_tank.outlet_flow_state,
                     pressure_increase=self.delta_p_oxidizer_pump,
                     efficiency=self.oxidizer_pump_efficiency,
-                    specific_power=self.oxidizer_pump_specific_power,
-                    mass_flow=self.main_oxidizer_flow,
-                    inlet_pressure=self.oxidizer_initial_pressure)
+                    specific_power=self.oxidizer_pump_specific_power, )
 
     @property
     def fuel_pump(self):
-        return Pump(propellant=self.fuel,
+        return Pump(inlet_flow_state=self.fuel_tank.outlet_flow_state,
                     pressure_increase=self.delta_p_fuel_pump,
                     efficiency=self.fuel_pump_efficiency,
-                    specific_power=self.fuel_pump_specific_power,
-                    mass_flow=self.main_fuel_flow,
-                    inlet_pressure=self.fuel_initial_pressure)
+                    specific_power=self.fuel_pump_specific_power, )
 
     @property
     def injector(self):
-        return Injector(combustion_chamber_pressure=self.combustion_chamber_pressure,
+        return Injector(inlet_flow_state=self.cooling_channel_section.outlet_flow_state,
+                        combustion_chamber_pressure=self.combustion_chamber_pressure,
                         combustion_chamber_area=self.combustion_chamber.area,
                         material_density=self.injector_material_density,
                         safety_factor=self.injector_safety_factor,
@@ -416,7 +424,7 @@ class EngineCycle:
             hot_gas_emissivity=self.hot_gas_emissivity,
             theoretical_total_convective_heat_transfer=self.theoretical_convective_heat_transfer.total_convective_heat_transfer, )
 
-    @property
+    @cached_property
     def heat_transfer_section(self):
         return HeatTransferSection(**self.convective_heat_transfer_args,
                                    max_distance_section=self.max_distance_from_throat_heat_transfer_section,
@@ -442,13 +450,11 @@ class EngineCycle:
 
     @property
     def cooling_channel_section(self):
-        return CoolingChannelSection(coolprop_name=self.coolprop_name(self.fuel.name),
+        return CoolingChannelSection(inlet_flow_state=self.fuel_pump.outlet_flow_state,
                                      total_heat_transfer=self.heat_transfer_section.total_heat_transfer,
-                                     outlet_pressure=self.injector.inlet_pressure,
-                                     inlet_temperature=self.coolant_inlet_temperature,
-                                     mass_flow=self.cooling_flow,
+                                     combustion_chamber_pressure=self.combustion_chamber_pressure,
                                      pressure_drop=self.cooling_section_pressure_drop,
-                                     )
+                                     verbose=self.verbose, )
 
     @property
     def pump_power_required(self):

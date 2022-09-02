@@ -6,8 +6,8 @@ from BaseEngineCycle.Structure import Structure
 
 @dataclass
 class Pressurant:
-    fuel: Propellant
-    oxidizer: Propellant
+    fuel_volume: float  # [m3]
+    oxidizer_volume: float  # [m3]
     propellant_tanks_ullage_factor: float  # [Pa]
     fuel_tank_initial_pressure: float  # [Pa]
     oxidizer_tank_initial_pressure: float  # [Pa]
@@ -31,8 +31,8 @@ class Pressurant:
         T_0 = self.initial_temperature
         otp = self.oxidizer_tank_initial_pressure
         ftp = self.fuel_tank_initial_pressure
-        ov = self.oxidizer.volume
-        fv = self.fuel.volume
+        ov = self.oxidizer_volume
+        fv = self.fuel_volume
         p0 = self.initial_pressure
         p1 = self.final_pressure
         return fact_m * fact_u * y / (R_sp * T_0) * (otp * ov + ftp * fv) / (1 - (p1 / p0))

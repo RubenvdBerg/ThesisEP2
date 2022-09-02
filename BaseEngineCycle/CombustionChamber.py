@@ -7,7 +7,7 @@ from scipy.interpolate import interp1d
 
 from BaseEngineCycle.Structure import Structure
 from BaseEngineCycle.Nozzle import get_chamber_throat_area_ratio_estimate
-from FlowComponent import FluidComponent
+from BaseEngineCycle.FlowComponent import FlowComponent
 
 @dataclass
 class CombustionChamber(Structure):

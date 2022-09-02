@@ -16,14 +16,14 @@ class KwakTank(Tank):
     @property  # Override Tank property
     def initial_head(self):
         if self._kwak_fix_cycle_type == 'ep':
-            if self.propellant.type == 'oxidizer':
+            if self.inlet_flow_state.type == 'oxidizer':
                 return 1.91839449096392
-            elif self.propellant.type == 'fuel':
+            elif self.inlet_flow_state.type == 'fuel':
                 return 1.65560478870526
         elif self._kwak_fix_cycle_type == 'gg':
-            if self.propellant.type == 'oxidizer':
+            if self.inlet_flow_state.type == 'oxidizer':
                 return 1.92539045861846
-            elif self.propellant.type == 'fuel':
+            elif self.inlet_flow_state.type == 'fuel':
                 return 1.71033897378923
         else:
             return super().initial_head
