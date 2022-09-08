@@ -58,6 +58,14 @@ class BaseFlowComponent:
                        mass_flow=self.outlet_mass_flow,
                        )
 
+    @property
+    def mass_flow(self):
+        if self.inlet_mass_flow == self.outlet_mass_flow:
+            return self.inlet_mass_flow
+        else:
+            raise ValueError('This FlowComponent has different inlet and outlet mass flows, so using mass_flow is '
+                             'ambiguous, please use inlet_mass_flow or outlet_mass_flow instead')
+
 
 @dataclass
 class FlowComponent(BaseFlowComponent):

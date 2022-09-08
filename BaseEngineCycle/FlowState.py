@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from CoolProp.CoolProp import PropsSI
 from functools import cached_property
-from typing import Literal
+from typing import Literal, Optional
 
 
 @dataclass
@@ -9,19 +9,29 @@ class FlowState:
     propellant_name: str
     temperature: float  # [K]
     pressure: float  # [Pa]
-    mass_flow: float  # [kg/s]
-    type: Literal['oxidizer', 'fuel']
+    mass_flow: Optional[float]  # [kg/s]
+    type: Literal['oxidizer', 'fuel', 'burnt']
+
+    @property
+    def print_pretty_dict(self):
+        from collections import defaultdict
+        fstrings = defaultdict(lambda: '', {'temperature': '.0f', 'pressure': '.3e', 'mass_flow': '.3e'})
+        return {key: f'{item:{fstrings[key]}}' for key, item in self.__dict__.items()}
 
     @cached_property
     def coolprop_name(self):
         p_name = self.propellant_name.upper()
-        if 'RP' in p_name:
+
+        def matches_any(patterns: list[str, ...]):
+            return any(pattern in p_name for pattern in patterns)
+
+        if matches_any(['RP', 'ROCKETPROPELLANT']):
             return 'n-Dodecane'
-        elif 'H2' in p_name:
+        elif matches_any(['H2', 'HYDROGEN']):
             return 'Hydrogen'
-        elif 'O2' in p_name or 'OX' in p_name:
+        elif matches_any(['O2', 'OXYGEN', 'LOX']):
             return 'Oxygen'
-        elif 'CH4' in p_name:
+        elif matches_any(['CH4', 'METHANE']):
             return 'Methane'
         else:
             raise ValueError('No matching coolprop_name was recognized for propellant_name')
@@ -59,6 +69,19 @@ class FlowState:
 
     def propssi(self, string_input: str):
         return PropsSI(string_input, *self.state_inputs)
+
+    def almost_equal(self, other: 'FlowState', margin: float = 1e-8) -> bool:
+        """Checks if flowstates have the same fields but leaves some margin for floating point errors"""
+        equals_list = []
+        for own_val, other_val in zip(self.__dict__.values(), other.__dict__.values()):
+            if type(own_val) == float:
+                equals_list.append( abs(own_val - other_val) / own_val < margin)
+            else:
+                equals_list.append(own_val == other_val)
+        return all(equals_list)
+
+
+
 
 
 @dataclass

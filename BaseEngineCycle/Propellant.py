@@ -8,6 +8,10 @@ class Propellant:
     margin_factor: float  # [-]
 
     @property
+    def name(self):
+        return self.initial_flow_state.propellant_name
+
+    @property
     def mass_flow(self):
         return self.initial_flow_state.mass_flow
 

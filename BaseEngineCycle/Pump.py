@@ -6,13 +6,13 @@ from BaseEngineCycle.FlowComponent import FlowComponent
 
 @dataclass
 class Pump(FlowComponent):
-    pressure_increase: float  # [Pa]
-    efficiency: float  # [-]
-    specific_power: float  # [W/kg]
+    pressure_increase: float = 0 # [Pa]
+    efficiency: float = 0 # [-]
+    specific_power: float = 0 # [W/kg]
 
     @property
     def volumetric_flow_rate(self):
-        return self.mass_flow / self.inlet_flow_state.density
+        return self.inlet_mass_flow / self.inlet_flow_state.density
 
     @property
     def power_required(self):

@@ -9,8 +9,9 @@ from BaseEngineCycle.FlowComponent import FlowComponent
 
 @dataclass
 class Tank(FlowComponent, Structure):
-    max_acceleration: float  # [m/s2]
-    ullage_factor: float  # [-]
+    max_acceleration: float = 0 # [m/s2]
+    ullage_factor: float = 0  # [-]
+    propellant_volume: float = 0  # [m3]
     pressurant_tank_volume: Optional[float] = None  # [m3]
 
     @property
@@ -23,7 +24,7 @@ class Tank(FlowComponent, Structure):
 
     @property
     def initial_head(self):
-        unused_volume = (self.ullage_factor - 1) * self.propellant.volume
+        unused_volume = (self.ullage_factor - 1) * self.propellant_volume
         rest_height = (unused_volume * 3 / (2 * pi)) ** (1 / 3)
         return 2 * self.radius - rest_height
 
@@ -44,11 +45,11 @@ class Tank(FlowComponent, Structure):
     @property
     def volume(self):
         if self.pressurant_tank_volume is not None:
-            return self.propellant.volume * self.ullage_factor + self.pressurant_tank_volume
+            return self.propellant_volume * self.ullage_factor + self.pressurant_tank_volume
         else:
             warnings.warn(
                 f'No pressurant tank volume was given. Assumed pressurant tank is not submerged in {self.inlet_flow_state.propellant_name} tank')
-            return self.propellant.volume * self.ullage_factor
+            return self.propellant_volume * self.ullage_factor
 
 # @dataclass
 # class Tank(Structure):
@@ -66,7 +67,7 @@ class Tank(FlowComponent, Structure):
 #
 #     @property
 #     def initial_head(self):
-#         unused_volume = (self.ullage_factor - 1) * self.propellant.volume
+#         unused_volume = (self.ullage_factor - 1) * self.propellant_volume
 #         rest_height = (unused_volume * 3 / (2 * pi)) ** (1 / 3)
 #         if self.kwak_fix:
 #             if self.kwak_fix_cycle_type == 'ep':
@@ -98,8 +99,8 @@ class Tank(FlowComponent, Structure):
 #     @property
 #     def volume(self):
 #         if self.pressurant_tank_volume is not None:
-#             return self.propellant.volume * self.ullage_factor + self.pressurant_tank_volume
+#             return self.propellant_volume * self.ullage_factor + self.pressurant_tank_volume
 #         else:
 #             warnings.warn(
 #                 f'No pressurant tank volume was given. Assumed pressurant tank is not submerged in {self.propellant.type} tank')
-#             return self.propellant.volume * self.ullage_factor
+#             return self.propellant_volume * self.ullage_factor

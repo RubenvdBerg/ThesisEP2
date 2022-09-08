@@ -1,4 +1,4 @@
-from BaseEngineCycle.OpenCycle import OpenEngineCycle
+from BaseOpenCycle.OpenCycle import OpenEngineCycle
 from dataclasses import dataclass
 
 @dataclass

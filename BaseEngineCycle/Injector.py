@@ -3,12 +3,13 @@ from math import sqrt, pi
 from typing import Optional
 
 from BaseEngineCycle.Structure import Structure
-from BaseEngineCycle.FlowComponent import FlowComponent
+from BaseEngineCycle.SplitterMerger2 import Merger
 
 @dataclass
-class Injector(Structure, FlowComponent):
-    combustion_chamber_pressure: float  # [Pa]
-    combustion_chamber_area: float  # [m2]
+class Injector(Merger, Structure):
+    """Injector inherits from Merger to be able to handle both oxidizer en fuel inlet flows"""
+    combustion_chamber_pressure: float = 0 # [Pa]
+    combustion_chamber_area: float = 0  # [m2]
     propellant_is_gas: Optional[bool] = None
     _pressure_drop_factor = .3  # [-]
 

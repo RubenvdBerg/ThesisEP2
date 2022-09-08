@@ -1,4 +1,6 @@
 from dataclasses import dataclass, field
+
+
 #
 # @dataclass
 # class Class1:
@@ -34,8 +36,11 @@ class Class1:
 
     @property
     def whatever(self):
-        return 1
+        return self.attr1 * 2
 
-d1 = Class1(1)
+print(f'{1:{""}}')
+d1 = Class1(attr1=1)
+d1.attr1 = 2
+print(d1.whatever)
 print(d1.attr2)
-print((1,2) + (1,))
+print((1, 2) + (1,))

@@ -6,7 +6,7 @@ from BaseEngineCycle.FlowComponent import FlowComponent
 
 @dataclass
 class CoolingChannelSection(FlowComponent):
-    total_heat_transfer: float  # [W]
+    total_heat_transfer: float = 0  # [W]
     pressure_drop: Optional[float] = None  # [Pa]
     combustion_chamber_pressure: Optional[float] = None  # [Pa]
     _pressure_drop_ratio: float = field(init=False, default=.15)  # [-]

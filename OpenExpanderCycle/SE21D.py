@@ -95,7 +95,7 @@ class SE21D_PressureExact(SE21D):
 if __name__ == '__main__':
 
     import arguments as args
-    from BaseEngineCycle.Turbine import Turbine
+    from BaseOpenCycle.Turbine import Turbine
 
     # test_turbine = Turbine(pump_power_required=20.768e6, efficiency=.45, specific_heat_capacity=14515.8, heat_capacity_ratio=1.398, pressure_ratio=27.7033333, inlet_temperature=506)
     # print(test_turbine.mass_flow_required)

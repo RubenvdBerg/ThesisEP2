@@ -83,12 +83,12 @@ class EngineCycle:
     fuel_name: str
     is_frozen: bool
 
-    # Values that override other inputs
+    # Values that override other inputs (one of them is required)
     expansion_ratio: Optional[float] = None  # [-]
     pressure_ratio: Optional[float] = None  # [-]
     exit_pressure_forced: Optional[float] = None  # [Pa]
 
-    # Values that can be estimated
+    # Values that can be estimated or are not necessarily required
     recovery_factor: Optional[float] = None  # [-]
     area_ratio_chamber_throat: Optional[float] = None  # [-]
     chamber_characteristic_length: Optional[float] = None  # [m]
@@ -97,6 +97,7 @@ class EngineCycle:
     distance_from_throat_end_cooling: Optional[float] = None  # [m]
     distance_from_throat_start_cooling: Optional[float] = None  # [m]
     cooling_section_pressure_drop: Optional[float] = None  # [Pa]
+    ambient_pressure: Optional[float] = None  # [Pa]
 
     # Values that can be estimated by CEA
     characteristic_velocity: Optional[float] = None  # [m/s]
@@ -108,6 +109,7 @@ class EngineCycle:
     cc_hot_gas_prandtl_number: Optional[float] = None  # [-]
     cc_hot_gas_specific_heat_capacity: Optional[float] = None  # [J/(kg*K)]
 
+    _injector_pressure_drop_factor: float = .3
     iteration_accuracy = 0.0001
     verbose: bool = True
     fast_init: bool = False  # If True needs to make less calls to rocketCEA, assumes expansion ratio is provided, ignores pressure_ratio and exit_pressure_input
@@ -235,11 +237,11 @@ class EngineCycle:
         return self.mass_mixture_ratio / (self.mass_mixture_ratio + 1) * self.chamber_mass_flow
 
     @property
-    def main_fuel_flow(self):
+    def main_fuel_flow(self):  # Default to chamber flow, overriden in child classes/cycles
         return self.chamber_fuel_flow
 
     @property
-    def main_oxidizer_flow(self):
+    def main_oxidizer_flow(self):  # Default to chamber flow, overriden in child classes/cycles
         return self.chamber_oxidizer_flow
 
     @property
@@ -302,6 +304,7 @@ class EngineCycle:
     @property
     def oxidizer_tank(self):
         return Tank(inlet_flow_state=self.oxidizer_initial_flow_state,
+                    propellant_volume=self.oxidizer.volume,
                     max_acceleration=self.max_acceleration,
                     ullage_factor=self.ullage_volume_factor,
                     pressurant_tank_volume=self.pressurant_tank.volume,
@@ -312,6 +315,7 @@ class EngineCycle:
     @property
     def fuel_tank(self):
         return Tank(inlet_flow_state=self.fuel_initial_flow_state,
+                    propellant_volume=self.fuel.volume,
                     max_acceleration=self.max_acceleration,
                     ullage_factor=self.ullage_volume_factor,
                     pressurant_tank_volume=None,
@@ -334,14 +338,20 @@ class EngineCycle:
                     specific_power=self.fuel_pump_specific_power, )
 
     @property
+    def injector_inlet_flow_states(self):
+        return self.cooling_channel_section.outlet_flow_state, self.oxidizer_pump.outlet_flow_state
+
+    @property
     def injector(self):
-        return Injector(inlet_flow_state=self.cooling_channel_section.outlet_flow_state,
+        # noinspection PyArgumentList
+        return Injector(inlet_flow_states=self.injector_inlet_flow_states,
                         combustion_chamber_pressure=self.combustion_chamber_pressure,
                         combustion_chamber_area=self.combustion_chamber.area,
                         material_density=self.injector_material_density,
                         safety_factor=self.injector_safety_factor,
                         yield_strength=self.injector_yield_strength,
-                        propellant_is_gas=self.injector_propellant_is_gas)
+                        propellant_is_gas=self.injector_propellant_is_gas,
+                        _pressure_drop_factor=.3)
 
     @property
     def nozzle(self):
@@ -431,11 +441,6 @@ class EngineCycle:
                                    min_distance_section=self.min_distance_from_throat_heat_transfer_section,
                                    radiative_heat_transfer_factor=self.radiative_heat_transfer.radiative_factor)
 
-    @property
-    def cooling_flow(self):
-        # Initial assumption is that the fuel is the coolant and is completely routed through the cooling channels
-        return self.main_fuel_flow
-
     @staticmethod
     def coolprop_name(propellant_name):
         p_name = propellant_name.upper()
@@ -449,8 +454,12 @@ class EngineCycle:
             return 'Methane'
 
     @property
+    def cooling_inlet_flow_state(self):
+        return self.fuel_pump.outlet_flow_state
+
+    @property
     def cooling_channel_section(self):
-        return CoolingChannelSection(inlet_flow_state=self.fuel_pump.outlet_flow_state,
+        return CoolingChannelSection(inlet_flow_state=self.cooling_inlet_flow_state,
                                      total_heat_transfer=self.heat_transfer_section.total_heat_transfer,
                                      combustion_chamber_pressure=self.combustion_chamber_pressure,
                                      pressure_drop=self.cooling_section_pressure_drop,

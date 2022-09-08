@@ -106,7 +106,7 @@ def full_output(kwak_fix, design_args=args.desgin_arguments, common_args=args.ba
         ep_cycle.pump_power_required * 1E-3,
         ep_cycle.battery.total_energy,
         ep_cycle.battery.heat_loss,
-        ep_cycle.coolant_allowable_temperature_change,
+        ep_cycle.battery_coolant_temperature_change,
         None
     ]
 

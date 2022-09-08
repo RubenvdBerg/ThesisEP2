@@ -60,7 +60,7 @@ base_arguments_own = {
     'convergent_chamber_bend_ratio': 1.0,
     'divergent_throat_half_angle': radians(35),
     'divergent_exit_half_angle': radians(5),
-    'nozzle_type': 'bell',
+    'nozzle_type': 'conical',
     'maximum_wall_temperature': 850,
     'thrust_chamber_wall_emissivity': .8,
     'hot_gas_emissivity': .1,
@@ -92,10 +92,10 @@ def change_to_conical_nozzle(arg_dict, throat_half_angle=radians(15)):
 open_arguments = {
     'turbine_gas_specific_heat_capacity': 2024.7, 'turbine_gas_heat_capacity_ratio': 1.16,
     'turbine_pressure_ratio': 27, 'turbopump_specific_power': 13.5E3, 'turbine_efficiency': .52,
-    'exhaust_thrust_contribution': .01
+    'exhaust_thrust_contribution': .01,  'exhaust_expansion_ratio': 20
 }
 gg_arguments = open_arguments | {
-    'turbine_maximum_temperature': 900, 'gg_mass_mixture_ratio': 0.320, 'gg_gas_gas_constant': 274.1,
+    'turbine_maximum_temperature': 900, 'gg_mass_mixture_ratio': 0.320, 'gg_gas_specific_gas_constant': 274.1,
     'gg_stay_time': 10E-3, 'gg_structural_factor': 2.5,
     'gg_material_density': 8220, 'gg_yield_strength': 550E6
 }
@@ -108,7 +108,7 @@ ep_arguments = {
     'fuel_pump_specific_power': 15E3, 'oxidizer_pump_specific_power': 20E3, 'fuel_specific_heat': 2009,
     'electric_motor_specific_power': 5.3E3, 'inverter_specific_power': 60E3, 'battery_specific_power': 6.95E3,
     'battery_specific_energy': 198 * 3600, 'electric_motor_efficiency': .95, 'inverter_efficiency': .85,
-    'battery_structural_factor': 1.2, 'coolant_allowable_temperature_change': 40,
+    'battery_structural_factor': 1.2, 'battery_coolant_temperature_change': 40,
 }
 
 liquid_oxygen_coolant = {

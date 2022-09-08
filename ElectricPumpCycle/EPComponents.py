@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from math import log
 from typing import Optional
+from BaseEngineCycle.FlowComponent import FlowComponent
 
 
 @dataclass
@@ -63,3 +64,17 @@ class Battery(ElectricComponent):
         return self.battery_packing_factor * self.output_power * max(1 / self.specific_power, self.burn_time / (self.specific_energy * self.eta_e))
 
 
+@dataclass
+class BatteryCooler(FlowComponent):
+    """Component that adjusts its outlet flow to be equal to the coolant flow required. Used to iterate until flows
+    through pump and battery are matching in the EP Cycle"""
+    coolant_flow_required: float = 0  # [kg/s]
+    outlet_pressure_required: float = 0  # [Pa]
+
+    @property
+    def mass_flow_change(self):
+        return self.coolant_flow_required - self.inlet_mass_flow
+
+    @property
+    def pressure_change(self):
+        return self.outlet_pressure_required - self.inlet_pressure
