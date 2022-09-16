@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-
+from typing import ClassVar
 
 #
 # @dataclass
@@ -30,16 +30,40 @@ from dataclasses import dataclass, field
 @dataclass
 class Class1:
     attr1: float
+    clasvar: ClassVar[bool] = False
 
     def __post_init__(self):
         setattr(self, 'attr2', 2)
+        Class1.clasvar = True
 
     @property
     def whatever(self):
         return self.attr1 * 2
 
+@dataclass
+class Class2:
+
+    def __post_init__(self):
+        self.class3._attr1 = 1
+
+    @property
+    def class3(self):
+        return Class3()
+
+@dataclass
+class Class3:
+    _attr1: float = 0
+
+    @property
+    def attr1(self):
+        return self._attr1
+
+c2 = Class2()
+print(c2.class3.attr1)
 print(f'{1:{""}}')
+print(Class1.clasvar)
 d1 = Class1(attr1=1)
+print(Class1.clasvar)
 d1.attr1 = 2
 print(d1.whatever)
 print(d1.attr2)

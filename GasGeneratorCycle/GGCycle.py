@@ -24,18 +24,10 @@ class GasGeneratorCycle(OpenEngineCycle):
     def __post_init__(self):
         self.turbine_gas_molar_mass = gas_constant / self.gg_gas_specific_gas_constant
         super().__post_init__()
-        self.flow_check()
 
-    def flow_check(self):
-        gg_state = self.gas_generator.outlet_flow_state
-        tu_state = self.turbine.inlet_flow_state
-        if not gg_state.almost_equal(tu_state):
-            warnings.warn('GG Outlet and Turbine Inlet are not equal after iteration')
-            if self.verbose:
-                print('Param.         : \t     GG-out \t     TU-in')
-                for key, gg_item in gg_state.print_pretty_dict.items():
-                    tu_item = tu_state.print_pretty_dict[key]
-                    print(f'{key: <15}: \t {gg_item: >10} \t {tu_item: >10}')
+    @property
+    def default_turbine_flow_check_state(self) -> FlowState:
+        return self.gas_generator.outlet_flow_state
 
     @property
     def turbine_mass_flow_initial_guess(self):
@@ -50,7 +42,7 @@ class GasGeneratorCycle(OpenEngineCycle):
                          temperature=self.turbine_maximum_temperature,
                          pressure=self._turbine_inlet_pressure,
                          mass_flow=None,
-                         type='burnt', )
+                         type='burnt',)
 
     @property
     def post_oxidizer_pump_spltter(self):

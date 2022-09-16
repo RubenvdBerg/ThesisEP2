@@ -1,103 +1,103 @@
 from OECycle import OpenExpanderCycle
 from dataclasses import dataclass
-from BaseEngineCycle.SplitterMerger import Splitter, Merger
+from BaseEngineCycle.SplitterMerger2 import Splitter, Merger
 from BaseEngineCycle.Cooling import CoolingChannelSection
 from BaseEngineCycle.HeatTransferSection import HeatTransferSection
 
 
 @dataclass
 class MIRA(OpenExpanderCycle):
+    """See 'Leonardi et al. 2017 - Basic Analysis of a LOX/Methane Expander Bleed Engine' for this rocket's
+    configuration
+    """
     min_distance_from_throat_heat_transfer_section_2: float = .4
 
     @property
-    def turbine_mass_flow_initial_guess(self):
-        return 5
+    def default_turbine_flow_check_state(self):
+        return self.secondary_cooling_channel_section.outlet_flow_state
 
     @property
     def post_fuel_pump_splitter(self):
-        return Splitter(split_ratios=(1 - 0.24925373134328358208955223880597, 0.24925373134328358208955223880597),
-                        input_mass_flow=self.main_fuel_flow)
+        return Splitter(inlet_flow_state=self.fuel_pump.outlet_flow_state,
+                        mass_flow_fractions=(
+                            1 - 0.24925373134328358208955223880597, 0.24925373134328358208955223880597),
+                        outlet_flow_names=('cooling', 'chamber'))
 
     @property
     def mid_cooling_splitter(self):
-        return Splitter(split_ratios=(0.82703777335984095427435387673956, 1 - 0.82703777335984095427435387673956),
-                        input_mass_flow=self.cooling_flow)
+        return Splitter(inlet_flow_state=self.cooling_channel_section.outlet_flow_state,
+                        outlet_mass_flows=(
+                            self.chamber_fuel_flow - self.post_fuel_pump_splitter.outlet_flow_state_chamber.mass_flow,),
+                        outlet_flow_names=('chamber', 'secondary_cooling'))
 
     @property
     def pre_injector_merger(self):
-        return Merger(input_mass_flows=(self.post_fuel_pump_splitter.output_mass_flow_2,
-                                        self.mid_cooling_splitter.output_mass_flow_2))
-
-    @property
-    def cooling_flow(self):
-        return self.post_fuel_pump_splitter.output_mass_flow_1
-
-    @property
-    def cooling_flow_2(self):
-        return self.mid_cooling_splitter.output_mass_flow_2
-
-    @property
-    def chamber_fuel_flow(self):
-        return self.pre_injector_merger.output_mass_flow
+        return Merger(inlet_flow_states=(self.post_fuel_pump_splitter.outlet_flow_state_chamber,
+                                         self.mid_cooling_splitter.outlet_flow_state_chamber))
 
     @property
     def turbine_inlet_temperature(self):
-        return self.cooling_channel_section_2.outlet_temperature
+        return self.secondary_cooling_channel_section.outlet_temperature
 
     @property
-    def heat_transfer_section_2(self):
+    def secondary_heat_transfer_section(self):
         return HeatTransferSection(**self.convective_heat_transfer_args,
                                    max_distance_section=self.nozzle.div_length,
                                    min_distance_section=self.min_distance_from_throat_heat_transfer_section_2,
                                    radiative_heat_transfer_factor=self.radiative_heat_transfer.radiative_factor)
 
     @property
-    def cooling_channel_section(self):
-        return CoolingChannelSection(coolprop_name=self.turbine_gas_coolprop_name,
-                                     total_heat_transfer=self.heat_transfer_section.total_heat_transfer,
-                                     # total_heat_transfer=6.749e6,
-                                     outlet_pressure=self.injector.inlet_pressure,
-                                     inlet_temperature=self.coolant_inlet_temperature,
-                                     mass_flow=self.cooling_flow)
+    def cooling_inlet_flow_state(self):
+        return self.post_fuel_pump_splitter.outlet_flow_state_cooling
 
     @property
-    def cooling_channel_section_2(self):
-        return CoolingChannelSection(coolprop_name=self.turbine_gas_coolprop_name,
-                                     # total_heat_transfer=self.heat_transfer_section_2.total_heat_transfer,
+    def cooling_channel_section(self):
+        return CoolingChannelSection(inlet_flow_state=self.cooling_inlet_flow_state,
+                                     total_heat_transfer=self.heat_transfer_section.total_heat_transfer,
+                                     # total_heat_transfer=6.749e6,
+                                     combustion_chamber_pressure=self.combustion_chamber_pressure,
+                                     pressure_drop=self.cooling_section_pressure_drop,
+                                     verbose=self.verbose, )
+
+    @property
+    def secondary_cooling_inlet_flow_state(self):
+        return self.mid_cooling_splitter.outlet_flow_state_secondary_cooling
+
+    @property
+    def secondary_cooling_channel_section(self):
+        return CoolingChannelSection(inlet_flow_state=self.secondary_cooling_inlet_flow_state,
+                                     # total_heat_transfer=self.secondary_heat_transfer_section.total_heat_transfer,
                                      total_heat_transfer=.302e6,
-                                     outlet_pressure=self.injector.inlet_pressure,
-                                     inlet_temperature=self.cooling_channel_section.outlet_temperature,
-                                     mass_flow=self.cooling_flow_2)
+                                     combustion_chamber_pressure=self.combustion_chamber_pressure,
+                                     pressure_drop=self.cooling_section_pressure_drop,
+                                     verbose=self.verbose, )
 
 
 @dataclass
 class MIRA_Exact(MIRA):
-
     @property
     def cooling_channel_section(self):
-        return CoolingChannelSection(coolprop_name=self.turbine_gas_coolprop_name,
+        return CoolingChannelSection(inlet_flow_state=self.cooling_inlet_flow_state,
                                      # total_heat_transfer=self.heat_transfer_section.total_heat_transfer,
                                      total_heat_transfer=6.749e6,
-                                     outlet_pressure=66.6e5,
-                                     inlet_temperature=self.coolant_inlet_temperature,
-                                     mass_flow=self.cooling_flow,
-                                     pressure_drop=10e5)
+                                     combustion_chamber_pressure=self.combustion_chamber_pressure,
+                                     pressure_drop=self.cooling_inlet_flow_state.pressure - 66.6e5,
+                                     verbose=self.verbose, )
 
     @property
-    def cooling_channel_section_2(self):
-        return CoolingChannelSection(coolprop_name=self.turbine_gas_coolprop_name,
-                                     # total_heat_transfer=self.heat_transfer_section_2.total_heat_transfer,
+    def secondary_cooling_channel_section(self):
+        return CoolingChannelSection(inlet_flow_state=self.secondary_cooling_inlet_flow_state,
+                                     # total_heat_transfer=self.secondary_heat_transfer_section.total_heat_transfer,
                                      total_heat_transfer=.302e6,
-                                     outlet_pressure=66.6e5,
-                                     inlet_temperature=self.cooling_channel_section.outlet_temperature,
-                                     mass_flow=self.cooling_flow_2,
-                                     pressure_drop=0)
-
+                                     combustion_chamber_pressure=self.combustion_chamber_pressure,
+                                     pressure_drop=self.secondary_cooling_inlet_flow_state.pressure - 66.6e5,
+                                     verbose=self.verbose, )
 
 
 if __name__ == '__main__':
     import arguments as args
     import math
+
     # from BaseEngineCycle.Turbine import Turbine
     # from BaseEngineCycle.Pump import Pump
     # from BaseEngineCycle.Propellant import Propellant
@@ -109,7 +109,8 @@ if __name__ == '__main__':
     # test_turbine = Turbine(pump_power_required=power,efficiency=.6,specific_heat_capacity=3067.9,heat_capacity_ratio=1.22, pressure_ratio=14.478260869565217391304347826087, inlet_temperature=600)
     # print(test_turbine.mass_flow_required)
     for EngineClass, pressurething in zip((MIRA_Exact, MIRA), ('exact', 'estimated')):
-        engine = EngineClass(**args.change_to_conical_nozzle(args.mira_kwargs, throat_half_angle=math.radians(25)), iterate=True)
+        engine = EngineClass(**args.change_to_conical_nozzle(args.mira_kwargs, throat_half_angle=math.radians(25)),
+                             iterate=True, verbose=True)
         if pressurething == 'exact':
             engine.thrust_chamber.show_contour()
             engine.theoretical_convective_heat_transfer.show_heat_transfer()
@@ -119,22 +120,28 @@ if __name__ == '__main__':
                 ('Exit Radius', '[m]', (engine.exit_area / math.pi) ** .5, .65),
                 ('Subs. Length', '[m]', engine.combustion_chamber.length + engine.nozzle.conv_length, .5),
                 ('Nozzle Div. Length', '[m]', engine.nozzle.div_length, 1.4),
-                ('CoolS1 Out. Temp.', '[K]', engine.cooling_channel_section.outlet_temperature, 490),
-                ('Turb. In. Temp.', '[K]', engine.cooling_channel_section_2.outlet_temperature, 600),
                 ('Heat Transfer', '[MW]', engine.cooling_channel_section.total_heat_transfer * 1e-6, 6.749),
-                ('Heat Transfer2', '[MW]', engine.cooling_channel_section_2.total_heat_transfer * 1e-6, .302),
-                ('Turb. Mass Flow', '[kg/s]', engine.turbine_mass_flow, .87),
-                ('Cool. Mass Flow', '[kg/s]', engine.cooling_flow, 5.03),
+                ('Heat Transfer2', '[MW]', engine.secondary_cooling_channel_section.total_heat_transfer * 1e-6, .302),
+                ('Cool Out. Temp.', '[K]', engine.cooling_channel_section.outlet_temperature, 490),
+                ('Cool Out. Temp.2', '[K]', engine.secondary_cooling_channel_section.outlet_temperature, 600),
+                ('Cool. Mass Flow', '[kg/s]', engine.cooling_channel_section.inlet_mass_flow, 5.03),
+                ('Cool. Mass Flow2', '[kg/s]', engine.secondary_cooling_channel_section.inlet_mass_flow, .87),
                 ('Main Fuel Flow', '[kg/s]', engine.main_fuel_flow, 6.69),
                 ('Main Oxid. Flow', '[kg/s]', engine.main_oxidizer_flow, 22.72),
+                ('Turb. Temp.', '[K]', engine.turbine_inlet_temperature, 600),
+                ('Turb. FLow', '[kg/s]', engine.turbine_mass_flow, .87),
+                ('CC. Fuel Flow', '[kg/s]', engine.chamber_fuel_flow, 5.82),
+                ('CC. Oxid. Flow', '[kg/s]', engine.chamber_oxidizer_flow, 22.72),
+                ('CC Isp. Vac.', '[s]', engine.chamber_vacuum_specific_impulse, 352.5),
+                ('2E Isp. Vac.', '[s]', engine.turbine_exhaust.vacuum_specific_impulse, 141.4),
+
+                # ('', '[]', 1, 1),
+                ('Act. Heat Trans.', '[MW]', engine.heat_transfer_section.total_heat_transfer * 1e-6, 6.749),
+                ('Act. Heat Trans.2', '[MW]', engine.secondary_heat_transfer_section.total_heat_transfer * 1e-6, .302),
                 ('Pumps Power Req.', '[MW]', engine.pump_power_required * 1e-6, 0),
-                ('Actual Heat Transfer', '[MW]', engine.heat_transfer_section.total_heat_transfer* 1e-6, 6.749),
-                ('Actual Heat Transfer2', '[MW]', engine.heat_transfer_section_2.total_heat_transfer* 1e-6, .302),
-                ('Cooling Flow 2', '[kg/s]', engine.cooling_flow_2, .87),
                 # ('', '[]', 1, 1),
                 ]
 
         for name, unit, value, expected in data:
             print(f'{name:<18} \t {unit:<7} \t {value:<8.3f} \t {expected:.3f}')
-        print(f'{(125*(.1163/2)**2)**.5:.4f}')
-        print('\n\n\n')
+        # print(f'{(125*(.1163/2)**2)**.5:.4f}')

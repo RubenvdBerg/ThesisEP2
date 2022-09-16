@@ -64,7 +64,7 @@ complete_regex_dict = {
 @cea_u_in_si_units
 def get_cea_dict(fuelName: str, oxName: str, regex_dict: Optional[dict] = None, **kwargs):
     cea = CEA_Obj(fuelName=fuelName, oxName=oxName)
-    full_output = cea.get_full_cea_output(**kwargs, short_output=1, pc_units='bar', output='joule')
+    full_output = cea.get_full_cea_output(**kwargs, short_output=1, pc_units='bar', output='siunits')
     if regex_dict is None:
         regex_dict = complete_regex_dict
     return {key: get_values_from_cea_output(variable_name=value[0],

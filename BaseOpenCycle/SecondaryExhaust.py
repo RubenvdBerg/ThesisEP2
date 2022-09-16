@@ -27,7 +27,7 @@ class SecondaryExhaust(FlowComponent):
             return self.gas_heat_capacity_ratio
 
     @cached_property
-    def gas_molar_mass(self):
+    def _gas_molar_mass(self):
         if self.gas_molar_mass is None:
             return self.inlet_flow_state.molar_mass
         else:
@@ -40,7 +40,7 @@ class SecondaryExhaust(FlowComponent):
 
     @property
     def characteristic_velocity(self):
-        return get_characteristic_velocity(molar_mass=self.gas_molar_mass,
+        return get_characteristic_velocity(molar_mass=self._gas_molar_mass,
                                            chamber_temperature=self.inlet_temperature,
                                            heat_capacity_ratio=self._gas_heat_capacity_ratio)
 
@@ -54,6 +54,15 @@ class SecondaryExhaust(FlowComponent):
                                       ideal_expansion=self._ideal_expansion)
 
     @property
+    def vacuum_thrust_coefficient(self):
+        return get_thrust_coefficient(pressure_ratio=self.pressure_ratio,
+                                      heat_capacity_ratio=self._gas_heat_capacity_ratio,
+                                      expansion_ratio=self.expansion_ratio,
+                                      chamber_pressure=self.inlet_pressure,
+                                      ambient_pressure=0,
+                                      ideal_expansion=False)
+
+    @property
     def temperature_ratio(self):
         return self.pressure_ratio**((self._gas_heat_capacity_ratio - 1) / self._gas_heat_capacity_ratio)
 
@@ -64,6 +73,10 @@ class SecondaryExhaust(FlowComponent):
     @property
     def specific_impulse(self):
         return self.equivalent_velocity / g
+
+    @property
+    def vacuum_specific_impulse(self):
+        return self.characteristic_velocity * self.vacuum_thrust_coefficient / g
 
     @property
     def pressure_change(self):
@@ -87,11 +100,8 @@ class SecondaryExhaust(FlowComponent):
 
     @property
     def thrust(self):
-        if self._ideal_expansion:
-            return self.equivalent_velocity * self.mass_flow
-        else:
-            return (self.equivalent_velocity * self.mass_flow
-                    + ((self.exit_pressure - self.ambient_pressure) / self.mass_flow) * self.exit_area)
+        """Reminder: pressure term already accounted for in equivalent_velocity through pressure term"""
+        return self.equivalent_velocity * self.mass_flow
 
 
 if __name__ == '__main__':

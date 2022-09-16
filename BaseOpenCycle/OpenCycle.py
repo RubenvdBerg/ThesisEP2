@@ -39,7 +39,27 @@ class OpenEngineCycle(EngineCycle):
         self._iterative_turbine_mass_flow = self.turbine_mass_flow_initial_guess
         if self.iterate:
             self.iterate_mass_flow()
+        self.flow_check()
         self.check_exhaust_thrust_contribution()
+
+    def flow_check(self, turbine_compare_flow_state: Optional[FlowState] = None):
+        if turbine_compare_flow_state is None:
+            turbine_compare_flow_state = self.default_turbine_flow_check_state
+        turbine_inlet_state = self.turbine.inlet_flow_state
+        # Line below ensures that warning after if statement is given multiple times if encountered multiple times, instead of only once
+        warnings.simplefilter('always', UserWarning)
+        if not turbine_compare_flow_state.almost_equal(turbine_inlet_state):
+            if self.verbose:
+                warnings.warn(
+                    'FlowStates at the Turbine Inlet and the upstream Outlet FlowState are not equal after iteration')
+                print('Param.         : \t     XX-out \t      TU-in')
+                for key, gg_item in turbine_compare_flow_state.print_pretty_dict.items():
+                    tu_item = turbine_inlet_state.print_pretty_dict[key]
+                    print(f'{key: <15}: \t {gg_item: >10} \t {tu_item: >10}')
+
+    @property
+    def default_turbine_flow_check_state(self) -> FlowState:
+        raise NotImplementedError
 
     def turbine_flow_error_larger_than_accuracy(self):
         error = abs(self.turbine.mass_flow_required - self._iterative_turbine_mass_flow)
@@ -71,17 +91,27 @@ class OpenEngineCycle(EngineCycle):
             self.turbine_pressure_ratio = self._turbine_inlet_pressure / self.turbine_outlet_pressure
 
     def check_exhaust_thrust_contribution(self):
-        print(f'Guessed exhaust thrust contribution {self.exhaust_thrust_contribution * self.thrust * 1e-3:.3f} kN')
-        print(f'Estimated exhaust thrust contribution {self.turbine_exhaust.thrust * 1e-3:.3f} kN')
+        if self.verbose:
+            print(f'Guessed exhaust thrust contribution {self.exhaust_thrust_contribution * self.thrust * 1e-3:.3f} kN')
+            print(f'Estimated exhaust thrust contribution {self.turbine_exhaust.thrust * 1e-3:.3f} kN')
 
     @cached_property
     def _turbine_inlet_pressure(self):
         if self.turbine_inlet_pressure is None:
-            warnings.warn('No turbine inlet pressure provided, estimated to be equal to the pressure of the flow '
-                          'before the main chamber injector')
+            if self.verbose:
+                warnings.warn('No turbine inlet pressure provided, estimated to be equal to the pressure of the flow '
+                              'before the main chamber injector')
             return self.combustion_chamber_pressure * (1 + self._injector_pressure_drop_factor)
         else:
             return self.turbine_inlet_pressure
+
+    @property
+    def turbine_mass_flow(self):
+        return self._iterative_turbine_mass_flow
+
+    @property
+    def turbine_inlet_temperature(self):
+        return 0.0
 
     @property
     def turbine_mass_flow_initial_guess(self):
@@ -90,7 +120,7 @@ class OpenEngineCycle(EngineCycle):
     @property
     def turbine_base_inlet_flow_state(self):
         return FlowState(propellant_name=self.fuel_name,
-                         temperature=0.0,
+                         temperature=0,
                          pressure=self._turbine_inlet_pressure,
                          mass_flow=None,
                          type='fuel', )
@@ -98,6 +128,7 @@ class OpenEngineCycle(EngineCycle):
     @property
     def turbine_inlet_flow_state(self):
         return replace(self.turbine_base_inlet_flow_state,
+                       temperature=self.turbine_inlet_temperature,
                        mass_flow=self._iterative_turbine_mass_flow)
 
     @property
@@ -123,8 +154,12 @@ class OpenEngineCycle(EngineCycle):
 
     @property
     def total_mass_flow(self):
-        return self.chamber_mass_flow + self._iterative_turbine_inlet_flow_state.mass_flow
+        return self.chamber_mass_flow + self.turbine_mass_flow
 
-    @property  # Override EngineCycle.simple_specific_impulse to use total mass flow
+    @property  # Override EngineCycle.simple_specific_impulse to use correct thrust
     def simple_specific_impulse(self):
-        return self.thrust / self.total_mass_flow / g
+        return self.thrust * (1 - self.exhaust_thrust_contribution) / self.chamber_mass_flow / g
+
+    @property
+    def secondary_specific_impulse(self):
+        return self.turbine_exhaust.specific_impulse

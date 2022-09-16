@@ -17,7 +17,7 @@ from BaseEngineCycle.Propellant import Propellant
 from BaseEngineCycle.Tank import Tank
 from BaseEngineCycle.ThrustChamber import ThrustChamber
 from BaseEngineCycle.Pump import Pump
-from BaseEngineCycle.FlowState import FlowState
+from BaseEngineCycle.FlowState import FlowState, DefaultFlowState
 from cea import get_cea_values_dict
 from cea_new import get_cea_dict, get_cea_chamber_dict
 from irt import get_kerckhove, get_expansion_ratio_from_p_ratio, get_pressure_ratio_fsolve
@@ -101,7 +101,7 @@ class EngineCycle:
 
     # Values that can be estimated by CEA
     characteristic_velocity: Optional[float] = None  # [m/s]
-    thrust_coefficient: Optional[float] = None  # [-]
+    ideal_thrust_coefficient: Optional[float] = None  # [-]
     combustion_temperature: Optional[float] = None  # [K]
     cc_hot_gas_molar_mass: Optional[float] = None  # [kg/mol]
     cc_hot_gas_heat_capacity_ratio: Optional[float] = None  # [-]
@@ -111,6 +111,7 @@ class EngineCycle:
 
     _injector_pressure_drop_factor: float = .3
     iteration_accuracy = 0.0001
+
     verbose: bool = True
     fast_init: bool = False  # If True needs to make less calls to rocketCEA, assumes expansion ratio is provided, ignores pressure_ratio and exit_pressure_input
     iterate: bool = True
@@ -152,7 +153,7 @@ class EngineCycle:
     @cached_property
     def cea_dict(self):
         return {'characteristic_velocity': 'c_star',
-                'thrust_coefficient': 'C_F',
+                'ideal_thrust_coefficient': 'C_F',
                 'combustion_temperature': 'T_C',
                 'cc_hot_gas_molar_mass': 'mm_cc',
                 'cc_hot_gas_heat_capacity_ratio': 'y_cc',
@@ -197,7 +198,7 @@ class EngineCycle:
 
     @property
     def cstar_cf(self):
-        return self.characteristic_velocity, self.thrust_coefficient
+        return self.characteristic_velocity, self.ideal_thrust_coefficient
 
     @property
     def propellant_mix_name(self):
@@ -205,7 +206,7 @@ class EngineCycle:
 
     @property
     def base_mass_flow(self):
-        return self.thrust / (self.characteristic_velocity * self.thrust_coefficient)
+        return self.thrust / (self.characteristic_velocity * self.ideal_thrust_coefficient)
 
     @property
     def chamber_mass_flow(self):
@@ -328,18 +329,23 @@ class EngineCycle:
         return Pump(inlet_flow_state=self.oxidizer_tank.outlet_flow_state,
                     pressure_increase=self.delta_p_oxidizer_pump,
                     efficiency=self.oxidizer_pump_efficiency,
-                    specific_power=self.oxidizer_pump_specific_power, )
+                    specific_power=self.oxidizer_pump_specific_power,)
 
     @property
     def fuel_pump(self):
         return Pump(inlet_flow_state=self.fuel_tank.outlet_flow_state,
                     pressure_increase=self.delta_p_fuel_pump,
                     efficiency=self.fuel_pump_efficiency,
-                    specific_power=self.fuel_pump_specific_power, )
+                    specific_power=self.fuel_pump_specific_power,)
 
     @property
     def injector_inlet_flow_states(self):
-        return self.cooling_channel_section.outlet_flow_state, self.oxidizer_pump.outlet_flow_state
+        """Ugly hack to prevent recursion (CoolingChannelSection indirectly requires ThrustChamber, which requires
+        Injector, which would require CoolingChannelSection without this hack, creating an infinite loop)"""
+        if CoolingChannelSection._instance_created:
+            return self.cooling_channel_section.outlet_flow_state, self.oxidizer_pump.outlet_flow_state
+        else:
+            return DefaultFlowState(), self.oxidizer_pump.outlet_flow_state
 
     @property
     def injector(self):
@@ -463,7 +469,7 @@ class EngineCycle:
                                      total_heat_transfer=self.heat_transfer_section.total_heat_transfer,
                                      combustion_chamber_pressure=self.combustion_chamber_pressure,
                                      pressure_drop=self.cooling_section_pressure_drop,
-                                     verbose=self.verbose, )
+                                     verbose=self.verbose,)
 
     @property
     def pump_power_required(self):
@@ -496,6 +502,14 @@ class EngineCycle:
     @property
     def gravity_delta_v(self, vertical_fraction: float = 0.2):
         return self.ideal_delta_v - constants.g * self.burn_time * vertical_fraction
+
+    @property
+    def chamber_ideal_specific_impulse(self):
+        return self.ideal_thrust_coefficient * self.characteristic_velocity / constants.g
+
+    @property
+    def chamber_vacuum_specific_impulse(self):
+        return self.characteristic_velocity / constants.g * (self.ideal_thrust_coefficient + self.exit_pressure / self.combustion_chamber_pressure * self.expansion_ratio)
 
     @property
     def payload_delta_v(self):

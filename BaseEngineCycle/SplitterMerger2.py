@@ -2,6 +2,7 @@ from dataclasses import dataclass, replace, field
 from typing import Iterable, Optional
 from BaseEngineCycle.FlowState import FlowState, DefaultFlowState
 from BaseEngineCycle.FlowComponent import BaseFlowComponent, FlowComponent
+import warnings
 
 
 @dataclass
@@ -14,27 +15,29 @@ class Merger(BaseFlowComponent):
     inlet_flow_states: tuple[FlowState, ...] = (DefaultFlowState(),)
 
     def __post_init__(self):
-        self.pressure_check()
-        self.name_check()
+        if DefaultFlowState() not in self.inlet_flow_states:
+            self.pressure_check()
+            self.name_check()
 
     def pressure_check(self):
-        pressures = [flow_state.pressure for flow_state in self._inlet_flow_states]
+        pressures = [flow_state.pressure for flow_state in self.inlet_flow_states]
         if not all(pressure == pressures[0] for pressure in pressures):
-            flow_states = [flow_state + "\n" for flow_state in self._inlet_flow_states]
-            raise ValueError('Pressures of incoming streams are not equal, which could lead to back flow. Ensure the '
-                             'streams are equal pressure at the inlet of the merger\n'
-                             'FlowStates:\n'
-                             f'{flow_states}')
+            pressures = [f'{flow_state.pressure:.4e}' + " Pa" for flow_state in self.inlet_flow_states]
+            warnings.warn(
+                'Pressures of incoming streams in Merger are not equal, which could lead to back flow. Ensure '
+                'the streams are equal pressure at the inlet of the merger\n'
+                'FlowState pressures:\n'
+                f'{pressures}')
 
     def name_check(self):
-        names = [flow_state.propellant_name for flow_state in self._inlet_flow_states]
+        names = [flow_state.propellant_name for flow_state in self.inlet_flow_states]
         if not all(name == names[0] for name in names):
             raise ValueError('Inlet streams of Merger must have the same propellant_name')
 
     @property
     def total_mass_flow(self):
         """"Sums the inlet mass flows"""
-        return sum(flow_state.mass_flow for flow_state in self._inlet_flow_states)
+        return sum(flow_state.mass_flow for flow_state in self.inlet_flow_states)
 
     @property
     def average_temperature(self):
@@ -76,7 +79,7 @@ class Splitter(FlowComponent):
             self.resolve_outlet_mass_flows()
         elif self.mass_flow_fractions is not None:
             self.resolve_fractional_outlet_mass_flows()
-        self.create_outlet_mass_flows()
+        self.create_outlet_flow_states()
 
     def resolve_outlet_mass_flows(self):
         """Creates N+1 outlet mass flows, the value of the last outlet mass flow taken such that the total sum of outlet
@@ -91,7 +94,7 @@ class Splitter(FlowComponent):
         """Creates N outlet mass flows with fractional mass flows of the inlet mass flow"""
         self.resolved_mass_flows = tuple(fraction * self.inlet_mass_flow for fraction in self.mass_flow_fractions)
 
-    def create_outlet_mass_flows(self):
+    def create_outlet_flow_states(self):
         """"Creates outlet flow states with equal outlet pressures and temperatures (possibly different from inlet state
          using _pressure/_temperature_change"""
         if self.outlet_flow_names is None:
@@ -111,7 +114,8 @@ class Splitter(FlowComponent):
 
     @property
     def outlet_flow_state(self):
-        raise ValueError('A Splitter has more than one outlet_flow_state, request outlet_flow_state_[i]/_[name] instead')
+        raise ValueError(
+            'A Splitter has more than one outlet_flow_state, request outlet_flow_state_[i]/_[name] instead')
 
 
 if __name__ == '__main__':

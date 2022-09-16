@@ -11,7 +11,7 @@ class Injector(Merger, Structure):
     combustion_chamber_pressure: float = 0 # [Pa]
     combustion_chamber_area: float = 0  # [m2]
     propellant_is_gas: Optional[bool] = None
-    _pressure_drop_factor = .3  # [-]
+    _pressure_drop_factor: float = .3  # [-]
 
     @property
     def inlet_pressure(self):

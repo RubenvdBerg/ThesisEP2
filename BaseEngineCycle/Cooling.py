@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, ClassVar
 import CoolProp.CoolProp as CoolProp
 from BaseEngineCycle.FlowComponent import FlowComponent
 
@@ -11,10 +11,14 @@ class CoolingChannelSection(FlowComponent):
     combustion_chamber_pressure: Optional[float] = None  # [Pa]
     _pressure_drop_ratio: float = field(init=False, default=.15)  # [-]
     verbose: bool = True
+    _instance_created: ClassVar[bool] = False
 
     def __post_init__(self):
         self.coolprop_name = self.inlet_flow_state.coolprop_name
         CoolProp.set_reference_state(self.coolprop_name, 'NBP')
+
+        # Ugly fix to prevent recursion, see EngineCycle.injector_inlet_flow_states for explanation
+        CoolingChannelSection.__instance_created = True
 
     @property
     def pressure_change(self):
