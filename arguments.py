@@ -38,8 +38,8 @@ base_arguments_kwak = {
     'propellant_margin_factor': 1.01,
     'tanks_structural_factor': 2.5,
     'ullage_volume_factor': 1.08,
-    'oxidizer_density': 1126.1,
-    'fuel_density': 804.2,
+    # 'oxidizer_density': 1126.1,
+    # 'fuel_density': 804.2,
     'tanks_material_density': 2850,
     'pressurant_tank_material_density': 4430,
     'tanks_yield_strength': 250E6,
@@ -139,6 +139,7 @@ liquid_hydrogen_coolant = {
 }
 
 tcd1_kwargs = base_arguments_o | {
+    'fuel_initial_temperature': 20.25,
     'thrust': 100e3,
     'combustion_chamber_pressure': 55e5,
     'expansion_ratio': 143.2,
@@ -186,7 +187,7 @@ se_21d_kwargs = base_arguments_o | {
     'expansion_ratio': 12.52,
     'mass_mixture_ratio': 5.5,
     'fuel_name': 'LH2_NASA',
-    'fuel_density': 70.22,
+    # 'fuel_density': 70.22,
     'burn_time': 100,
     'is_frozen': True,
     'exit_pressure_forced': None,
@@ -212,12 +213,13 @@ mira_kwargs = base_arguments_o | {
     'expansion_ratio': 125,
     'mass_mixture_ratio': 3.9,
     'fuel_name': 'CH4',
-    'fuel_density': 423.9,
+    # 'fuel_density': 423.9,
     'fuel_initial_temperature': 115,
     'oxidizer_initial_temperature': 90,
     'burn_time': 100,
     'is_frozen': True,
     'exit_pressure_forced': None,
+    'maximum_wall_temperature': 800,
     'distance_from_throat_start_cooling': None,
     'distance_from_throat_end_cooling': .4,
     'chamber_characteristic_length': 1.3,
@@ -238,6 +240,43 @@ mira_kwargs = base_arguments_o | {
     'exhaust_expansion_ratio': 20
 
 }
+
+vinci_kwargs = base_arguments_o | {
+    'fuel_initial_temperature': 20.25,
+    'thrust': 180e3,
+    'combustion_chamber_pressure': 60.8e5,
+    'expansion_ratio': 240,
+    'mass_mixture_ratio': 5.8,
+    'area_ratio_chamber_throat': None,
+    'chamber_characteristic_length': None,
+    'fuel_name': 'LH2_NASA',
+    'burn_time': 720,
+    'is_frozen': True,
+    'exit_pressure_forced': None,
+    'expansion_ratio_end_cooling': None,
+    'nozzle_type': 'conical',
+    'maximum_wall_temperature': 850,
+}
+
+hyprob_kwargs = base_arguments_o | {
+    'burn_time': 100,
+    'throat_area': 0.002879753,
+    'expansion_ratio': 8.848742189,
+    'area_ratio_chamber_throat': 3.849543342,
+    'combustion_chamber_pressure': 56e5,
+    'mass_mixture_ratio': 3.5,
+    'fuel_initial_temperature': 110,
+    'fuel_name': 'CH4',
+    'distance_from_throat_start_cooling': None,
+    'distance_from_throat_end_cooling': None,
+    'chamber_characteristic_length': 0.901651725,
+    'divergent_throat_half_angle': radians(19.88516511),
+    'divergent_exit_half_angle': None,
+    'convergent_half_angle': radians(23.81382356),
+    'is_frozen': True,
+    'thrust': 30e3,
+}
+
 le5a_kwargs_cnozzle = change_to_conical_nozzle(le5a_kwargs)
 
 duel_pump_kwargs = {'fuel_pump_specific_power': 15E3, 'oxidizer_pump_specific_power': 20E3}

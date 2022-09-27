@@ -35,13 +35,11 @@ class EngineCycle:
     fuel_pump_pressure_factor: float  # [Pa]
     fuel_pump_specific_power: float  # [W]
     fuel_pump_efficiency: float  # [-]
-    fuel_density: float  # [kg/m3]
     oxidizer_initial_pressure: float  # [Pa]
     oxidizer_initial_temperature: float  # [k]
     oxidizer_pump_pressure_factor: float  # [Pa]
     oxidizer_pump_specific_power: float  # [W]
     oxidizer_pump_efficiency: float  # [-]
-    oxidizer_density: float  # [kg/m3]
     propellant_margin_factor: float  # [-]
     ullage_volume_factor: float  # [-]
     tanks_structural_factor: float  # [-]
@@ -71,11 +69,6 @@ class EngineCycle:
     maximum_wall_temperature: float  # [K]
     thrust_chamber_wall_emissivity: float  # [-]
     hot_gas_emissivity: float  # [-]
-    # coolant_liquid_heat_capacity: float  # [J/(mol*K)]
-    # coolant_gas_heat_capacity: float  # [J/(mol*K)]
-    # coolant_heat_of_vaporization: float  # [J/mol]
-    # coolant_molar_mass: float  # [kg/mol]
-    # coolant_boiling_temp_1_bar: float  # [K]
 
     nozzle_type: str
     convective_coefficient_mode: str
@@ -195,6 +188,31 @@ class EngineCycle:
         #  required for setting all CEA values at once
         kwargs = {key: value for key, value in self.cea_kwargs.items() if key not in ('eps', 'PcOvPe')}
         return get_cea_chamber_dict(**kwargs)['y_cc']
+
+    def do_pressure_check(self):
+        self.get_pressure_check()
+
+    def get_pressure_check(self, extra_pumps: tuple[Pump, ...] = ()):
+        if self.verbose:
+            pumps = (self.fuel_pump, self.oxidizer_pump, *extra_pumps)
+            expected_outlet_pressures = (self.fuel_pump_expected_pressure, self.oxidizer_pump_expected_pressure)
+            for pump, p_expect in zip(pumps, expected_outlet_pressures):
+                if pump.outlet_pressure != p_expect:
+                    warnings.warn(f'For the {pump.inlet_flow_state.type}-pump the used outlet pressure '
+                                  f'[{pump.outlet_pressure:.4e} Pa] is not equal to estimated expected outlet pressure '
+                                  f'[{p_expect:.4e} Pa]\n'
+                                  f'{pump}\n')
+
+    @property
+    def fuel_pump_expected_pressure(self):
+        return (self.combustion_chamber_pressure
+                - self.injector.pressure_change
+                - self.cooling_channel_section.pressure_change)
+
+    @property
+    def oxidizer_pump_expected_pressure(self):
+        return (self.combustion_chamber_pressure
+                - self.injector.pressure_change)
 
     @property
     def cstar_cf(self):
@@ -341,11 +359,16 @@ class EngineCycle:
     @property
     def injector_inlet_flow_states(self):
         """Ugly hack to prevent recursion (CoolingChannelSection indirectly requires ThrustChamber, which requires
-        Injector, which would require CoolingChannelSection without this hack, creating an infinite loop)"""
+                Injector, which would require CoolingChannelSection without this hack, creating an infinite loop)"""
         if CoolingChannelSection._instance_created:
-            return self.cooling_channel_section.outlet_flow_state, self.oxidizer_pump.outlet_flow_state
+            return get_injector_inlet_flow_state_fuel, self.oxidizer_pump.outlet_flow_state
         else:
             return DefaultFlowState(), self.oxidizer_pump.outlet_flow_state
+
+    @property
+    def get_injector_inlet_flow_state_fuel(self) -> FlowState:
+        """part of ugly hack"""
+        return self.cooling_channel_section.outlet_flow_state
 
     @property
     def injector(self):
@@ -447,18 +470,6 @@ class EngineCycle:
                                    min_distance_section=self.min_distance_from_throat_heat_transfer_section,
                                    radiative_heat_transfer_factor=self.radiative_heat_transfer.radiative_factor)
 
-    @staticmethod
-    def coolprop_name(propellant_name):
-        p_name = propellant_name.upper()
-        if 'RP' in p_name:
-            return 'n-Dodecane'
-        if 'H2' in p_name:
-            return 'Hydrogen'
-        if 'O2' in p_name or 'OX' in p_name:
-            return 'Oxygen'
-        if 'CH4' in p_name:
-            return 'Methane'
-
     @property
     def cooling_inlet_flow_state(self):
         return self.fuel_pump.outlet_flow_state
@@ -466,7 +477,8 @@ class EngineCycle:
     @property
     def cooling_channel_section(self):
         return CoolingChannelSection(inlet_flow_state=self.cooling_inlet_flow_state,
-                                     total_heat_transfer=self.heat_transfer_section.total_heat_transfer,
+                                     heat_transfer_section=self.heat_transfer_section,
+                                     _total_heat_transfer=None,
                                      combustion_chamber_pressure=self.combustion_chamber_pressure,
                                      pressure_drop=self.cooling_section_pressure_drop,
                                      verbose=self.verbose,)

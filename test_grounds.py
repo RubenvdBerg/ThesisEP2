@@ -58,6 +58,7 @@ class Class3:
     def attr1(self):
         return self._attr1
 
+print(None/None)
 c2 = Class2()
 print(c2.class3.attr1)
 print(f'{1:{""}}')

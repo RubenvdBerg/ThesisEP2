@@ -3,12 +3,12 @@ from dataclasses import dataclass
 from math import pi
 from typing import Optional
 from BaseEngineCycle.Propellant import Propellant
-from BaseEngineCycle.Structure import Structure
+from BaseEngineCycle.Structure import PressureStructure
 from BaseEngineCycle.FlowComponent import FlowComponent
 
 
 @dataclass
-class Tank(FlowComponent, Structure):
+class Tank(FlowComponent, PressureStructure):
     max_acceleration: float = 0 # [m/s2]
     ullage_factor: float = 0  # [-]
     propellant_volume: float = 0  # [m3]
@@ -38,9 +38,8 @@ class Tank(FlowComponent, Structure):
                                                                                                 self.radius)
 
     @property
-    def mass(self):  # Spherical Tanks
-        return (self.safety_factor * 3 * self.material_density / (4 * self.yield_strength) *
-                self.volume * (self.total_upper_pressure + self.total_lower_pressure))
+    def maximum_expected_operating_pressure(self):
+        return (self.total_upper_pressure + self.total_lower_pressure) / 2
 
     @property
     def volume(self):

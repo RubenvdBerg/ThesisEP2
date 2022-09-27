@@ -42,21 +42,21 @@ class GasGeneratorCycle(OpenEngineCycle):
                          temperature=self.turbine_maximum_temperature,
                          pressure=self._turbine_inlet_pressure,
                          mass_flow=None,
-                         type='burnt',)
+                         type='combusted',)
 
     @property
     def post_oxidizer_pump_spltter(self):
         """Splits the flow into the required chamber oxidizer flow and 'extra' flow, which will be equal to the required
         gas generator oxidizer flow after iteration"""
         return Splitter(inlet_flow_state=self.oxidizer_pump.outlet_flow_state,
-                        outlet_mass_flows=(self.chamber_oxidizer_flow,),
+                        required_outlet_mass_flows=(self.chamber_oxidizer_flow,),
                         outlet_flow_names=('main', 'gg'))
 
     @property
     def post_fuel_pump_splitter(self):
         """Splits the flow into the required chamber fuel flow and 'extra' flow, which will be equal to the required gas
         generator fuel flow after iteration"""
-        return Splitter(inlet_flow_state=self.fuel_pump.outlet_flow_state, outlet_mass_flows=(self.chamber_fuel_flow,),
+        return Splitter(inlet_flow_state=self.fuel_pump.outlet_flow_state, required_outlet_mass_flows=(self.chamber_fuel_flow,),
                         outlet_flow_names=('main', 'gg'))
 
     @property

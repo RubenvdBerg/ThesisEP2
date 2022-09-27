@@ -150,6 +150,8 @@ def get_sonic_velocity(heat_capacity_ratio: float, molar_mass: float, temperatur
 
 
 def get_local_mach(local_area_ratio, is_subsonic=False, heat_capacity_ratio=1.14):
+    if local_area_ratio == 1:
+        return 1
     a_at = local_area_ratio
     y = heat_capacity_ratio
     p = 2 / (y + 1)

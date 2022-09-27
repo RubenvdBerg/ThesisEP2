@@ -4,7 +4,7 @@ from math import pi
 from typing import Optional
 
 from BaseEngineCycle.Propellant import Propellant
-from BaseEngineCycle.Structure import Structure
+from BaseEngineCycle.Structure import PressureStructure
 from BaseEngineCycle.Tank import Tank
 from ElectricPumpCycle.EPComponents import Battery
 

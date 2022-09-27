@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from scipy import constants as constants
 from BaseEngineCycle.Propellant import Propellant
-from BaseEngineCycle.Structure import Structure
+from BaseEngineCycle.Structure import PressureStructure
 
 
 @dataclass
@@ -39,7 +39,7 @@ class Pressurant:
 
 
 @dataclass
-class PressurantTank(Structure):
+class PressurantTank(PressureStructure):
     pressurant: Pressurant
 
     @property
@@ -56,6 +56,5 @@ class PressurantTank(Structure):
                 * self.pressurant.initial_temperature / self.pressurant.initial_pressure)
 
     @property
-    def mass(self):
-        return (self.safety_factor * 3 / 2 * self.volume * self.initial_pressure
-                * self.material_density / self.yield_strength)
+    def maximum_expected_operating_pressure(self):
+        return self.initial_pressure

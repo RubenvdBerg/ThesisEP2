@@ -1,11 +1,11 @@
-from BaseEngineCycle.Structure import Structure
+from BaseEngineCycle.Structure import PressureStructure
 from BaseEngineCycle.FlowComponent import BaseFlowComponent
 from BaseEngineCycle.FlowState import FlowState, DefaultFlowState
 from dataclasses import dataclass
 
 
 @dataclass
-class GasGenerator(Structure):
+class GasGenerator(PressureStructure):
     """Handles mass estimation of the Gas Generator and merging of inlet flows. mass_mixture_ratio is required for
     clarity, so it is available as attribute for other components, as well as inheritance
 
@@ -39,7 +39,7 @@ class GasGenerator(Structure):
                          temperature=self.outlet_temperature,
                          pressure=self.outlet_pressure,
                          mass_flow=self.outlet_mass_flow,
-                         type='burnt')
+                         type='combusted')
 
     @property
     def mass(self):  # Overwrite Structure.mass()

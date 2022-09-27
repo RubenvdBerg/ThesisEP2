@@ -20,9 +20,9 @@ class Injector(Merger, Structure):
     @property
     def pressure_change(self):
         option1 = self.combustion_chamber_pressure * self._pressure_drop_factor
-        # Mota 2008 -> Kesaev and Almeida 2005
-        f = .4 if self.propellant_is_gas else .8
-        option2 = f * 10E2 * sqrt(10 * self.combustion_chamber_pressure)
+        # # Mota 2008 -> Kesaev and Almeida 2005
+        # f = .4 if self.propellant_is_gas else .8
+        # option2 = f * 10E2 * sqrt(10 * self.combustion_chamber_pressure)
         return -option1
 
     @property

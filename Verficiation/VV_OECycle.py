@@ -1,7 +1,7 @@
 import arguments as args
-from OpenExpanderCycle.OECycle import OpenExpanderCycle
+from OpenExpanderCycle.OECycle import CoolantBleedCycle
 
-engine = OpenExpanderCycle(**args.le5a_kwargs_cnozzle, **args.open_arguments)
+engine = CoolantBleedCycle(**args.le5a_kwargs_cnozzle, **args.open_arguments)
 # engine.thrust_chamber.show_mach()
 print(engine.cooling_channel_section.outlet_temperature)
 # engine.thrust_chamber.show_contour()

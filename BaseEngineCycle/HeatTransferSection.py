@@ -243,10 +243,12 @@ class HeatTransferSection(ConvectiveHeatTransfer):
         else:
             return self.max_distance_section
 
+    def total_heat_flux(self, distance_from_throat:float):
+        return self.get_convective_heat_flux(distance_from_throat) * (1 + self.radiative_heat_transfer_factor)
+
     @property
     def total_heat_transfer(self):
         return self.total_convective_heat_transfer * (self.radiative_heat_transfer_factor + 1)
-
 
 
     # def convective_heat_flux(self):

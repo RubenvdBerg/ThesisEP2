@@ -5,12 +5,12 @@ from typing import Optional
 
 from scipy.interpolate import interp1d
 
-from BaseEngineCycle.Structure import Structure
+from BaseEngineCycle.Structure import PressureStructure
 from BaseEngineCycle.Nozzle import get_chamber_throat_area_ratio_estimate
 from BaseEngineCycle.FlowComponent import FlowComponent
 
 @dataclass
-class CombustionChamber(Structure):
+class CombustionChamber(PressureStructure):
     throat_area: float  # [m2]
     combustion_chamber_pressure: float  # [Pa]
     convergent_volume_estimate: float  # [m3]
@@ -35,14 +35,14 @@ class CombustionChamber(Structure):
             if self.verbose:
                 warnings.warn(
                     'No estimate for the volume of the convergent given. Calculating combustion chamber length'
-                    ' based solely on the volume of the cylindrical section.')
+                    ' based solely on the volume of the cylindrical section without convergent nozzle section.')
 
     @cached_property
     def characteristic_length_options(self):
-        return {'LOX/GH2': 0.635, 'LOX/LH2': 0.89, 'LOX/RP1': 1.145}
+        return {'LOX/GH2': 0.635, 'LOX/LH2': 0.89, 'LOX/RP1': 1.145, 'LOX/LCH4': 1.45}
 
     @property
-    def cylinder_volume(self):
+    def volume(self):  # Of the cylindrical section
         return self.characteristic_length * self.throat_area - self.convergent_volume_estimate
 
     @property
@@ -59,12 +59,15 @@ class CombustionChamber(Structure):
 
     @property
     def length(self):
-        return self.cylinder_volume / self.area
+        return self.volume / self.area
 
     @property
-    def mass(self):
-        return self.material_density * self.safety_factor / self.yield_strength * (2 * self.cylinder_volume
-                                                                                   * self.combustion_chamber_pressure)
+    def geometry_factor(self):
+        return 2 * (1 + self.radius / self.length)
+
+    @property
+    def maximum_expected_operating_pressure(self):
+        return self.combustion_chamber_pressure
 
 @dataclass
 class ComplexCombustionChamber(CombustionChamber):

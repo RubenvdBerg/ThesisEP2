@@ -41,6 +41,7 @@ class OpenEngineCycle(EngineCycle):
             self.iterate_mass_flow()
         self.flow_check()
         self.check_exhaust_thrust_contribution()
+        self.do_pressure_check()
 
     def flow_check(self, turbine_compare_flow_state: Optional[FlowState] = None):
         if turbine_compare_flow_state is None:

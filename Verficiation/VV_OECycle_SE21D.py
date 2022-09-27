@@ -1,7 +1,7 @@
 import arguments as args
-from OpenExpanderCycle.OECycle import OpenExpanderCycle
+from OpenExpanderCycle.OECycle import CoolantBleedCycle
 
-engine = OpenExpanderCycle(**args.change_to_conical_nozzle(args.se_21d_kwargs), iterate=False)
+engine = CoolantBleedCycle(**args.change_to_conical_nozzle(args.se_21d_kwargs), iterate=False)
 data = [('Name', '[Unit]', 1, 1),
         ('Chamber Diameter', '[m]', engine.combustion_chamber.radius * 2, 0.985),
         ('Chamber Volume', '[m3]', engine.combustion_chamber.volume_incl_convergent, 1.029),

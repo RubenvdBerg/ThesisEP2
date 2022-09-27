@@ -1,12 +1,12 @@
-from OECycle import OpenExpanderCycle
-from dataclasses import dataclass
+from OECycle import CoolantBleedCycle
+from dataclasses import dataclass, replace
 from BaseEngineCycle.SplitterMerger2 import Splitter, Merger
 from BaseEngineCycle.Cooling import CoolingChannelSection
 from BaseEngineCycle.HeatTransferSection import HeatTransferSection
 
 
 @dataclass
-class MIRA(OpenExpanderCycle):
+class MIRA(CoolantBleedCycle):
     """See 'Leonardi et al. 2017 - Basic Analysis of a LOX/Methane Expander Bleed Engine' for this rocket's
     configuration
     """
@@ -24,16 +24,20 @@ class MIRA(OpenExpanderCycle):
                         outlet_flow_names=('cooling', 'chamber'))
 
     @property
-    def mid_cooling_splitter(self):
+    def turbine_flow_splitter(self):
         return Splitter(inlet_flow_state=self.cooling_channel_section.outlet_flow_state,
-                        outlet_mass_flows=(
+                        required_outlet_mass_flows=(
                             self.chamber_fuel_flow - self.post_fuel_pump_splitter.outlet_flow_state_chamber.mass_flow,),
                         outlet_flow_names=('chamber', 'secondary_cooling'))
 
     @property
     def pre_injector_merger(self):
         return Merger(inlet_flow_states=(self.post_fuel_pump_splitter.outlet_flow_state_chamber,
-                                         self.mid_cooling_splitter.outlet_flow_state_chamber))
+                                         self.turbine_flow_splitter.outlet_flow_state_chamber))
+
+    @property
+    def get_injector_inlet_flow_state_fuel(self):
+        return self.pre_injector_merger.outlet_flow_state
 
     @property
     def turbine_inlet_temperature(self):
@@ -50,24 +54,20 @@ class MIRA(OpenExpanderCycle):
     def cooling_inlet_flow_state(self):
         return self.post_fuel_pump_splitter.outlet_flow_state_cooling
 
-    @property
-    def cooling_channel_section(self):
-        return CoolingChannelSection(inlet_flow_state=self.cooling_inlet_flow_state,
-                                     total_heat_transfer=self.heat_transfer_section.total_heat_transfer,
-                                     # total_heat_transfer=6.749e6,
-                                     combustion_chamber_pressure=self.combustion_chamber_pressure,
-                                     pressure_drop=self.cooling_section_pressure_drop,
-                                     verbose=self.verbose, )
+    # @property
+    # def cooling_channel_section(self):
+    #     return replace(super().cooling_channel_section,
+    # total_heat_transfer=6.749e6,)
 
     @property
     def secondary_cooling_inlet_flow_state(self):
-        return self.mid_cooling_splitter.outlet_flow_state_secondary_cooling
+        return self.turbine_flow_splitter.outlet_flow_state_secondary_cooling
 
     @property
     def secondary_cooling_channel_section(self):
         return CoolingChannelSection(inlet_flow_state=self.secondary_cooling_inlet_flow_state,
-                                     # total_heat_transfer=self.secondary_heat_transfer_section.total_heat_transfer,
-                                     total_heat_transfer=.302e6,
+                                     # _total_heat_transfer=self.secondary_heat_transfer_section.total_heat_transfer,
+                                     _total_heat_transfer=.302e6,
                                      combustion_chamber_pressure=self.combustion_chamber_pressure,
                                      pressure_drop=self.cooling_section_pressure_drop,
                                      verbose=self.verbose, )
@@ -77,21 +77,15 @@ class MIRA(OpenExpanderCycle):
 class MIRA_Exact(MIRA):
     @property
     def cooling_channel_section(self):
-        return CoolingChannelSection(inlet_flow_state=self.cooling_inlet_flow_state,
-                                     # total_heat_transfer=self.heat_transfer_section.total_heat_transfer,
-                                     total_heat_transfer=6.749e6,
-                                     combustion_chamber_pressure=self.combustion_chamber_pressure,
-                                     pressure_drop=self.cooling_inlet_flow_state.pressure - 66.6e5,
-                                     verbose=self.verbose, )
+        return replace(super().cooling_channel_section,
+                       _total_heat_transfer=6.749e6,
+                       pressure_drop=self.cooling_inlet_flow_state.pressure - 66.6e5)
 
     @property
     def secondary_cooling_channel_section(self):
-        return CoolingChannelSection(inlet_flow_state=self.secondary_cooling_inlet_flow_state,
-                                     # total_heat_transfer=self.secondary_heat_transfer_section.total_heat_transfer,
-                                     total_heat_transfer=.302e6,
-                                     combustion_chamber_pressure=self.combustion_chamber_pressure,
-                                     pressure_drop=self.secondary_cooling_inlet_flow_state.pressure - 66.6e5,
-                                     verbose=self.verbose, )
+        return replace(super().secondary_cooling_channel_section,
+                       _total_heat_transfer=.302e6,
+                       pressure_drop=self.secondary_cooling_inlet_flow_state.pressure - 66.6e5, )
 
 
 if __name__ == '__main__':
@@ -111,6 +105,7 @@ if __name__ == '__main__':
     for EngineClass, pressurething in zip((MIRA_Exact, MIRA), ('exact', 'estimated')):
         engine = EngineClass(**args.change_to_conical_nozzle(args.mira_kwargs, throat_half_angle=math.radians(25)),
                              iterate=True, verbose=True)
+        print(engine.cooling_channel_section.throat_wall_temperature(engine.maximum_wall_temperature))
         if pressurething == 'exact':
             engine.thrust_chamber.show_contour()
             engine.theoretical_convective_heat_transfer.show_heat_transfer()

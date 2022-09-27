@@ -61,12 +61,15 @@ class ThrustChamber:
         return nozzle_copy.div_length
 
     def get_mach(self, distance_from_throat):
-        radius = self.get_radius(distance_from_throat)
-        local_area_ratio = pi * radius ** 2 / self.throat_area
-        is_subsonic = True if distance_from_throat < 0 else False
-        return get_local_mach(local_area_ratio=local_area_ratio,
-                              is_subsonic=is_subsonic,
-                              heat_capacity_ratio=self.heat_capacity_ratio)
+        if distance_from_throat < -self.nozzle.conv_length:
+            return 0
+        else:
+            radius = self.get_radius(distance_from_throat)
+            local_area_ratio = pi * radius ** 2 / self.throat_area
+            is_subsonic = True if distance_from_throat < 0 else False
+            return get_local_mach(local_area_ratio=local_area_ratio,
+                                  is_subsonic=is_subsonic,
+                                  heat_capacity_ratio=self.heat_capacity_ratio)
 
     def show_mach(self, **kwargs):
         self.distance_plot(self.get_mach, 'Mach [-]', **kwargs)

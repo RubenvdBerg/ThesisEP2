@@ -10,7 +10,7 @@ class FlowState:
     temperature: float  # [K]
     pressure: float  # [Pa]
     mass_flow: Optional[float]  # [kg/s]
-    type: Literal['oxidizer', 'fuel', 'burnt']
+    type: Literal['oxidizer', 'fuel', 'combusted']
 
     @property
     def print_pretty_dict(self):
@@ -67,8 +67,27 @@ class FlowState:
     def mass_specific_enthalpy(self):
         return PropsSI('HMASS', *self.state_inputs)
 
+    @property
+    def prandtl_number(self):
+        return PropsSI('PRANDTL', *self.state_inputs)
+
+    @property
+    def conductivity(self):
+        return PropsSI('L', *self.state_inputs)
+
+    @property
+    def dynamic_viscosity(self):
+        return PropsSI('V', *self.state_inputs)
+
+    @property
+    def speed_of_sound(self):
+        return PropsSI('A', *self.state_inputs)
+
     def propssi(self, string_input: str):
         return PropsSI(string_input, *self.state_inputs)
+
+    def get_reynolds(self, flow_speed: float, linear_dimension: float):
+        return self.density * flow_speed * linear_dimension / self.dynamic_viscosity
 
     def almost_equal(self, other: 'FlowState', margin: float = 1e-8) -> bool:
         """Checks if flowstates have the same fields but leaves some margin for floating point errors"""
@@ -94,3 +113,63 @@ class DefaultFlowState(FlowState):
 
     def coolprop_name(self):
         raise ValueError('Called a function or class that requires a FlowState without defining it')
+
+
+@dataclass
+class ManualFlowState(FlowState):
+    _molar_mass: Optional[float] = None
+    _specific_heat_capacity: Optional[float] = None
+    _specific_heat_capacity_const_volume: Optional[float] = None
+    _heat_capacity_ratio: Optional[float] = None
+    _density: Optional[float] = None
+    _mass_specific_enthalpy: Optional[float] = None
+    _prandtl_number: Optional[float] = None
+    _conductivty: Optional[float] = None
+    _dynamic_viscosity: Optional[float] = None
+    _speed_of_sound: Optional[float] = None
+
+    @cached_property
+    def molar_mass(self):
+        return self._molar_mass
+
+    @cached_property
+    def specific_heat_capacity(self):
+        return self._specific_heat_capacity
+
+    @cached_property
+    def specific_heat_capacity_const_volume(self):
+        return self._specific_heat_capacity_const_volume
+
+    @property
+    def heat_capacity_ratio(self):
+        if self._heat_capacity_ratio is None:
+            try:
+                return self.specific_heat_capacity / self.specific_heat_capacity_const_volume
+            except TypeError:
+                return None
+        else:
+            return self._heat_capacity_ratio
+
+    @cached_property
+    def density(self):
+        return self._density
+
+    @cached_property
+    def mass_specific_enthalpy(self):
+        return self._mass_specific_enthalpy
+
+    @cached_property
+    def prandtl_number(self):
+        return self._prandtl_number
+
+    @cached_property
+    def conductivity(self):
+        return self._conductivty
+
+    @cached_property
+    def dynamic_viscosity(self):
+        return self._dynamic_viscosity
+
+    @cached_property
+    def speed_of_sound(self):
+        return self._speed_of_sound

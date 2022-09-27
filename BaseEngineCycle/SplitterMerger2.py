@@ -63,19 +63,20 @@ class Splitter(FlowComponent):
     corresponding fraction of the inlet mass flow
     """
 
-    outlet_mass_flows: Optional[tuple[float, ...]] = None
+    required_outlet_mass_flows: Optional[tuple[float, ...]] = None
     mass_flow_fractions: Optional[tuple[float, ...]] = None
-    resolved_mass_flows: tuple[float, ...] = field(init=False)
     outlet_flow_names: Optional[tuple[str, ...]] = None
+    resolved_mass_flows: tuple[float, ...] = field(init=False)
+
 
     def __post_init__(self):
         self.split_flows()
 
     def split_flows(self):
         """Checks values of parameters and delegates handling to the right method"""
-        if not ((self.outlet_mass_flows is None) ^ (self.mass_flow_fractions is None)):
+        if not ((self.required_outlet_mass_flows is None) ^ (self.mass_flow_fractions is None)):
             raise ValueError('Exactly one of outlet_mass_flows and mass_flow_fractions must be given')
-        elif self.outlet_mass_flows is not None:
+        elif self.required_outlet_mass_flows is not None:
             self.resolve_outlet_mass_flows()
         elif self.mass_flow_fractions is not None:
             self.resolve_fractional_outlet_mass_flows()
@@ -85,10 +86,10 @@ class Splitter(FlowComponent):
         """Creates N+1 outlet mass flows, the value of the last outlet mass flow taken such that the total sum of outlet
          mass flows equals the inlet mass flow
         """
-        if sum(self.outlet_mass_flows) > self.inlet_flow_state.mass_flow:
+        if sum(self.required_outlet_mass_flows) > self.inlet_flow_state.mass_flow:
             raise ValueError('Sum of given mass flows must be less than the inlet mass flow')
-        final_mass_flow = self.inlet_mass_flow - sum(self.outlet_mass_flows)
-        self.resolved_mass_flows = self.outlet_mass_flows + (final_mass_flow,)
+        final_mass_flow = self.inlet_mass_flow - sum(self.required_outlet_mass_flows)
+        self.resolved_mass_flows = self.required_outlet_mass_flows + (final_mass_flow,)
 
     def resolve_fractional_outlet_mass_flows(self):
         """Creates N outlet mass flows with fractional mass flows of the inlet mass flow"""

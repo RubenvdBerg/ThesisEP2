@@ -1,4 +1,4 @@
-from OECycle import OpenExpanderCycle
+from OECycle import CoolantBleedCycle
 from dataclasses import dataclass
 from BaseEngineCycle.Pump import Pump
 from BaseEngineCycle.SplitterMerger2 import Splitter, Merger
@@ -6,10 +6,14 @@ from BaseEngineCycle.Cooling import CoolingChannelSection
 
 
 @dataclass
-class SE21D(OpenExpanderCycle):
+class SE21D(CoolantBleedCycle):
     """See 'Sippel et al. 2003 - Studies on Expander Bleed Cycle Engines for Launchers' for this rocket's configuration.
     """
     fuel_pump2_efficiency: float = 0.75
+    
+    @property
+    def turbine_mass_flow_initial_guess(self):
+        return self.base_mass_flow * .015
 
     @property
     def fuel_pump(self):
@@ -36,8 +40,10 @@ class SE21D(OpenExpanderCycle):
     @property
     def post_fuel_pump_splitter(self):
         return Splitter(inlet_flow_state=self.fuel_pump.outlet_flow_state,
+                        # mass_flow_fractions=(
+                        # 1 - 0.17500560436393138123552205984393, 0.17500560436393138123552205984393),
                         mass_flow_fractions=(
-                        1 - 0.17500560436393138123552205984393, 0.17500560436393138123552205984393),
+                            1 - 0.2, 0.2),
                         outlet_flow_names=('chamber', 'secondary_pump'))
 
     # @property
@@ -51,14 +57,18 @@ class SE21D(OpenExpanderCycle):
         which goes to the turbine
         """
         return Splitter(inlet_flow_state=self.cooling_channel_section.outlet_flow_state,
-                        outlet_mass_flows=(self.chamber_fuel_flow
-                                           - self.post_fuel_pump_splitter.outlet_flow_state_chamber.mass_flow,),
+                        required_outlet_mass_flows=(self.chamber_fuel_flow
+                                                    - self.post_fuel_pump_splitter.outlet_flow_state_chamber.mass_flow,),
                         outlet_flow_names=('chamber', 'turbine'))
 
     @property
     def pre_injection_merger(self):
         return Merger(inlet_flow_states=(self.post_cooling_splitter.outlet_flow_state_chamber,
                                          self.post_fuel_pump_splitter.outlet_flow_state_chamber))
+
+    @property
+    def get_injector_inlet_flow_state_fuel(self):
+        return self.pre_injection_merger.outlet_flow_state
 
     @property
     def secondary_fuel_pump(self):
@@ -116,10 +126,10 @@ class SE21D_PressureExact(SE21D):
 
     @property
     def cooling_channel_section(self):
-        return CoolingChannelSection(inlet_flow_state=self.secondary_fuel_pump.outlet_flow_state,
-                                     total_heat_transfer=self.heat_transfer_section.total_heat_transfer,
-                                     pressure_drop=12.109e6 - 8.749e6,
-                                     verbose=self.verbose)
+        """Copies cooling channel, while adjusting the pressure drop"""
+        ccs = super().cooling_channel_section
+        ccs.pressure_drop = 12.109e6 - 8.749e6
+        return ccs
 
 
 if __name__ == '__main__':
@@ -135,8 +145,9 @@ if __name__ == '__main__':
         # if EngineClass == SE21D:
             # engine = EngineClass(**args.change_to_conical_nozzle(args.se_21d_kwargs), iterate=True)
             engine = EngineClass(**args.change_to_conical_nozzle(new_args), iterate=True)
-            engine.thrust_chamber.show_contour()
-            engine.heat_transfer_section.show_heat_flux()
+            # engine.thrust_chamber.show_contour()
+            engine.cooling_channel_section.throat_wall_temperature(engine.maximum_wall_temperature)
+            # engine.heat_transfer_section.show_heat_flux()
             print(f'Data comparison for SE21 with {pressurething.upper()} pressures')
             data = [('Name', '[Unit]', 1, 1),
                     ('Chamber Diameter', '[m]', engine.combustion_chamber.radius * 2, 0.985),
