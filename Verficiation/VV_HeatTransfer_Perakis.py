@@ -4,7 +4,7 @@ from BaseEngineCycle.Injector import Injector
 from BaseEngineCycle.ThrustChamber import ThrustChamber
 from BaseEngineCycle.CombustionChamber import CombustionChamber
 from BaseEngineCycle.FlowState import ManualFlowState
-from BaseEngineCycle.HeatTransferSection2 import HeatTransferSection
+from BaseEngineCycle.HeatTransferSection2 import HeatExchanger
 from dataclasses import replace
 import arguments as args
 from math import radians
@@ -42,17 +42,20 @@ manual_cc_flow_state = ManualFlowState(propellant_name='Combustion_Chamber_Gas',
 thrustchamber = ThrustChamber(injector=injector, chamber=chamber, nozzle=nozzle,
                               heat_capacity_ratio=manual_cc_flow_state.heat_capacity_ratio)
 
-heattransfer = HeatTransferSection(coolant_inlet_flow_state=replace(engine.cooling_inlet_flow_state,
-                                                                    mass_flow=10),
-                                   coolant_channel_diameter=.0025,
-                                   number_of_coolant_channels=138,
-                                   radiative_factor=engine.radiative_heat_transfer.radiative_factor,
-                                   thrust_chamber=thrustchamber,
-                                   combustion_chamber_flow_state=manual_cc_flow_state,
-                                   amount_of_sections=300,
-                                   verbose=False,
-                                   counter_flow=False,
-                                   )
+heattransfer = HeatExchanger(coolant_inlet_flow_state=replace(engine.cooling_inlet_flow_state,
+                                                              mass_flow=10,
+                                                              temperature=30,
+                                                              pressure=150e5),
+                             coolant_channel_diameter=.0025,
+                             number_of_coolant_channels=138,
+                             radiative_factor=engine.radiative_heat_transfer.radiative_factor,
+                             thrust_chamber=thrustchamber,
+                             combustion_chamber_flow_state=manual_cc_flow_state,
+                             amount_of_sections=200,
+                             verbose=False,
+                             counter_flow=False,
+                             chamber_wall_conductivity=350,
+                             chamber_wall_thickness=1e-3,
+                             )
 
-print(heattransfer.data)
 heattransfer.plot_all()

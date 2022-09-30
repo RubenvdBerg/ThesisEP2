@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from CoolProp.CoolProp import PropsSI
 from functools import cached_property
 from typing import Literal, Optional
@@ -6,6 +6,12 @@ from typing import Literal, Optional
 
 @dataclass
 class FlowState:
+    """
+    Keep track of the state of the (propellant) flow and access associated properties easily as attributes
+
+    Flow is assumed to have no flow speed for simplicity: static = total conditions, see DynamicFlowState if flow speed
+    is needed
+    """
     propellant_name: str
     temperature: float  # [K]
     pressure: float  # [Pa]
@@ -16,9 +22,9 @@ class FlowState:
     def print_pretty_dict(self):
         from collections import defaultdict
         fstrings = defaultdict(lambda: '', {'temperature': '.0f', 'pressure': '.3e', 'mass_flow': '.3e'})
-        return {key: f'{item:{fstrings[key]}}' for key, item in self.__dict__.items()}
+        return {key: f'{item:{fstrings[key]}}' for key, item in vars(self).items()}
 
-    @cached_property
+    @property
     def coolprop_name(self):
         p_name = self.propellant_name.upper()
 
@@ -86,8 +92,8 @@ class FlowState:
     def propssi(self, string_input: str):
         return PropsSI(string_input, *self.state_inputs)
 
-    def get_reynolds(self, flow_speed: float, linear_dimension: float):
-        return self.density * flow_speed * linear_dimension / self.dynamic_viscosity
+    def get_reynolds(self, linear_dimension: float, flow_velocity: float):
+        return self.density * flow_velocity * linear_dimension / self.dynamic_viscosity
 
     def almost_equal(self, other: 'FlowState', margin: float = 1e-8) -> bool:
         """Checks if flowstates have the same fields but leaves some margin for floating point errors"""
@@ -100,11 +106,105 @@ class FlowState:
         return all(equals_list)
 
 
+@dataclass
+class DynamicFlowState(FlowState):
+    """
+    Adds flow velocity property to FlowState object: Differentiate between static and total conditions
 
+    .pressure and .temperature attributes now represent the total properties of the flow
+    """
+    flow_velocity: float
+    _iteration_accuracy: float = field(init=False, default=1e-3, repr=False)
+    _density: float = field(init=False, repr=False)
+    _specific_heat_capacity: float = field(init=False, repr=False)
+    verbose: bool = False
+    _density_initial_guess: Optional[float] = None
+    _specific_heat_capacity_initial_guess: Optional[float] = None
+
+    def __post_init__(self):
+        self._density = self.density_initial_guess
+        self._specific_heat_capacity = self.specific_heat_capacity_initial_guess
+        self.iterate()
+
+    def iterate(self):
+        """
+        Density is dependent on the static pressure and static pressure is calculated by subtracting the
+        dynamic pressure (which requires the density) from the total pressure. Thus; iteration is required.
+        Same for cp and static temperature, but should be okay once density is properly set.
+        """
+        if self.verbose:
+            print('DynamicFlowStateIteration:')
+        while abs(self._density - self.density) / self.density > self._iteration_accuracy:
+            if self.verbose:
+                print(f'Cur.:{self._density:.6e}\n'
+                      f'Exp.:{self.density:.6e}')
+            self._density = self.density
+            self._specific_heat_capacity = self.specific_heat_capacity
+
+    @property
+    def _flow_velocity(self):
+        """This reroute of the flow velocity attribute is needed for the ChildClass CoolantFlowState"""
+        return self.flow_velocity
+
+    @property
+    def density_initial_guess(self):
+        """Call density with total temp and total pressure, just like parent class"""
+        if self._density_initial_guess is None:
+            if self.coolprop_name == 'n-Dodecane':
+                # Known correction RP-1 generally 3-4% heavier than dodecane
+                return PropsSI('DMASS', *super().state_inputs) * 1.04
+            return PropsSI('DMASS', *super().state_inputs)
+        else:
+            return self._density_initial_guess
+
+    @property
+    def specific_heat_capacity_initial_guess(self):
+        """Call specific heat capacity with total temp and pressure, just like parent class"""
+        if self._specific_heat_capacity_initial_guess is None:
+            return PropsSI('CPMASS', *super().state_inputs)
+        else:
+            return self._specific_heat_capacity_initial_guess
+
+    @property
+    def state_inputs(self):
+        return 'T', self.static_temp, 'P', self.static_pressure, self.coolprop_name
+
+    @property
+    def dynamic_temp(self):
+        return .5 * self._flow_velocity**2 / self._specific_heat_capacity
+
+    @property
+    def dynamic_pressure(self):
+        return .5 * self._density * self._flow_velocity**2
+
+    @property
+    def static_temp(self):
+        return self.temperature - self.dynamic_temp
+
+    @property
+    def static_pressure(self):
+        return self.pressure - self.dynamic_pressure
+
+    def get_reynolds(self, linear_dimension: float, flow_velocity: float = None):
+        if flow_velocity is None:
+            flow_velocity = self._flow_velocity
+        return super().get_reynolds(flow_velocity=flow_velocity, linear_dimension=linear_dimension)
+
+
+@dataclass
+class CoolantFlowState(DynamicFlowState):
+    """Same as DynamicFlowState, but internally calculates flow velocity from mass flux instead"""
+    mass_flux: float = 0
+    flow_velocity: float = field(init=False, repr=False)
+
+    @property
+    def _flow_velocity(self):
+        return self.mass_flux / self._density
 
 
 @dataclass
 class DefaultFlowState(FlowState):
+    """When interface is derived from the default value provided, this will make linters shut up"""
     propellant_name: str = 'Default'
     temperature: float = 0  # [K]
     pressure: float = 0  # [Pa]
@@ -117,6 +217,12 @@ class DefaultFlowState(FlowState):
 
 @dataclass
 class ManualFlowState(FlowState):
+    """
+    Override the FlowState with manually added flow properties, instead of properties derived from temp. and prressure
+
+    Be careful, since changing the temperature and/or pressure obviously will not lead to an update of the given flow
+    properties!
+    """
     _molar_mass: Optional[float] = None
     _specific_heat_capacity: Optional[float] = None
     _specific_heat_capacity_const_volume: Optional[float] = None

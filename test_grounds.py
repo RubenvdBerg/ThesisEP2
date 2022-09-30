@@ -58,6 +58,33 @@ class Class3:
     def attr1(self):
         return self._attr1
 
+
+@dataclass
+class Parent:
+    temp: float
+    pres: float
+
+    @property
+    def state_args(self):
+        return self.temp, self.pres
+
+@dataclass
+class Child(Parent):
+    temp2: float
+    press2: float
+
+    @property
+    def state_args(self):
+        return self.temp2, self.press2
+
+    @property
+    def initial_guess(self):
+        return super().state_args
+
+p = Parent(1,1)
+c = Child(1,1,2,2)
+print(c.initial_guess)
+
 print(None/None)
 c2 = Class2()
 print(c2.class3.attr1)

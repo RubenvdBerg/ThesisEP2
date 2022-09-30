@@ -77,15 +77,21 @@ class ThrustChamber:
     def show_contour(self, **kwargs):
         self.distance_plot(self.get_radius, 'Radius [m]', **kwargs)
 
-    def distance_plot(self, func: Callable, ylabel: str, num=300, ytick_function: Optional[Callable] = None, distance_tuple: Optional[tuple] = None):
+    def distance_plot(self, func: Callable, ylabel: str, num=300, ytick_function: Optional[Callable] = None, distance_tuple: Optional[tuple] = None, distance_from_injector: bool = False):
         if distance_tuple is None:
             distance_tuple = self.throat_distance_tuple
         distances = list(linspace(*distance_tuple, num))
         values = [func(distance) for distance in distances]
         fig, ax = plt.subplots()
+        if distance_from_injector:
+            distances = [x - distances[0] for x in distances]
+            xlabel = 'Distance from injector face [m]'
+        else:
+            xlabel = 'Distance from throat [m]'
+
         ax.plot(distances, values)
         ax.set_ylabel(ylabel)
-        ax.set_xlabel('Distance from throat [m]')
+        ax.set_xlabel(xlabel)
         if ytick_function is not None:
             ticks = ax.get_yticks().tolist()
             ax.set_yticks(ticks)

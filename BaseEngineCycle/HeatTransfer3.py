@@ -148,7 +148,7 @@ class CoolantSideHeatTransferSection:
 
     @property
     def reynolds(self):
-        return self.coolant_flow_state.get_reynolds(flow_speed=self.channel_flow_speed,
+        return self.coolant_flow_state.get_reynolds(flow_velocity=self.channel_flow_speed,
                                                     linear_dimension=self.channel_diameter)
 
     @property

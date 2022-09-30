@@ -4,10 +4,10 @@ from BaseEngineCycle.Injector import Injector
 from BaseEngineCycle.ThrustChamber import ThrustChamber
 from BaseEngineCycle.CombustionChamber import CombustionChamber
 from BaseEngineCycle.FlowState import ManualFlowState
-from BaseEngineCycle.HeatTransferSection2 import HeatTransferSection
+from BaseEngineCycle.HeatTransferSection2 import HeatExchanger
 from dataclasses import replace
 import arguments as args
-from math import radians
+from math import radians, pi
 import pandas as pd
 
 hyprob_kwargs = args.hyprob_kwargs
@@ -44,18 +44,29 @@ manual_cc_flow_state = ManualFlowState(propellant_name='Combustion_Chamber_Gas',
 thrustchamber = ThrustChamber(injector=injector, chamber=chamber, nozzle=nozzle,
                               heat_capacity_ratio=manual_cc_flow_state.heat_capacity_ratio)
 
-heattransfer = HeatTransferSection(coolant_inlet_flow_state=replace(engine.cooling_inlet_flow_state,
-                                                                    mass_flow=1.92,
-                                                                    pressure=150e5,
-                                                                    temperature=110,),
-                                   coolant_channel_diameter=.0037846987830302400723707242835485,
-                                   number_of_coolant_channels=96,
-                                   radiative_factor=engine.radiative_heat_transfer.radiative_factor,
-                                   thrust_chamber=thrustchamber,
-                                   combustion_chamber_flow_state=manual_cc_flow_state,
-                                   amount_of_sections=100,
-                                   verbose=False
-                                   )
+# thrustchamber.show_contour(distance_from_injector=True)
 
-print(heattransfer.data)
+channel_height = 2.45716897722*1e-3
+channel_width = 4.53032220526*1e-3
+channel_area = channel_width * channel_height
+channel_equivalent_diameter = 2 * (channel_area / pi)**.5
+
+Dh = 0.003186198562223674
+
+heattransfer = HeatExchanger(coolant_inlet_flow_state=replace(engine.cooling_inlet_flow_state,
+                                                              mass_flow=1.92,
+                                                              pressure=15583600.000000002,
+                                                              temperature=112.384, ),
+                             coolant_channel_diameter=Dh,
+                             number_of_coolant_channels=96,
+                             radiative_factor=engine.radiative_heat_transfer.radiative_factor,
+                             thrust_chamber=thrustchamber,
+                             combustion_chamber_flow_state=manual_cc_flow_state,
+                             amount_of_sections=500,
+                             verbose=False,
+                             wall_conductivity=365,
+                             wall_thickness=.9e-3,
+                             )
+
+# print(heattransfer.data)
 heattransfer.plot_all()

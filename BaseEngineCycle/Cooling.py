@@ -94,7 +94,7 @@ class CoolingChannelSection(FlowComponent):
         pr = bulk_state.prandtl_number
         u = mass_flux / number_of_channels / bulk_state.density
         a = bulk_state.speed_of_sound
-        re = bulk_state.get_reynolds(flow_speed=u,linear_dimension=D)
+        re = bulk_state.get_reynolds(flow_velocity=u, linear_dimension=D)
         h_a_c = 0.025 * k_c / D * re ** .8 * pr ** .4 * (self.bulk_temperature / wall_temperature) ** .55
         L = wall_thickness
         k = wall_conductivity
@@ -120,7 +120,7 @@ class CoolingChannelSection(FlowComponent):
         k = bulk_state.conductivity
         pr = bulk_state.prandtl_number
         u = mass_flux / bulk_state.density
-        re = bulk_state.get_reynolds(flow_speed=u,linear_dimension=diameter)
+        re = bulk_state.get_reynolds(flow_velocity=u, linear_dimension=diameter)
         h_a = 0.025 * k / D * re**.8 * pr**.4 * (self.bulk_temperature / wall_temperature)**.55
 
         ## Old stuff to see differences in inlet, outlet, and mean properties
