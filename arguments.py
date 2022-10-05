@@ -260,7 +260,6 @@ vinci_kwargs = base_arguments_o | {
 
 hyprob_kwargs = base_arguments_o | {
     'burn_time': 100,
-    'throat_area': 0.002879753,
     'expansion_ratio': 8.848742189,
     'area_ratio_chamber_throat': 3.849543342,
     'combustion_chamber_pressure': 56e5,
@@ -276,6 +275,25 @@ hyprob_kwargs = base_arguments_o | {
     'is_frozen': True,
     'thrust': 30e3,
 }
+
+denies_kwargs = base_arguments_o | {
+    'burn_time': 100,
+    'expansion_ratio': 15.25037158,
+    'area_ratio_chamber_throat': 11.89060642,
+    'combustion_chamber_pressure': 40e5,
+    'mass_mixture_ratio': 3.16,
+    'fuel_initial_temperature': 110,
+    'fuel_name': 'CH4',
+    'distance_from_throat_start_cooling': None,
+    'distance_from_throat_end_cooling': None,
+    'chamber_characteristic_length': 1.711801088,
+    'divergent_throat_half_angle': radians(40),
+    'divergent_exit_half_angle': None,
+    'convergent_half_angle': radians(60),
+    'is_frozen': True,
+    'thrust': 10e3,
+}
+
 
 le5a_kwargs_cnozzle = change_to_conical_nozzle(le5a_kwargs)
 

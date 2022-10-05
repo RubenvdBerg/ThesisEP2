@@ -9,64 +9,80 @@ from dataclasses import replace
 import arguments as args
 from math import radians, pi
 import pandas as pd
+from typing import Optional
 
-hyprob_kwargs = args.hyprob_kwargs
-engine_kwargs = {key: value for key, value in hyprob_kwargs.items() if key != 'throat_area'}
-engine = EngineCycle(**engine_kwargs, **args.duel_pump_kwargs)
 
-injector = Injector(material_density=0, safety_factor=0, yield_strength=0)
-nozzle = ConicalNozzle(throat_area=hyprob_kwargs['throat_area'],
-                       expansion_ratio=hyprob_kwargs['expansion_ratio'],
-                       conv_chamber_bend_ratio=hyprob_kwargs['convergent_chamber_bend_ratio'],
-                       conv_throat_bend_ratio=hyprob_kwargs['convergent_throat_bend_ratio'],
-                       conv_half_angle=hyprob_kwargs['convergent_half_angle'],
-                       div_throat_half_angle=hyprob_kwargs['divergent_throat_half_angle'],
-                       area_ratio_chamber_throat=hyprob_kwargs['area_ratio_chamber_throat'])
-chamber = CombustionChamber(material_density=0, safety_factor=0, yield_strength=0,
-                            throat_area=hyprob_kwargs['throat_area'],
-                            combustion_chamber_pressure=hyprob_kwargs['combustion_chamber_pressure'],
-                            convergent_volume_estimate=nozzle.conv_volume_estimate,
-                            area_ratio_chamber_throat=hyprob_kwargs['area_ratio_chamber_throat'],
-                            propellant_mix=engine.propellant_mix_name,
-                            characteristic_length=hyprob_kwargs['chamber_characteristic_length'],
-                            verbose=True)
-manual_cc_flow_state = ManualFlowState(propellant_name='Combustion_Chamber_Gas',
-                                       temperature=engine.combustion_temperature,
-                                       pressure=hyprob_kwargs['combustion_chamber_pressure'],
-                                       mass_flow=engine.chamber_mass_flow,
-                                       type='combusted',
-                                       _specific_heat_capacity=engine.cc_hot_gas_specific_heat_capacity,
-                                       _heat_capacity_ratio=engine.cc_hot_gas_heat_capacity_ratio,
-                                       _prandtl_number=engine.cc_hot_gas_prandtl_number,
-                                       _dynamic_viscosity=engine.cc_hot_gas_dynamic_viscosity,
-                                       )
+def get_test_heat_transfer(engine_kwargs: dict,
+                           number_of_coolant_channels: float,
+                           chamber_wall_thickness: float,
+                           chamber_wall_conductivity: float,
+                           throat_area: Optional[float] = None,
+                           coolant_mass_flow: Optional[float] = None,
+                           coolant_inlet_temp: Optional[float] = None,
+                           coolant_inlet_pressure: Optional[float] = None,
+                           **heat_exchanger_kwargs):
 
-thrustchamber = ThrustChamber(injector=injector, chamber=chamber, nozzle=nozzle,
-                              heat_capacity_ratio=manual_cc_flow_state.heat_capacity_ratio)
+    engine = EngineCycle(**engine_kwargs, **args.duel_pump_kwargs)
 
-# thrustchamber.show_contour(distance_from_injector=True)
+    if throat_area is None:
+        throat_area = engine.throat_area
+    if coolant_inlet_pressure is None:
+        coolant_inlet_pressure = engine.cooling_inlet_flow_state.pressure
+    if coolant_inlet_temp is None:
+        coolant_inlet_temp = engine.cooling_inlet_flow_state.temperature
+    if coolant_mass_flow is None:
+        coolant_mass_flow = engine.cooling_inlet_flow_state.mass_flow
 
-channel_height = 2.45716897722*1e-3
-channel_width = 4.53032220526*1e-3
-channel_area = channel_width * channel_height
-channel_equivalent_diameter = 2 * (channel_area / pi)**.5
+    injector = Injector(material_density=0, safety_factor=0, yield_strength=0)
+    nozzle = ConicalNozzle(throat_area=throat_area,
+                           expansion_ratio=engine_kwargs['expansion_ratio'],
+                           conv_chamber_bend_ratio=engine_kwargs['convergent_chamber_bend_ratio'],
+                           conv_throat_bend_ratio=engine_kwargs['convergent_throat_bend_ratio'],
+                           conv_half_angle=engine_kwargs['convergent_half_angle'],
+                           div_throat_half_angle=engine_kwargs['divergent_throat_half_angle'],
+                           area_ratio_chamber_throat=engine_kwargs['area_ratio_chamber_throat'])
+    chamber = CombustionChamber(material_density=0, safety_factor=0, yield_strength=0,
+                                throat_area=throat_area,
+                                combustion_chamber_pressure=engine_kwargs['combustion_chamber_pressure'],
+                                convergent_volume_estimate=nozzle.conv_volume_estimate,
+                                area_ratio_chamber_throat=engine_kwargs['area_ratio_chamber_throat'],
+                                propellant_mix=engine.propellant_mix_name,
+                                characteristic_length=engine_kwargs['chamber_characteristic_length'],
+                                verbose=True)
+    manual_cc_flow_state = ManualFlowState(propellant_name='Combustion_Chamber_Gas',
+                                           temperature=engine.combustion_temperature,
+                                           pressure=engine_kwargs['combustion_chamber_pressure'],
+                                           mass_flow=engine.chamber_mass_flow,
+                                           type='combusted',
+                                           _specific_heat_capacity=engine.cc_hot_gas_specific_heat_capacity,
+                                           _heat_capacity_ratio=engine.cc_hot_gas_heat_capacity_ratio,
+                                           _prandtl_number=engine.cc_hot_gas_prandtl_number,
+                                           _dynamic_viscosity=engine.cc_hot_gas_dynamic_viscosity,
+                                           )
 
-Dh = 0.003186198562223674
+    thrustchamber = ThrustChamber(injector=injector, chamber=chamber, nozzle=nozzle,
+                                  heat_capacity_ratio=manual_cc_flow_state.heat_capacity_ratio)
 
-heattransfer = HeatExchanger(coolant_inlet_flow_state=replace(engine.cooling_inlet_flow_state,
-                                                              mass_flow=1.92,
-                                                              pressure=15583600.000000002,
-                                                              temperature=112.384, ),
-                             coolant_channel_diameter=Dh,
-                             number_of_coolant_channels=96,
-                             radiative_factor=engine.radiative_heat_transfer.radiative_factor,
-                             thrust_chamber=thrustchamber,
-                             combustion_chamber_flow_state=manual_cc_flow_state,
-                             amount_of_sections=500,
-                             verbose=False,
-                             wall_conductivity=365,
-                             wall_thickness=.9e-3,
-                             )
+    heattransfer = HeatExchanger(coolant_inlet_flow_state=replace(engine.cooling_inlet_flow_state,
+                                                                  mass_flow=coolant_mass_flow,
+                                                                  pressure=coolant_inlet_pressure,
+                                                                  temperature=coolant_inlet_temp, ),
+                                 number_of_coolant_channels=number_of_coolant_channels,
+                                 radiative_factor=engine.radiative_heat_transfer.radiative_factor,
+                                 thrust_chamber=thrustchamber,
+                                 combustion_chamber_flow_state=manual_cc_flow_state,
+                                 chamber_wall_conductivity=chamber_wall_conductivity,
+                                 chamber_wall_thickness=chamber_wall_thickness,
+                                 **heat_exchanger_kwargs)
+    heattransfer.plot_all()
 
-# print(heattransfer.data)
-heattransfer.plot_all()
+
+if __name__ == '__main__':
+    get_test_heat_transfer(engine_kwargs=args.denies_kwargs,
+                           throat_area=0.001433726,
+                           number_of_coolant_channels=76,
+                           chamber_wall_thickness=1,
+                           chamber_wall_conductivity=365,
+                           coolant_mass_flow=.76,
+                           coolant_inlet_temp=110,
+                           coolant_inlet_pressure=40e5)

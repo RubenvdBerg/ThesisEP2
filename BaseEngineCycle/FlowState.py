@@ -92,8 +92,8 @@ class FlowState:
     def propssi(self, string_input: str):
         return PropsSI(string_input, *self.state_inputs)
 
-    def get_reynolds(self, linear_dimension: float, flow_velocity: float):
-        return self.density * flow_velocity * linear_dimension / self.dynamic_viscosity
+    def get_reynolds(self, linear_dimension: float, flow_speed: float):
+        return self.density * flow_speed * linear_dimension / self.dynamic_viscosity
 
     def almost_equal(self, other: 'FlowState', margin: float = 1e-8) -> bool:
         """Checks if flowstates have the same fields but leaves some margin for floating point errors"""
@@ -109,97 +109,111 @@ class FlowState:
 @dataclass
 class DynamicFlowState(FlowState):
     """
-    Adds flow velocity property to FlowState object: Differentiate between static and total conditions
+    Adds flow speed property to FlowState object: Differentiate between static and total conditions
 
-    .pressure and .temperature attributes now represent the total properties of the flow
+    .pressure and .temperature attributes are replaced by the total properties of the flow
     """
-    flow_velocity: float
-    _iteration_accuracy: float = field(init=False, default=1e-3, repr=False)
-    _density: float = field(init=False, repr=False)
-    _specific_heat_capacity: float = field(init=False, repr=False)
+    pressure: float = field(init=False, repr=False)
+    temperature: float = field(init=False, repr=False)
+    total_temperature: float
+    total_pressure: float
+    flow_speed: float
+    _iteration_accuracy: float = 1e-3
+    _static_temperature: float = field(init=False, repr=False)
+    _static_pressure: float = field(init=False, repr=False)
     verbose: bool = False
-    _density_initial_guess: Optional[float] = None
-    _specific_heat_capacity_initial_guess: Optional[float] = None
+    _static_temperature_initial_guess: Optional[float] = None
+    _static_pressure_initial_guess: Optional[float] = None
 
     def __post_init__(self):
-        self._density = self.density_initial_guess
-        self._specific_heat_capacity = self.specific_heat_capacity_initial_guess
+        # Total state as initial guess for static state unless initial guess specified
+        self._static_temperature = self.total_temperature if self._static_temperature_initial_guess is None else self._static_temperature_initial_guess
+        self._static_pressure = self.total_pressure if self._static_pressure_initial_guess is None else self._static_pressure_initial_guess
         self.iterate()
 
     def iterate(self):
         """
         Density is dependent on the static pressure and static pressure is calculated by subtracting the
         dynamic pressure (which requires the density) from the total pressure. Thus; iteration is required.
-        Same for cp and static temperature, but should be okay once density is properly set.
+        Same for cp, density, and static temperature.
         """
         if self.verbose:
             print('DynamicFlowStateIteration:')
-        while abs(self._density - self.density) / self.density > self._iteration_accuracy:
+        while (self.error_too_large(self._static_pressure, self.static_pressure)
+               or self.error_too_large(self._static_temperature, self.static_temperature)):
             if self.verbose:
-                print(f'Cur.:{self._density:.6e}\n'
-                      f'Exp.:{self.density:.6e}')
-            self._density = self.density
-            self._specific_heat_capacity = self.specific_heat_capacity
+                print(f'Cur.:{self._static_temperature:.5e} K, {self._static_pressure:.6e} Pa\n'
+                      f'Exp.:{self.static_temperature:.6e} K, {self.static_pressure:.6e} Pa')
 
-    @property
-    def _flow_velocity(self):
-        """This reroute of the flow velocity attribute is needed for the ChildClass CoolantFlowState"""
-        return self.flow_velocity
+            try:
+                self._static_temperature = self.static_temperature
+                self._static_pressure = self.static_pressure
 
-    @property
-    def density_initial_guess(self):
-        """Call density with total temp and total pressure, just like parent class"""
-        if self._density_initial_guess is None:
-            if self.coolprop_name == 'n-Dodecane':
-                # Known correction RP-1 generally 3-4% heavier than dodecane
-                return PropsSI('DMASS', *super().state_inputs) * 1.04
-            return PropsSI('DMASS', *super().state_inputs)
-        else:
-            return self._density_initial_guess
-
-    @property
-    def specific_heat_capacity_initial_guess(self):
-        """Call specific heat capacity with total temp and pressure, just like parent class"""
-        if self._specific_heat_capacity_initial_guess is None:
-            return PropsSI('CPMASS', *super().state_inputs)
-        else:
-            return self._specific_heat_capacity_initial_guess
+            except ValueError as error:
+                if self.mach > 1:
+                    raise ValueError('CoolingFlowState flow_speed is higher than Mach 1, increase the amount of '
+                                     'channels or total flow area to decrease the flow speed')
+                else:
+                    raise error
 
     @property
     def state_inputs(self):
-        return 'T', self.static_temp, 'P', self.static_pressure, self.coolprop_name
+        """Make flow properties dependent on iteration variables, otherwise requesting static temp/pressure is an endless loop"""
+        return 'T', self._static_temperature, 'P', self._static_pressure, self.coolprop_name
+
+    def error_too_large(self, current: float, expected: float):
+        error = abs((current - expected) / expected)
+        return error > self._iteration_accuracy
+
+    @property
+    def _flow_speed(self):
+        """Reroute flow_speed, which is required, so it can be overridden in child class CoolantFlowState"""
+        return self.flow_speed
+
+    @property
+    def mach(self):
+        return self._flow_speed / self.speed_of_sound
 
     @property
     def dynamic_temp(self):
-        return .5 * self._flow_velocity**2 / self._specific_heat_capacity
+        return .5 * self._flow_speed ** 2 / self.specific_heat_capacity
 
     @property
     def dynamic_pressure(self):
-        return .5 * self._density * self._flow_velocity**2
+        return .5 * self.density * self._flow_speed ** 2
 
     @property
-    def static_temp(self):
-        return self.temperature - self.dynamic_temp
+    def static_temperature(self):
+        return self.total_temperature - self.dynamic_temp
 
     @property
     def static_pressure(self):
-        return self.pressure - self.dynamic_pressure
+        return self.total_pressure - self.dynamic_pressure
 
-    def get_reynolds(self, linear_dimension: float, flow_velocity: float = None):
-        if flow_velocity is None:
-            flow_velocity = self._flow_velocity
-        return super().get_reynolds(flow_velocity=flow_velocity, linear_dimension=linear_dimension)
+    def get_reynolds(self, linear_dimension: float, flow_speed: float = None):
+        if flow_speed is None:
+            flow_speed = self._flow_speed
+        return super().get_reynolds(flow_speed=flow_speed, linear_dimension=linear_dimension)
+
+    @property
+    def total_state_inputs(self):
+        return 'T', self.total_temperature, 'P', self.total_pressure, self.coolprop_name
+
+    @property
+    def total_mass_specific_enthalpy(self):
+        return PropsSI('H', *self.total_state_inputs)
 
 
 @dataclass
 class CoolantFlowState(DynamicFlowState):
-    """Same as DynamicFlowState, but internally calculates flow velocity from mass flux instead"""
-    mass_flux: float = 0
-    flow_velocity: float = field(init=False, repr=False)
+    """Same as DynamicFlowState, but internally calculates flow speed from mass flux instead"""
+    total_flow_area: float = 0
+    flow_speed: float = field(init=False, repr=False)
 
     @property
-    def _flow_velocity(self):
-        return self.mass_flux / self._density
+    def _flow_speed(self):
+        return self.mass_flow / (self.density * self.total_flow_area)
+
 
 
 @dataclass
