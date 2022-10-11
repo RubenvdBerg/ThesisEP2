@@ -2,15 +2,17 @@ import itertools
 
 import matplotlib.pyplot as plt
 import numpy as np
+import scipy.optimize
 from scipy import integrate
 from BaseEngineCycle.ThrustChamber import ThrustChamber
 from dataclasses import dataclass, replace, field
 from BaseEngineCycle.FlowState import FlowState, ManualFlowState, CoolantFlowState
 from typing import Optional, Callable
-from math import pi
+from math import pi, log, tanh
 from CoolProp import CoolProp
 import warnings
 from functools import cached_property
+
 
 @dataclass
 class HeatExchanger:
@@ -19,21 +21,24 @@ class HeatExchanger:
     coolant_inlet_flow_state: FlowState
 
     number_of_coolant_channels: float
+
     radiative_factor: float
     chamber_wall_conductivity: float
     chamber_wall_thickness: float
 
     max_iterations: float = 10
-    amount_of_sections: float = 100
-    counter_flow: bool = True
+    amount_of_sections: float = 286
+    counter_flow: bool = False
     post_injection_build_up_ratio: float = .25  # [-]
-    coolant_coefficient_roughness_correction = 1
-    coolant_coefficient_fin_correction = 1
+    coolant_channel_roughness_height: float = 6e-6
+    hot_gas_convective_heat_transfer_coefficient_mode: str = 'ModifiedBartz'
+    _coolant_coefficient_roughness_correction: float = 1
+    _coolant_coefficient_fin_correction: float = 1
     _coolant_channel_diameter: Optional[float] = None
     _recovery_factor: Optional[float] = None  # [-]
     _initial_flow_speed: float = 10  # [m/s]
     verbose: bool = True
-    iteration_accuracy: float = 1e-5
+    iteration_accuracy: float = 1e-3
     data: dict = field(init=False)
 
     # Iterative section variables, not required at init
@@ -46,7 +51,6 @@ class HeatExchanger:
     section_coolant_state: CoolantFlowState = field(init=False, repr=False)
     section_heat_flux: float = field(init=False, repr=False)
     section_hot_gas_adiabatic_wall_temp: float = field(init=False, repr=False)
-    section_hot_gas_film_temp: float = field(init=False, repr=False)
     section_hot_gas_static_temp: float = field(init=False, repr=False)
 
     def __post_init__(self):
@@ -58,6 +62,12 @@ class HeatExchanger:
 
         self.init_data()
         self.iterate()
+        print(f'Max. T_hg_wall: {max(self.data["Temperature [K]"]["HotSideWall"]):.2f} K')
+        print(f'Out. T_b      : {self.data["Temperature [K]"]["CoolantBulk"][-1]:.2f} K')
+        print(
+            f'DeltaP        : {(self.data["Coolant State"]["p"][-1] - self.data["Coolant State"]["p"][0]) * 1e-5 :.2f} bar')
+        print(
+            f'DeltaP0       : {(self.data["Coolant State"]["p0"][-1] - self.data["Coolant State"]["p0"][0]) * 1e-5 :.2f} bar')
 
     def init_data(self):
         self.data = {'Distance from Throat [m]': [],
@@ -137,10 +147,6 @@ class HeatExchanger:
         else:
             return self._recovery_factor
 
-    @cached_property
-    def section_pressure_change(self):
-        return -1 * self.combustion_chamber_flow_state.pressure * .2 / self.amount_of_sections
-
     @property
     def percentage_iterated(self):
         return f'{100 * (self.section_distance_from_throat - self.thrust_chamber.min_distance_from_throat) / self.thrust_chamber.length:.2f}%'
@@ -181,8 +187,10 @@ class HeatExchanger:
             self.section_distance_from_throat = x
             self.next_section_distance_from_throat = x_next
             self.iterate_coolant_dynamic_state()
-            print(self.percentage_iterated)
             self.iterate_wall_temps()
+
+            # if float(self.percentage_iterated.split('.')[0]) < 72:
+            #     pass
             self.write_data()
             self.set_next_state()
 
@@ -208,35 +216,16 @@ class HeatExchanger:
         self.set_hot_gas_temps()
         t_ad = self.section_hot_gas_adiabatic_wall_temp
 
-        def get_q(h_hg, h_cool):
-            """Get heat flux between hot gas and coolant"""
-            return (t_ad - t_b) / (1 / h_hg + th_w / k_w + 1 / h_cool)
+        iterations = 0
+        while True:
+            h_g_n = self.section_hot_gas_convective_heat_transfer_coefficient
+            h_g = self.section_hot_gas_total_heat_transfer_coefficient
+            h_c = self.section_coolant_convective_heat_transfer_coefficient
+            q = (t_ad - t_b) / (1 / h_g + th_w / k_w + 1 / h_c)
+            self.section_heat_flux = q
 
-        def get_wall_temp_hot(q_hg, h_hg):
-            return t_ad - q_hg / h_hg if h_hg else self.section_hot_side_wall_temp
-
-        def get_wall_temp_cold(q_cool, h_cool):
-            return t_b + q_cool / h_cool if h_cool else self.section_cold_side_wall_temp
-
-        h_g = self.section_hot_gas_total_heat_transfer_coefficient
-        h_c = self.section_coolant_convective_heat_transfer_coefficient
-        q = get_q(h_g, h_c)
-        new_wall_temp_hot = get_wall_temp_hot(q, h_g)
-        new_wall_temp_cold = get_wall_temp_cold(q, h_c)
-
-        not_ran = True
-        while (self.error_too_large(self.section_hot_side_wall_temp, new_wall_temp_hot)
-               or self.error_too_large(self.section_cold_side_wall_temp, new_wall_temp_cold)
-               or not_ran):
-            not_ran = False
-            self.section_hot_side_wall_temp = new_wall_temp_hot
-            self.section_cold_side_wall_temp = new_wall_temp_cold
-            self.set_film_temp()
-            new_h_g = self.section_hot_gas_total_heat_transfer_coefficient
-            new_h_c = self.section_coolant_convective_heat_transfer_coefficient
-            new_q = get_q(new_h_g, new_h_c)
-            new_wall_temp_hot = get_wall_temp_hot(new_q, new_h_g)
-            new_wall_temp_cold = get_wall_temp_cold(new_q, new_h_c)
+            new_wall_temp_hot = t_ad - q / h_g if h_g else self.section_hot_side_wall_temp
+            new_wall_temp_cold = t_b + q / h_c if h_c else self.section_cold_side_wall_temp
 
             if self.verbose:
                 print(f'Hot Wall temp [K]-> \n'
@@ -246,33 +235,44 @@ class HeatExchanger:
                       f'Current: {self.section_cold_side_wall_temp:.4e}, \n'
                       f'Expected:{new_wall_temp_cold:.4e}\n\n')
 
-            self.section_hot_side_wall_temp = new_wall_temp_hot
-            self.section_cold_side_wall_temp = new_wall_temp_cold
+            # Check if iteration is done
+            iterations += 1
+            error_hot = self.error_is_small(self.section_hot_side_wall_temp, new_wall_temp_hot)
+            error_cold = self.error_is_small(self.section_cold_side_wall_temp, new_wall_temp_cold)
+            if iterations > self.max_iterations or (error_hot and error_cold):
+                break
+            # Update variables
+            self.section_hot_side_wall_temp = float(new_wall_temp_hot)
+            self.section_cold_side_wall_temp = float(new_wall_temp_cold)
 
-        self.section_heat_flux = new_q
-        self.set_hot_gas_temps()
-
-    def error_too_large(self, current: float, expected: float):
+    def error_is_large(self, current: float, expected: float):
         error = abs((current - expected) / expected)
         return error > self.iteration_accuracy
+
+    def error_is_small(self, current: float, expected: float):
+        error = abs((current - expected) / expected)
+        return error < self.iteration_accuracy
 
     def set_hot_gas_temps(self):
         y = self.combustion_chamber_flow_state.heat_capacity_ratio
         m = self.thrust_chamber.get_mach(self.section_distance_from_throat)
+        # TODO: Remove
+        m = 3
         t_c = self.combustion_temp
         f_r = self.recovery_factor
         f_red = self.section_reduction_factor
         t_hg_st = f_red * t_c / (1 + (y - 1) / 2 * m ** 2)
-        t_hg_ad = t_hg_st * (1 + (y - 1) / 2 * m ** 2 * f_r)
+        t_hg_ad = t_hg_st * (1 + f_r * (y - 1) / 2 * m ** 2)
         self.section_hot_gas_static_temp = t_hg_st
         self.section_hot_gas_adiabatic_wall_temp = t_hg_ad
-        self.set_film_temp()
 
-    def set_film_temp(self):
+    @property
+    def section_hot_gas_film_temp(self):
         t_w = self.section_hot_side_wall_temp
         t_ad = self.section_hot_gas_adiabatic_wall_temp
         t_st = self.section_hot_gas_static_temp
-        self.section_hot_gas_film_temp = t_st * .28 + t_w * .5 + t_ad * .22
+        t_f = t_st * .28 + t_w * .5 + t_ad * .22
+        return t_f
 
     @property
     def section_reduction_factor(self):
@@ -283,21 +283,55 @@ class HeatExchanger:
         # Distance from injector divided by total chamber length
         inj_distance_ratio = (self.section_distance_from_throat - dist_min) / len_cc
         return 1
-        if inj_distance_ratio < r_build_up:
-            return (self.section_distance_from_throat - dist_min) / (r_build_up * len_cc)
-        else:
-            return 1
+        # TODO: Remove
+
+        # if inj_distance_ratio < r_build_up:
+        #     return (self.section_distance_from_throat - dist_min) / (r_build_up * len_cc)
+        # else:
+        #     return 1
+
+    @property
+    def section_radius(self):
+        return self.thrust_chamber.get_radius(self.section_distance_from_throat)
 
     @property
     def section_hot_gas_convective_heat_transfer_coefficient(self):
         mf = self.combustion_chamber_flow_state.mass_flow
-        di = self.thrust_chamber.get_radius(self.section_distance_from_throat) * 2
+        di = self.section_radius * 2
         mu = self.combustion_chamber_flow_state.dynamic_viscosity
         cp = self.combustion_chamber_flow_state.specific_heat_capacity
         pr = self.combustion_chamber_flow_state.prandtl_number
-        t0 = self.section_hot_gas_static_temp
+        t0 = self.section_hot_gas_adiabatic_wall_temp
         tf = self.section_hot_gas_film_temp
-        return 0.026 * 1.213 * mf ** .8 * di ** -1.8 * mu ** .2 * cp * pr ** -.6 * (t0 / tf) ** .68
+        if self.hot_gas_convective_heat_transfer_coefficient_mode == 'Bartz':
+            m = self.thrust_chamber.get_mach(self.section_distance_from_throat)
+            tw = self.section_hot_side_wall_temp
+            y = self.combustion_chamber_flow_state.heat_capacity_ratio
+            dt = self.thrust_chamber.get_radius(0) * 2
+            rc = self.thrust_chamber.nozzle.div_longi_throat_radius
+            p0 = self.combustion_chamber_flow_state.pressure
+            ai_at = di ** 2 / dt ** 2
+            cstar = 1847.1
+            s = (1 + m ** 2 * (y - 1) / 2) ** -.12 / (.5 + .5 * (tw / t0) * (1 + m ** 2 * (y - 1) / 2)) ** .68
+            h_hg = (0.026 * dt ** -0.2 * mu ** 0.2 * cp * pr ** -0.6 * (p0 / cstar) ** 0.8
+                    * (dt / rc) ** .1 * (dt / di) ** 1.8 * s)
+        elif self.hot_gas_convective_heat_transfer_coefficient_mode == 'Bartz2':
+            t0 = self.combustion_temp  # Overwrite
+            m = self.thrust_chamber.get_mach(self.section_distance_from_throat)
+            # TODO: Remove
+            m = 3
+            tw = self.section_hot_side_wall_temp
+            y = self.combustion_chamber_flow_state.heat_capacity_ratio
+            dt = self.thrust_chamber.get_radius(0) * 2
+            p0 = self.combustion_chamber_flow_state.pressure
+            cstar = 1847.1
+            s = (1 + m ** 2 * (y - 1) / 2) ** -.12 / (.5 + .5 * (tw / t0) * (1 + m ** 2 * (y - 1) / 2)) ** .68
+            h_hg = (0.026 * dt ** -0.2 * mu ** 0.2 * cp * pr ** -0.6 * (p0 / cstar) ** 0.8 * (dt / di) ** 1.8 * s)
+        elif self.hot_gas_convective_heat_transfer_coefficient_mode == 'ModifiedBartz':
+            h_hg = 0.026 * 1.213 * mf ** .8 * di ** -1.8 * mu ** .2 * cp * pr ** -.6 * (t0 / tf) ** .68
+        else:
+            raise ValueError('Select proper mode for estimation of the hot gas convective heat transfer coefficient')
+        return h_hg / 0.026 * 0.0195
 
     @property
     def section_hot_gas_total_heat_transfer_coefficient(self):
@@ -320,9 +354,7 @@ class HeatExchanger:
     def section_coolant_convective_heat_transfer_coefficient(self):
         k_c = self.section_coolant_state.conductivity
         D = self.coolant_channel_diameter
-        re = self.section_coolant_state.get_reynolds(
-            linear_dimension=self.coolant_channel_diameter,
-            flow_speed=self.coolant_channel_mass_flux / self.section_coolant_state.density)
+        re = self.section_coolant_state.get_reynolds(linear_dimension=D)
         pr = self.section_coolant_state.prandtl_number
         t_b = self.section_coolant_bulk_temp
         t_w = self.section_cold_side_wall_temp
@@ -347,6 +379,45 @@ class HeatExchanger:
                                             b=self.next_section_distance_from_throat)
         return abs(section_surface)
 
+    @property
+    def section_wall_length(self):
+        r = self.section_radius
+        r2 = self.thrust_chamber.get_radius(self.next_section_distance_from_throat)
+        dy = abs(r - r2)
+        dx = self.section_axial_length
+        return (dx ** 2 + dy ** 2) ** .5
+
+    @property
+    def section_pressure_change(self):
+        rho = self.section_coolant_state.density
+        v = self.section_coolant_state.flow_speed
+        l = self.section_wall_length
+        fd = self.section_friction_factor
+        print(self.section_coolant_bulk_temp, rho, l)
+        D = self.coolant_channel_diameter
+        dp = fd * l / D * .5 * rho * v ** 2
+        return -1 * dp
+        # return -1 * self.combustion_chamber_flow_state.pressure * .2 / self.amount_of_sections
+
+    def get_friction_factor(self, roughness_height: float):
+        D = self.coolant_channel_diameter
+        re = self.section_coolant_state.get_reynolds(linear_dimension=D)
+        hs = roughness_height
+
+        def colebrook(darcy_weisbach_friction_factor, rough_height, diameter, reynolds):
+            f = darcy_weisbach_friction_factor
+            h = rough_height
+            d = diameter
+            r = reynolds
+            return - 2 * log(h / (3.7 * d) + 2.51 / (r * f ** .5), 10) - (1 / (f ** .5))
+
+        answer = scipy.optimize.fsolve(colebrook, 1e-5, args=(hs, D, re))
+        return float(answer)
+
+    @property
+    def section_friction_factor(self):
+        return self.get_friction_factor(roughness_height=self.coolant_channel_roughness_height)
+
     def set_next_state(self):
         """Calculate change in temperature and pressure and update """
         # noinspection PyTupleAssignmentBalance
@@ -368,6 +439,7 @@ class HeatExchanger:
         delta_t = t_out - t_in
         self.section_coolant_total_temp += delta_t
         delta_p = self.section_pressure_change
+        # print(f'{delta_p * -1:.0f} Pa')
         self.section_coolant_total_pressure += delta_p
 
     # Plot Stuff Below
@@ -379,11 +451,11 @@ class HeatExchanger:
         fig, ax = plt.subplots()
 
         self.plot_nozzle_contour_background(ax=ax)
-
+        data = self.data[variable]
         if extra_func is not None:
-            extra_func(ax)
+            extra_func(ax, data)
 
-        for key, value in self.data[variable].items():
+        for key, value in data.items():
             ax.plot(self.distances, value, label=key)
 
         ax.legend()
@@ -395,8 +467,23 @@ class HeatExchanger:
     def plot_temps(self):
         self.plot_values('Temperature [K]')
 
+    def plot_wall_temps(self):
+        def extra_func(ax: plt.Axes, data: dict):
+            keys = list(data)
+            for key in keys:
+                if 'HotGas' in key:
+                    del data[key]
+
+        self.plot_values('Temperature [K]', extra_func=extra_func)
+
     def plot_coeffs(self):
-        self.plot_values('Heat-Transfer Coefficient [W/(K*m2]')
+        def extra_func(ax: plt.Axes, data: dict):
+            ax2 = ax.twinx()
+            ax2.plot(self.distances, data['ColdSide'], label='ColdSide', linestyle='-.')
+            ax2.set_ylabel('Cold Hc')
+            ax2.legend()
+            del data['ColdSide']
+        self.plot_values('Heat-Transfer Coefficient [W/(K*m2]', extra_func=extra_func)
 
     def plot_flux(self, **kwargs):
         self.plot_values('Heat Flux [W/m2]', **kwargs)
@@ -419,7 +506,6 @@ class HeatExchanger:
         ax2.set_ylabel('Pressure [Pa]')
         ax.set_xlabel('Distance from Throat [m]')
         ax.set_title(variable.split('[')[0].strip(' '))
-        plt.savefig(rf'savefigs\plot_{self.max_iterations}')
         plt.show()
 
     def plot_perakis_data(self, ax: plt.Axes):
@@ -436,8 +522,140 @@ class HeatExchanger:
                  linestyle='--')
         ax3.get_yaxis().set_visible(False)
 
+    def plot_coolant_properties(self):
+        self.plot_values(['Reynolds'])
+
     def plot_all(self):
         self.plot_coeffs()
         self.plot_temps()
+        self.plot_wall_temps()
         self.plot_flux()
         self.plot_coolant()
+
+
+@dataclass
+class DetailedHeatExchanger(HeatExchanger):
+    coolant_channel_fin_thickness: float = 1e-3
+    coolant_channel_height_input: float = 1e-3
+    section_length_to_start_channel: float = field(init=False, repr=False, default=.01)
+    coolant_heat_transfer_coefficient_mode: str = 'Taylor'
+
+    def set_next_state(self):
+        super().set_next_state()
+        self.section_length_to_start_channel += self.section_wall_length
+
+    @cached_property
+    def coolant_channel_height(self):
+        return self.coolant_channel_height_input
+
+    @property
+    def section_coolant_channel_width(self):
+        section_circumference = self.section_radius * pi * 2
+        return section_circumference / self.number_of_coolant_channels - self.coolant_channel_fin_thickness
+
+    @property
+    def coolant_channel_area(self):
+        return self.coolant_channel_height * self.section_coolant_channel_width
+
+    @property
+    def coolant_channel_diameter(self):
+        h = self.coolant_channel_height
+        w = self.section_coolant_channel_width
+        return 2 * h * w / (h + w)
+        # return 2 * (self.coolant_channel_area / pi) ** .5
+
+    @property
+    def coolant_channel_equivalent_diameter(self):
+        h = self.coolant_channel_height
+        w = self.section_coolant_channel_width
+        return 2 * h * w / (h + w)
+
+    @property
+    def total_coolant_flow_area(self):
+        return self.coolant_channel_area * self.number_of_coolant_channels
+
+    @property
+    def section_coolant_convective_heat_transfer_coefficient(self):
+
+        k_c = self.section_coolant_state.conductivity
+        D = self.coolant_channel_diameter
+        re = self.section_coolant_state.get_reynolds(linear_dimension=D)
+        pr = self.section_coolant_state.prandtl_number
+        t_b = self.section_coolant_bulk_temp
+        t_w = self.section_cold_side_wall_temp
+
+        if self.coolant_heat_transfer_coefficient_mode == 'Taylor':
+            x = self.section_length_to_start_channel
+            a = 0.023
+            exponent = 0.57 - 1.59 * D / x
+        elif self.coolant_heat_transfer_coefficient_mode == 'SiederTate':
+            a = 0.023
+            exponent = .55
+        elif self.coolant_heat_transfer_coefficient_mode == 'DittusBoelter':
+            a = 0.023
+            exponent = 0
+        elif self.coolant_heat_transfer_coefficient_mode == 'HessKunz':
+            raise NotImplementedError
+
+        h_c_base = a * k_c / D * re ** .8 * pr ** .4 * (t_b / t_w) ** exponent
+        self.hc_base = h_c_base
+        k_r = self.coolant_coefficient_roughness_correction
+        h_c = h_c_base * k_r
+
+        # Fin Correction: Luka Denies - Regenerative cooling analysis of oxygen/methane rocket engines 2015
+        th_fin = self.coolant_channel_fin_thickness
+        ht_c = self.coolant_channel_height
+        w_c = self.section_coolant_channel_width
+        k = self.chamber_wall_conductivity
+        b = (2 * h_c * th_fin / k) ** .5 / th_fin * ht_c
+        eta = tanh(b) / b
+        c_fin = (w_c + eta * 2 * ht_c) / (w_c + th_fin)
+        self.coolant_coefficient_fin_correction = c_fin
+        h_c = h_c * c_fin
+        return h_c
+    
+    def init_data(self):
+        self.data = {'Distance from Throat [m]': [],
+                     'Temperature [K]': {'CoolantBulk': [],
+                                         'HotSideWall': [],
+                                         'ColdSideWall': [],
+                                         'HotGasAdiabatic': [],
+                                         'HotGasStatic': [],
+                                         'HotGasFilm': [], },
+                     'Heat-Transfer Coefficient [W/(K*m2]': {'HotSide': [],
+                                                             'ColdSide': [],
+                                                             'HotSideConv.': [], },
+                     'Heat Flux [W/m2]': {'Total': [],
+                                          'HotSide': [],
+                                          'ColdSide': [],
+                                          'HotSideConv.': [],
+                                          'HotSideRad.': [], },
+                     'Coolant State': {'T': [],
+                                       'T0': [],
+                                       'p': [],
+                                       'p0': [],
+                                       'rho': [],
+                                       'cp': [],
+                                       'T_b': []},
+                     'Geometry [mm]': {'H':[],
+                                  # 'W':[],
+                                  'D':[],}
+                     }
+
+    def write_data(self):
+        super().write_data()
+        self.data['Geometry [mm]']['H'].append(self.coolant_channel_height*1e3)
+        # self.data['Geometry [mm]']['W'].append(self.section_coolant_channel_width*1e3)
+        self.data['Geometry [mm]']['D'].append(self.coolant_channel_diameter*1e3)
+    
+    def plot_geometry(self):
+        self.plot_values('Geometry [mm]')
+
+    @property
+    def coolant_coefficient_roughness_correction(self):
+        k = self.section_friction_factor / self.get_friction_factor(roughness_height=0)
+        pr = self.section_coolant_state.prandtl_number
+        re = self.section_coolant_state.get_reynolds(linear_dimension=self.coolant_channel_diameter)
+        b = 1.5 * pr ** (-1. / 6.) * re ** (-1. / 8.)
+        c_rough = ((1 + b * (pr - 1)) / (1 + b * (pr * k - 1)) * k)
+        return c_rough

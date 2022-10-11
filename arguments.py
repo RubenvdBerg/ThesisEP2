@@ -286,7 +286,7 @@ denies_kwargs = base_arguments_o | {
     'fuel_name': 'CH4',
     'distance_from_throat_start_cooling': None,
     'distance_from_throat_end_cooling': None,
-    'chamber_characteristic_length': 1.711801088,
+    'chamber_characteristic_length': 1.75597356,
     'divergent_throat_half_angle': radians(40),
     'divergent_exit_half_angle': None,
     'convergent_half_angle': radians(60),

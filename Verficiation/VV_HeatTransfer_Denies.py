@@ -12,18 +12,20 @@ import pandas as pd
 from typing import Optional
 
 
-def get_test_heat_transfer(engine_kwargs: dict,
-                           number_of_coolant_channels: float,
-                           chamber_wall_thickness: float,
-                           chamber_wall_conductivity: float,
-                           throat_area: Optional[float] = None,
-                           coolant_mass_flow: Optional[float] = None,
-                           coolant_inlet_temp: Optional[float] = None,
-                           coolant_inlet_pressure: Optional[float] = None,
-                           **heat_exchanger_kwargs):
-
+def test_heat_transfer(engine_kwargs: dict,
+                       number_of_coolant_channels: float,
+                       chamber_wall_thickness: float,
+                       chamber_wall_conductivity: float,
+                       heat_class: Optional[HeatExchanger] = None,
+                       throat_area: Optional[float] = None,
+                       coolant_mass_flow: Optional[float] = None,
+                       coolant_inlet_temp: Optional[float] = None,
+                       coolant_inlet_pressure: Optional[float] = None,
+                       **heat_exchanger_kwargs):
     engine = EngineCycle(**engine_kwargs, **args.duel_pump_kwargs)
 
+    if heat_class is None:
+        heat_class = HeatExchanger
     if throat_area is None:
         throat_area = engine.throat_area
     if coolant_inlet_pressure is None:
@@ -63,26 +65,37 @@ def get_test_heat_transfer(engine_kwargs: dict,
     thrustchamber = ThrustChamber(injector=injector, chamber=chamber, nozzle=nozzle,
                                   heat_capacity_ratio=manual_cc_flow_state.heat_capacity_ratio)
 
-    heattransfer = HeatExchanger(coolant_inlet_flow_state=replace(engine.cooling_inlet_flow_state,
-                                                                  mass_flow=coolant_mass_flow,
-                                                                  pressure=coolant_inlet_pressure,
-                                                                  temperature=coolant_inlet_temp, ),
-                                 number_of_coolant_channels=number_of_coolant_channels,
-                                 radiative_factor=engine.radiative_heat_transfer.radiative_factor,
-                                 thrust_chamber=thrustchamber,
-                                 combustion_chamber_flow_state=manual_cc_flow_state,
-                                 chamber_wall_conductivity=chamber_wall_conductivity,
-                                 chamber_wall_thickness=chamber_wall_thickness,
-                                 **heat_exchanger_kwargs)
+    heattransfer = heat_class(coolant_inlet_flow_state=replace(engine.cooling_inlet_flow_state,
+                                                               mass_flow=coolant_mass_flow,
+                                                               pressure=coolant_inlet_pressure,
+                                                               temperature=coolant_inlet_temp, ),
+                              number_of_coolant_channels=number_of_coolant_channels,
+                              radiative_factor=engine.radiative_heat_transfer.radiative_factor,
+                              thrust_chamber=thrustchamber,
+                              combustion_chamber_flow_state=manual_cc_flow_state,
+                              chamber_wall_conductivity=chamber_wall_conductivity,
+                              chamber_wall_thickness=chamber_wall_thickness,
+                              **heat_exchanger_kwargs)
+    thrustchamber.show_contour(distance_from_injector=True)
     heattransfer.plot_all()
+    heattransfer.plot_geometry()
 
 
 if __name__ == '__main__':
-    get_test_heat_transfer(engine_kwargs=args.denies_kwargs,
-                           throat_area=0.001433726,
-                           number_of_coolant_channels=76,
-                           chamber_wall_thickness=1,
-                           chamber_wall_conductivity=365,
-                           coolant_mass_flow=.76,
-                           coolant_inlet_temp=110,
-                           coolant_inlet_pressure=40e5)
+    from BaseEngineCycle.HeatTransferSection2 import DetailedHeatExchanger
+    original = False
+    test_heat_transfer(engine_kwargs=args.denies_kwargs,
+                       throat_area=0.001433726,
+                       heat_class=DetailedHeatExchanger,
+                       number_of_coolant_channels=64 if original else 72,
+                       chamber_wall_thickness=4.2e-3 if original else 1e-3,
+                       chamber_wall_conductivity=295 if original else 365,
+                       coolant_mass_flow=0.763461538462 if original else .76,
+                       coolant_inlet_temp=110,
+                       coolant_inlet_pressure=60e5,
+                       coolant_heat_transfer_coefficient_mode='DittusBoelter',
+                       counter_flow=True,
+                       verbose=False,
+                       hot_gas_convective_heat_transfer_coefficient_mode='Bartz2',
+                       amount_of_sections=286,
+                       iteration_accuracy=1e-6)

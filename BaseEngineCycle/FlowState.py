@@ -117,8 +117,10 @@ class DynamicFlowState(FlowState):
     temperature: float = field(init=False, repr=False)
     total_temperature: float
     total_pressure: float
-    flow_speed: float
+    _flow_speed: float = field(repr=False)
+
     _iteration_accuracy: float = 1e-3
+    _max_iterations: float = 10
     _static_temperature: float = field(init=False, repr=False)
     _static_pressure: float = field(init=False, repr=False)
     verbose: bool = False
@@ -139,22 +141,22 @@ class DynamicFlowState(FlowState):
         """
         if self.verbose:
             print('DynamicFlowStateIteration:')
+        iterations = 0
         while (self.error_too_large(self._static_pressure, self.static_pressure)
                or self.error_too_large(self._static_temperature, self.static_temperature)):
             if self.verbose:
                 print(f'Cur.:{self._static_temperature:.5e} K, {self._static_pressure:.6e} Pa\n'
-                      f'Exp.:{self.static_temperature:.6e} K, {self.static_pressure:.6e} Pa')
+                      f'Exp.:{self.static_temperature:.6e} K, {self.static_pressure:.6e} Pa\n'
+                      f'Mach:{self.mach:.3f}')
 
-            try:
                 self._static_temperature = self.static_temperature
                 self._static_pressure = self.static_pressure
-
-            except ValueError as error:
                 if self.mach > 1:
                     raise ValueError('CoolingFlowState flow_speed is higher than Mach 1, increase the amount of '
                                      'channels or total flow area to decrease the flow speed')
-                else:
-                    raise error
+            iterations += 1
+            if iterations > self._max_iterations:
+                break
 
     @property
     def state_inputs(self):
@@ -165,22 +167,22 @@ class DynamicFlowState(FlowState):
         error = abs((current - expected) / expected)
         return error > self._iteration_accuracy
 
-    @property
-    def _flow_speed(self):
+    @cached_property
+    def flow_speed(self):
         """Reroute flow_speed, which is required, so it can be overridden in child class CoolantFlowState"""
-        return self.flow_speed
+        return self._flow_speed
 
     @property
     def mach(self):
-        return self._flow_speed / self.speed_of_sound
+        return self.flow_speed / self.speed_of_sound
 
     @property
     def dynamic_temp(self):
-        return .5 * self._flow_speed ** 2 / self.specific_heat_capacity
+        return .5 * self.flow_speed ** 2 / self.specific_heat_capacity
 
     @property
     def dynamic_pressure(self):
-        return .5 * self.density * self._flow_speed ** 2
+        return .5 * self.density * self.flow_speed ** 2
 
     @property
     def static_temperature(self):
@@ -192,7 +194,7 @@ class DynamicFlowState(FlowState):
 
     def get_reynolds(self, linear_dimension: float, flow_speed: float = None):
         if flow_speed is None:
-            flow_speed = self._flow_speed
+            flow_speed = self.flow_speed
         return super().get_reynolds(flow_speed=flow_speed, linear_dimension=linear_dimension)
 
     @property
@@ -208,10 +210,10 @@ class DynamicFlowState(FlowState):
 class CoolantFlowState(DynamicFlowState):
     """Same as DynamicFlowState, but internally calculates flow speed from mass flux instead"""
     total_flow_area: float = 0
-    flow_speed: float = field(init=False, repr=False)
+    _flow_speed: float = field(init=False, repr=False)
 
     @property
-    def _flow_speed(self):
+    def flow_speed(self):
         return self.mass_flow / (self.density * self.total_flow_area)
 
 

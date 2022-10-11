@@ -48,10 +48,12 @@ def get_pressure_ratio(expansion_ratio: float, heat_capacity_ratio: float, sympy
         return nsolve(equation, pr, 100)
 
 
-def get_pressure_ratio_fsolve(expansion_ratio: float, heat_capacity_ratio: float, guess: Optional[float] = None) -> float:
+def get_pressure_ratio_fsolve(expansion_ratio: float, heat_capacity_ratio: float,
+                              guess: Optional[float] = None) -> float:
     def func(x):
         eps = float(get_expansion_ratio_from_p_ratio(x, heat_capacity_ratio))
         return np.array(eps - expansion_ratio, dtype=float)
+
     if guess is None:
         guess = 10 * expansion_ratio
     solution = float(fsolve(func, np.array(guess, dtype=float))[0])
@@ -95,7 +97,8 @@ def area_to_radius(area):
     return sqrt(area / pi)
 
 
-def get_throat_area(molar_mass: float, heat_capacity_ratio: float, chamber_temperature: float, mass_flow: float, chamber_pressure: float) -> float:
+def get_throat_area(molar_mass: float, heat_capacity_ratio: float, chamber_temperature: float, mass_flow: float,
+                    chamber_pressure: float) -> float:
     r = gas_constant / molar_mass
     gamma = get_kerckhove(heat_capacity_ratio)
     return gamma * chamber_pressure * mass_flow / sqrt(r * chamber_temperature)
@@ -152,19 +155,9 @@ def get_sonic_velocity(heat_capacity_ratio: float, molar_mass: float, temperatur
 def get_local_mach(local_area_ratio, is_subsonic=False, heat_capacity_ratio=1.14):
     if local_area_ratio == 1:
         return 1
-    a_at = local_area_ratio
-    y = heat_capacity_ratio
-    p = 2 / (y + 1)
-    q = 1 - p
-    if is_subsonic:
-        r, a, s = a_at ** 2, p ** (1 / q), 1
-    else:
-        r, a, s = a_at ** (2 * q / p), q ** (1 / p), -1
-    r2 = (r - 1) / (2 * a)
-    initial_guess = 1 / ((1 + r2) + sqrt(r2 * (r2 + 2)))
+    p, q, r, a, s, r2, x0 = get_mach_b4wind_factors(local_area_ratio, is_subsonic, heat_capacity_ratio)
 
-    # Python version B4Wind Method by Dennis Yoder from NASA
-
+    # Method adapted to Python from B4Wind Method by Karl Kneile from NASA
     def get_f_and_derivs(x):
         f = (p + q * x) ** (1 / q) - r * x
         df = (p + q * x) ** (1 / q - 1) - r
@@ -175,10 +168,79 @@ def get_local_mach(local_area_ratio, is_subsonic=False, heat_capacity_ratio=1.14
         while True:
             f, df, ddf = get_f_and_derivs(x)
             xnew = x - 2 * f / (df - sqrt(df ** 2 - 2 * f * ddf))
-            if abs(xnew - x) / xnew < .001:
+            if abs(xnew - x) / xnew < .0001:
                 break
             x = xnew
         return xnew
 
-    final = newton_raphson_plus(initial_guess)
+    final = newton_raphson_plus(x0)
     return sqrt(final) ** s
+
+def get_approx_mach(local_area_ratio, is_subsonic=False, heat_capacity_ratio=1.14):
+    if local_area_ratio == 1:
+        return 1
+    p, q, r, a, s, r2, x0 = get_mach_b4wind_factors(local_area_ratio, is_subsonic, heat_capacity_ratio)
+    return x0**(s*.5)
+
+def get_mach_b4wind_factors(local_area_ratio, is_subsonic=False, heat_capacity_ratio=1.14):
+    a_at = local_area_ratio
+    y = heat_capacity_ratio
+    p = 2 / (y + 1)
+    q = 1 - p
+    if is_subsonic:
+        r, a, s = a_at ** 2, p ** (1 / q), 1
+    else:
+        r, a, s = a_at ** (2 * q / p), q ** (1 / p), -1
+    r2 = (r - 1) / (2 * a)
+    x0 = 1 / ((1 + r2) + sqrt(r2 * (r2 + 2)))  # Initial Guess to start iteration of M**2 or M**-2 (sub- or super-sonic)
+    if not is_subsonic:
+        p, q = q, p
+    return p, q, r, a, s, r2, x0
+
+def get_local_mach_nasa(local_area_ratio, is_subsonic=False, heat_capacity_ratio=1.14):
+    """Returns Mach, given local area ratio and heat capacity ratio. Very unstable version, but simple and quick"""
+    ar = local_area_ratio
+    y = heat_capacity_ratio
+    ym1 = y - 1
+    yp1 = y + 1
+    f1 = yp1 / (2.0 * ym1)
+    ar0 = 2.2  # Initial Guess for area ratio
+    M0 = .3 if is_subsonic else 2.2  # Initial guess for mach
+    Mn = M0 + .05
+    iterations = 0
+    while abs(ar - ar0) > .00001 or not iter_started:
+        iter_started = True
+        f2 = 1 + .5 * ym1 * Mn ** 2
+        arn = (Mn * f2 ** (-1 * f1) * (yp1 / 2) ** f1) ** -1
+        deriv = (arn - ar0) / (Mn - M0)
+        ar0 = arn
+        M0 = Mn
+        Mn = M0 + (ar - ar0) / deriv
+        iterations += 1
+        if iterations > 10:
+            return 1
+    return M0
+
+
+if __name__ == '__main__':
+    import matplotlib.pyplot as plt
+    from numpy import linspace
+
+    num = 100
+    ar_range1 = list(linspace(1, 30, num))
+    ar_range2 = list(linspace(1, 2, num))
+    for is_subsonic, ar_range in zip([False, True], [ar_range1, ar_range2]):
+        fig, ax = plt.subplots()
+        for i in range(1, 5):
+            y = 1 + i * .1
+            if is_subsonic:
+                print()
+            for mach, style in zip([get_local_mach, get_local_mach_nasa], ['-', '-.']):
+                m_range = [mach(local_area_ratio=ar,
+                                is_subsonic=is_subsonic,
+                                heat_capacity_ratio=y) for ar in ar_range]
+                ax.plot(ar_range, m_range, label=f'y:{y}', linestyle=style)
+        ax.set_xlabel('Area Ratio [-]')
+        ax.set_ylabel('Mach [-]')
+        plt.legend()
+        plt.show()
