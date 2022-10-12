@@ -76,9 +76,7 @@ def test_heat_transfer(engine_kwargs: dict,
                               chamber_wall_conductivity=chamber_wall_conductivity,
                               chamber_wall_thickness=chamber_wall_thickness,
                               **heat_exchanger_kwargs)
-    thrustchamber.show_contour(distance_from_injector=True)
-    heattransfer.plot_all()
-    heattransfer.plot_geometry()
+    return heattransfer
 
 
 if __name__ == '__main__':
@@ -97,5 +95,5 @@ if __name__ == '__main__':
                        counter_flow=True,
                        verbose=False,
                        hot_gas_convective_heat_transfer_coefficient_mode='Bartz2',
-                       amount_of_sections=286,
+                       amount_of_sections=284,
                        iteration_accuracy=1e-6)

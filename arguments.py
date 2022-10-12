@@ -246,6 +246,7 @@ vinci_kwargs = base_arguments_o | {
     'thrust': 180e3,
     'combustion_chamber_pressure': 60.8e5,
     'expansion_ratio': 240,
+    'exit_pressure_forced': None,
     'mass_mixture_ratio': 5.8,
     'area_ratio_chamber_throat': None,
     'chamber_characteristic_length': None,
@@ -261,6 +262,7 @@ vinci_kwargs = base_arguments_o | {
 hyprob_kwargs = base_arguments_o | {
     'burn_time': 100,
     'expansion_ratio': 8.848742189,
+    'exit_pressure_forced': None,
     'area_ratio_chamber_throat': 3.849543342,
     'combustion_chamber_pressure': 56e5,
     'mass_mixture_ratio': 3.5,
@@ -279,6 +281,7 @@ hyprob_kwargs = base_arguments_o | {
 denies_kwargs = base_arguments_o | {
     'burn_time': 100,
     'expansion_ratio': 15.25037158,
+    'exit_pressure_forced': None,
     'area_ratio_chamber_throat': 11.89060642,
     'combustion_chamber_pressure': 40e5,
     'mass_mixture_ratio': 3.16,
@@ -286,12 +289,14 @@ denies_kwargs = base_arguments_o | {
     'fuel_name': 'CH4',
     'distance_from_throat_start_cooling': None,
     'distance_from_throat_end_cooling': None,
-    'chamber_characteristic_length': 1.75597356,
+    'chamber_characteristic_length': 1.75,
     'divergent_throat_half_angle': radians(40),
     'divergent_exit_half_angle': None,
     'convergent_half_angle': radians(60),
     'is_frozen': True,
     'thrust': 10e3,
+    'convergent_throat_bend_ratio': 0.5,
+    'convergent_chamber_bend_ratio': .4,
 }
 
 
