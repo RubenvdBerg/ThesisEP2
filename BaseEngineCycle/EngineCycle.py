@@ -86,6 +86,7 @@ class EngineCycle:
     area_ratio_chamber_throat: Optional[float] = None  # [-]
     chamber_characteristic_length: Optional[float] = None  # [m]
     coolant_inlet_temperature: Optional[float] = None  # [K]
+    expansion_ratio_start_cooling: Optional[float] = None
     expansion_ratio_end_cooling: Optional[float] = None  # [-]
     distance_from_throat_end_cooling: Optional[float] = None  # [m]
     distance_from_throat_start_cooling: Optional[float] = None  # [m]

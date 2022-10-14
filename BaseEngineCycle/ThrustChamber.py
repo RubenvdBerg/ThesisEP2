@@ -41,9 +41,10 @@ class ThrustChamber:
         return self.nozzle.throat_area
 
     def get_radius(self, distance_from_throat):
-        if distance_from_throat < self.min_distance_from_throat:
-            raise ValueError(
-                f'Radius of thrust chamber cannot be calculated before the injector plate ({self.min_distance_from_throat:.4e} m before the throat)')
+        larger = distance_from_throat > self.max_distance_from_throat
+        smaller = distance_from_throat < self.min_distance_from_throat
+        if smaller or larger:
+            raise ValueError(f'Distance from throat larger or smaller than {type(self)} bounds')
         elif distance_from_throat < -self.nozzle.conv_length:
             return self.chamber.radius
         else:
@@ -98,3 +99,39 @@ class ThrustChamber:
             ax.set_yticks(ticks)
             ax.set_yticklabels([ytick_function(x) for x in ticks])
         plt.show()
+
+
+@dataclass
+class ThrustChamberSection(ThrustChamber):
+    """Provide a section of a thrust chamber.
+
+    Section bounds are determined by given distances from throat or by expansion ratios, which are translated to
+    distance from the throat in the DIVERGENT! section of the nozzle.
+    """
+    min_distance: Optional[float] = None  # [m]
+    max_distance: Optional[float] = None  # [m]
+    min_distance_expansion_ratio: Optional[float] = None  # [-]
+    max_distance_expansion_ratio: Optional[float] = None  # [-]
+
+    def __post_init__(self):
+        for minmax in ['min', 'max']:
+            eps = getattr(self, f'{minmax}_distance_expansion_ratio')
+            if eps is not None:
+                distance = self.get_distance_for_divergent_expansion_ratio(eps)
+                setattr(self, f'{minmax}_distance', distance)
+                warnings.warn(
+                    f'{minmax}_distance_expansion_ratio was provided, {minmax}_distance input will be ignored')
+
+    @property
+    def min_distance_from_throat(self):
+        if self.min_distance is None:
+            return super().min_distance_from_throat
+        else:
+            return self.min_distance
+
+    @property
+    def max_distance_from_throat(self):
+        if self.max_distance is None:
+            return super().max_distance_from_throat
+        else:
+            return self.max_distance

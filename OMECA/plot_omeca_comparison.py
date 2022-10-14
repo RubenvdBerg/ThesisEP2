@@ -24,7 +24,7 @@ TwChannelvals = omeca_data['Temperature [K]']['Cold SideWall']
 qvals = omeca_data['Heat Flux [W/m2]']['Total']
 channelHeightvals = omeca_data['Channel Geometry [mm]']['Height']
 channelWidthvals = omeca_data['Channel Geometry [mm]']['Width']
-channelDhvals = omeca_data['Channel Geometry [mm]']['Eq.Diameter']
+channelDhvals = omeca_data['Channel Geometry [mm]']['Diameter']
 
 own_x_vals= own_data['Plot Vals [cm]']['x']
 own_y_vals = own_data['Plot Vals [cm]']['y']
@@ -127,7 +127,7 @@ ax.plot(own_x_vals, geo_data['Height'] , color='blue', label='Height')
 ax.plot(xplotVals, np.array(channelWidthvals) * 1e3, color='g', label='Width D.', linestyle='-.')
 ax.plot(own_x_vals, geo_data['Width'] , color='g', label='Width')
 ax.plot(xplotVals, np.array(channelDhvals) * 1e3, color='r', label='Eq. Dia. D.', linestyle='-.')
-ax.plot(own_x_vals, geo_data['Eq.Diameter'], color='r', label='Eq. Dia.')
+ax.plot(own_x_vals, geo_data['Diameter'], color='r', label='Eq. Dia.')
 
 
 box = ax.get_position()

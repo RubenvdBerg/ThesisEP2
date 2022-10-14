@@ -113,16 +113,16 @@ class DynamicFlowState(FlowState):
 
     .pressure and .temperature attributes are replaced by the total properties of the flow
     """
-    pressure: float = field(init=False, repr=False)
-    temperature: float = field(init=False, repr=False)
+    pressure: float = field(init=False, repr=False, default=None)
+    temperature: float = field(init=False, repr=False, default=None)
     total_temperature: float
     total_pressure: float
     _flow_speed: float = field(repr=False)
 
     _iteration_accuracy: float = 1e-3
-    _max_iterations: float = 10
-    _static_temperature: float = field(init=False, repr=False)
-    _static_pressure: float = field(init=False, repr=False)
+    _max_iterations: float = 5
+    _static_temperature: float = field(init=False, repr=False, default=None)
+    _static_pressure: float = field(init=False, repr=False, default=None)
     verbose: bool = False
     _static_temperature_initial_guess: Optional[float] = None
     _static_pressure_initial_guess: Optional[float] = None
@@ -210,7 +210,7 @@ class DynamicFlowState(FlowState):
 class CoolantFlowState(DynamicFlowState):
     """Same as DynamicFlowState, but internally calculates flow speed from mass flux instead"""
     total_flow_area: float = 0
-    _flow_speed: float = field(init=False, repr=False)
+    _flow_speed: float = field(init=False, repr=False, default=None)
 
     @property
     def flow_speed(self):

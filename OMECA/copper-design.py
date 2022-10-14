@@ -333,7 +333,6 @@ print(T - Tvals[0], "K temperature rise")
 print(Q, "Total heat input")
 print(mTot, "kg chamber mass")
 
-
 # Plot results
 
 #
@@ -528,54 +527,54 @@ print(mTot, "kg chamber mass")
 xplotVals = list(xVals[:0:-1] * 100)
 yplotVals = list(yVals[:0:-1] * 100)
 
-omeca_data_dict = {'Distance from Throat [m]': [0,1],
-                     'Temperature [K]': {'CoolantBulk': Tvals,
-                                         'Hot SideWall': Twvals,
-                                         'Cold SideWall': TwChannelvals,
-                                         'HotGasAdiabatic': Tawvals,
-                                         'HotGasStatic': Tgvals,
-                                         'HotGasFilm': [0,1], },
-                     'Heat-Transfer Coefficient [W/(K*m2]': {'Hot Gas': hgvals,
-                                                             'Coolant': hcvals,
-                                                             'Hot SideConv.': [0,1], },
-                     'Heat Flux [W/m2]': {'Total': qvals,
-                                          'Hot Side': [0,1],
-                                          'Cold Side': [0,1],
-                                          'Hot SideConv.': [0,1],
-                                          'Hot SideRad.': qradvals, },
+omeca_data_dict = {'Distance from Throat [m]': [0, 1],
+                   'Temperature [K]': {'CoolantBulk': Tvals,
+                                       'Hot SideWall': Twvals,
+                                       'Cold SideWall': TwChannelvals,
+                                       'HotGasAdiabatic': Tawvals,
+                                       'HotGasStatic': Tgvals,
+                                       'HotGasFilm': [0, 1], },
+                   'Heat-Transfer Coefficient [W/(K*m2]': {'Hot Gas': hgvals,
+                                                           'Coolant': hcvals,
+                                                           'Hot SideConv.': [0, 1], },
+                   'Heat Flux [W/m2]': {'Total': qvals,
+                                        'Hot Side': [0, 1],
+                                        'Cold Side': [0, 1],
+                                        'Hot SideConv.': [0, 1],
+                                        'Hot SideRad.': qradvals, },
                    'Coolant State': {'T': Tvals,
-                                       'T0': T0vals,
-                                       'p': pvals,
-                                       'p0': p0vals,
-                                       'rho': rhovals,
-                                       'cp': cpvals, },
+                                     'T0': T0vals,
+                                     'p': pvals,
+                                     'p0': p0vals,
+                                     'rho': rhovals,
+                                     'cp': cpvals, },
                    'Channel Geometry [mm]': {'Height': channelHeightvals,
-                                               'Width': channelWidthvals,
-                                               'Eq.Diameter': Dhvals, },
-                     'Plot Vals [cm]':{'x':xplotVals,
-                                       'y':yplotVals,}
+                                             'Width': channelWidthvals,
+                                             'Diameter': Dhvals, },
+                   'Plot Vals [cm]': {'x': xplotVals,
+                                      'y': yplotVals, }
                    }
 
-
-from Verficiation.VV_HeatTransfer_Denies import test_heat_transfer
-from BaseEngineCycle.HeatTransferSection2 import DetailedHeatExchanger
+from Verficiation.VV_test_heat_transfer import test_heat_transfer
+from BaseEngineCycle.HeatExchangerDenies import DeniesHeatExchanger
 import arguments as args
+
 original = False
 heat_transfer = test_heat_transfer(engine_kwargs=args.denies_kwargs,
-                   throat_area=0.001433726,
-                   heat_class=DetailedHeatExchanger,
-                   number_of_coolant_channels=64 if original else 72,
-                   chamber_wall_thickness=4.2e-3 if original else 1e-3,
-                   chamber_wall_conductivity=295 if original else 365,
-                   coolant_mass_flow=0.763461538462 if original else .76,
-                   coolant_inlet_temp=110,
-                   coolant_inlet_pressure=60e5,
-                   coolant_heat_transfer_coefficient_mode='DittusBoelter',
-                   counter_flow=True,
-                   verbose=False,
-                   hot_gas_convective_heat_transfer_coefficient_mode='Bartz2',
-                   amount_of_sections=284,
-                   iteration_accuracy=1e-6)
+                                   throat_area=0.001433726,
+                                   heat_class=DeniesHeatExchanger,
+                                   number_of_coolant_channels=64 if original else 72,
+                                   chamber_wall_thickness=4.2e-3 if original else 1e-3,
+                                   chamber_wall_conductivity=295 if original else 365,
+                                   coolant_mass_flow=0.763461538462 if original else .76,
+                                   coolant_inlet_temp=110,
+                                   coolant_inlet_pressure=60e5,
+                                   coolant_heat_transfer_coefficient_mode='DittusBoelter',
+                                   is_counter_flow=True,
+                                   verbose=False,
+                                   hot_gas_convective_heat_transfer_coefficient_mode='Bartz',
+                                   amount_of_sections=284,
+                                   iteration_accuracy=1e-6)
 own_data_dict = heat_transfer.data
 
 import json

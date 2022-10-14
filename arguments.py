@@ -246,7 +246,6 @@ vinci_kwargs = base_arguments_o | {
     'thrust': 180e3,
     'combustion_chamber_pressure': 60.8e5,
     'expansion_ratio': 240,
-    'exit_pressure_forced': None,
     'mass_mixture_ratio': 5.8,
     'area_ratio_chamber_throat': None,
     'chamber_characteristic_length': None,

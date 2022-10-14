@@ -157,7 +157,7 @@ def get_local_mach(local_area_ratio, is_subsonic=False, heat_capacity_ratio=1.14
         return 1
     p, q, r, a, s, r2, x0 = get_mach_b4wind_factors(local_area_ratio, is_subsonic, heat_capacity_ratio)
 
-    # Method adapted to Python from B4Wind Method by Karl Kneile from NASA
+    # Method adapted to Python from method by Karl Kneile from NASA used in B4Wind
     def get_f_and_derivs(x):
         f = (p + q * x) ** (1 / q) - r * x
         df = (p + q * x) ** (1 / q - 1) - r

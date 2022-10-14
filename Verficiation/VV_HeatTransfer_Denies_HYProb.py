@@ -1,4 +1,4 @@
-from Verficiation.VV_HeatTransfer_Denies import test_heat_transfer
+from Verficiation.VV_test_heat_transfer import test_heat_transfer
 import arguments as args
 from math import radians, pi
 
@@ -11,7 +11,7 @@ test_heat_transfer(engine_kwargs=args.hyprob_kwargs,
                    coolant_inlet_temp=112.384,
                    coolant_inlet_pressure=15583600.,
                    verbose=True,
-                   counter_flow=True,)
+                   is_counter_flow=True,)
 
 channel_height = 2.45716897722*1e-3
 channel_width = 4.53032220526*1e-3

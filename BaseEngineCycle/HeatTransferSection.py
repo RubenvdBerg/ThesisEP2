@@ -147,8 +147,10 @@ class ConvectiveHeatTransfer:
         return self.combustion_temperature / (1 + (self.heat_capacity_ratio - 1) / 2 * m ** 2)
 
     def get_film_temperature(self, distance_from_throat: float):
-        t_0 = self.get_static_temp(distance_from_throat)
-        return float((t_0 + self.maximum_wall_temperature) / 2)
+        t_aw = self.get_adiabatic_wall_temp(distance_from_throat)
+        t = self.get_static_temp(distance_from_throat)
+        t_w = self.maximum_wall_temperature
+        return float(.5 * t_w + .28 * t + t_aw * .22)
 
     def get_adiabatic_wall_temp(self, distance_from_throat: float):
         m = self.thrust_chamber.get_mach(distance_from_throat)
