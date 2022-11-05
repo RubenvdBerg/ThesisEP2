@@ -1,4 +1,4 @@
-from OpenExpanderCycle.OECycle import CoolantBleedCycle
+from EngineCycles.OpenExpanderCycle.OECycle import CoolantBleedCycle
 import arguments as args
 from Verficiation.VV_Heat_Transfer_Old import convective_heat_transfer_validation
 
@@ -16,7 +16,7 @@ def open_expander_verification():
                                expansion_ratio=130,
                                **base_args, **args.oe_arguments)
 
-    print(engine.simple_specific_impulse)
+    print(engine.overall_specific_impulse)
     print(engine.thrust_chamber.length, engine.nozzle.exit_radius*2)
 
 

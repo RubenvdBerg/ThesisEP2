@@ -1,6 +1,6 @@
-from BaseEngineCycle.Nozzle import BellNozzle, ConicalNozzle
-from BaseEngineCycle.CombustionChamber import CombustionChamber
-from BaseEngineCycle.ThrustChamber import ThrustChamber
+from EngineCycles.BaseEngineCycle.Nozzle import BellNozzle, ConicalNozzle
+from EngineCycles.BaseEngineCycle.CombustionChamber import CombustionChamber
+from EngineCycles.BaseEngineCycle.ThrustChamber import ThrustChamber
 from math import radians
 
 # def inch_to_meter(length_in_inch: float) -> float:

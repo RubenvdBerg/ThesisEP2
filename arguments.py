@@ -38,15 +38,14 @@ base_arguments_kwak = {
     'propellant_margin_factor': 1.01,
     'tanks_structural_factor': 2.5,
     'ullage_volume_factor': 1.08,
-    # 'oxidizer_density': 1126.1,
-    # 'fuel_density': 804.2,
     'tanks_material_density': 2850,
     'pressurant_tank_material_density': 4430,
     'tanks_yield_strength': 250E6,
     'pressurant_tank_yield_strength': 1100E6,
 }
 base_arguments_own = {
-    'fuel_initial_temperature': 263.6,  # To get the as close as possible to density given by Kwak with his initial pressure of 2.5 bar
+    'fuel_initial_temperature': 263.6,
+    # To get the as close as possible to density given by Kwak with his initial pressure of 2.5 bar
     'oxidizer_initial_temperature': 93.340,  # To get the same density as Kwak with his initial pressure of 4 bar
     'combustion_chamber_material_density': 8470,
     'combustion_chamber_yield_strength': 300e6,
@@ -74,6 +73,8 @@ base_arguments_own = {
 
 base_arguments = base_arguments_kwak | base_arguments_own
 
+common_arguments_kwak = base_arguments | {'oxidizer_density': 1126.1, 'fuel_density': 804.2,}
+
 base_arguments_o = copy_without(base_arguments, ['mass_mixture_ratio'])
 
 
@@ -90,18 +91,18 @@ def change_to_conical_nozzle(arg_dict, throat_half_angle=radians(15)):
 
 
 open_arguments = {
-    'turbine_gas_specific_heat_capacity': 2024.7, 'turbine_gas_heat_capacity_ratio': 1.16,
     'turbine_pressure_ratio': 27, 'turbopump_specific_power': 13.5E3, 'turbine_efficiency': .52,
-    'exhaust_thrust_contribution': .01,  'exhaust_expansion_ratio': 20
+    'exhaust_thrust_contribution': .01, 'exhaust_expansion_ratio': 20
 }
 gg_arguments = open_arguments | {
+    'turbine_gas_specific_heat_capacity': 2024.7, 'turbine_gas_heat_capacity_ratio': 1.16,
     'turbine_maximum_temperature': 900, 'gg_mass_mixture_ratio': 0.320, 'gg_gas_specific_gas_constant': 274.1,
     'gg_stay_time': 10E-3, 'gg_structural_factor': 2.5,
     'gg_material_density': 8220, 'gg_yield_strength': 550E6
 }
 
 oe_arguments = open_arguments | {
-
+    'turbine_gas_specific_heat_capacity': None, 'turbine_gas_heat_capacity_ratio': None,
 }
 
 ep_arguments = {
@@ -187,23 +188,26 @@ se_21d_kwargs = base_arguments_o | {
     'expansion_ratio': 12.52,
     'mass_mixture_ratio': 5.5,
     'fuel_name': 'LH2_NASA',
-    # 'fuel_density': 70.22,
     'burn_time': 100,
     'is_frozen': True,
     'exit_pressure_forced': None,
     'expansion_ratio_end_cooling': 5,
     'chamber_characteristic_length': 4.0,
+    'fuel_pump_pressure_factor': 1.3,
+    'secondary_fuel_pump_pressure_change_factor': .3,
     'fuel_pump_efficiency': .7,
+    'secondary_fuel_pump_efficiency': .75,
     'oxidizer_pump_efficiency': .76,
     'fuel_initial_pressure': .3e6,
     'oxidizer_initial_pressure': .5e6,
     'turbine_pressure_ratio': 27.7033333,
     'turbine_gas_specific_heat_capacity': None,
     'turbine_gas_heat_capacity_ratio': None,
+    'turbine_maximum_temperature': 506.452,
     'turbopump_specific_power': 13.5E3,
     'turbine_efficiency': .45,
     'exhaust_thrust_contribution': .0084,
-    'area_ratio_chamber_throat': (.985/2)**2/.286**2,
+    'area_ratio_chamber_throat': (.985 / 2) ** 2 / .286 ** 2,
     'exhaust_expansion_ratio': 1.655,
 }
 
@@ -235,8 +239,8 @@ mira_kwargs = base_arguments_o | {
     'turbopump_specific_power': 13.5E3,
     'turbine_efficiency': .6,
     'exhaust_thrust_contribution': .012,
-    'area_ratio_chamber_throat': (.985/2)**2/.286**2,
-    'divergent_throat_half_angle': radians(79),
+    'area_ratio_chamber_throat': (.985 / 2) ** 2 / .286 ** 2,
+    'divergent_throat_half_angle': radians(25),
     'exhaust_expansion_ratio': 20
 
 }
@@ -297,7 +301,6 @@ denies_kwargs = base_arguments_o | {
     'convergent_throat_bend_ratio': 0.5,
     'convergent_chamber_bend_ratio': .4,
 }
-
 
 le5a_kwargs_cnozzle = change_to_conical_nozzle(le5a_kwargs)
 

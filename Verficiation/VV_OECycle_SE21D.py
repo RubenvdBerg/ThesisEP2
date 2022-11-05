@@ -1,5 +1,5 @@
 import arguments as args
-from OpenExpanderCycle.OECycle import CoolantBleedCycle
+from EngineCycles.OpenExpanderCycle.OECycle import CoolantBleedCycle
 
 engine = CoolantBleedCycle(**args.change_to_conical_nozzle(args.se_21d_kwargs), iterate=False)
 data = [('Name', '[Unit]', 1, 1),

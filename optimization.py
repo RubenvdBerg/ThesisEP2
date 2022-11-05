@@ -1,11 +1,11 @@
-import numpy as np
+mport numpy as np
 import pygmo as pg
 
 import scipy.optimize
 
-from BaseEngineCycle.EngineCycle import EngineCycle
-from GasGeneratorCycle.GGCycle import GasGeneratorCycle
-from ElectricPumpCycle.EPCycle import ElectricPumpCycle
+from EngineCycles.BaseEngineCycle.EngineCycle import EngineCycle
+from EngineCycles.GasGeneratorCycle.GGCycle import GasGeneratorCycle
+from EngineCycles.ElectricPumpCycle.EPCycle import ElectricPumpCycle
 import matplotlib.pyplot as plt
 import arguments as args
 

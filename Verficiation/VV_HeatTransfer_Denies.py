@@ -1,6 +1,6 @@
 import arguments as args
 from Verficiation.VV_test_heat_transfer import test_heat_transfer
-from BaseEngineCycle.HeatExchangerDenies import DeniesHeatExchanger, DeniesHeatExchanger2
+from EngineCycles.BaseEngineCycle.HeatExchangerDenies import DeniesHeatExchanger
 
 original = False
 heatt, plots = test_heat_transfer(engine_kwargs=args.denies_kwargs,

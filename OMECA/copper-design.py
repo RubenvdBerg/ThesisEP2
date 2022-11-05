@@ -10,7 +10,6 @@ import numpy as np
 import CEA
 import thermoClass as th
 import scipy.interpolate as intp
-import matplotlib.pyplot as plt
 
 original = False
 # Calculate fuel flow from engine parameters
@@ -556,7 +555,7 @@ omeca_data_dict = {'Distance from Throat [m]': [0, 1],
                    }
 
 from Verficiation.VV_test_heat_transfer import test_heat_transfer
-from BaseEngineCycle.HeatExchangerDenies import DeniesHeatExchanger
+from EngineCycles.BaseEngineCycle.HeatExchangerDenies import DeniesHeatExchanger
 import arguments as args
 
 original = False

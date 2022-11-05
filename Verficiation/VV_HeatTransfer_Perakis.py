@@ -1,10 +1,9 @@
 import matplotlib.pyplot as plt
 
 from Verficiation.VV_test_heat_transfer import test_heat_transfer
-from BaseEngineCycle.HeatExchanger import HeatExchanger
+from EngineCycles.BaseEngineCycle.HeatExchanger import HeatExchanger
 import arguments as args
-from math import radians, pi
-import pandas as pd
+from math import radians
 import numpy as np
 
 
@@ -24,10 +23,11 @@ heattransfer, plots = test_heat_transfer(engine_kwargs=main_kwargs,
 
 def extra_func(ax: plt.Axes, data:dict):
     min_distance = heattransfer.thrust_chamber_section.min_distance_from_throat
-    filename = r'..\BaseEngineCycle\Data\Perakis2021_HeatTransfer'
+    filename = r'../data/Data\Perakis2021_HeatTransfer'
     file1 = np.genfromtxt(fname=filename + '.txt', delimiter=',')
     distances_exp = file1[1:, 0] * 1e-3 + min_distance
     values_exp = file1[1:, 1] * 1e6
     ax.plot(distances_exp, values_exp, label='q_Perakis', color='pink', linestyle='--')
 
 plots.plot_flux(extra_func=extra_func)
+plots.plot_coolant()

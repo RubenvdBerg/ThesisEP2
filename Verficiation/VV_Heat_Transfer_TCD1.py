@@ -1,14 +1,10 @@
 import numpy as np
 
-from BaseEngineCycle.Cooling import CoolingChannelSection
-from BaseEngineCycle.RP1Cooling import RP1CoolingChannels
-from BaseEngineCycle.EngineCycle import EngineCycle
-from BaseEngineCycle.SimpleCooling import Simple_CoolingChannels
+from EngineCycles.BaseEngineCycle.EngineCycle import EngineCycle
 import arguments as args
 from numpy import linspace
 import matplotlib.pyplot as plt
 from math import radians
-import pandas as pd
 
 # file2 = pd.read_excel(filename +'.xlsx')
 
