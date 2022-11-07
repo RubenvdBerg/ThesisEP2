@@ -23,6 +23,8 @@ class Pump(FlowComponent):
 
     @property
     def power_required(self):
+        if self.pressure_increase < 0:
+            raise ValueError('Negative pressure increase required over pump, increase combustion pressure or decrease tank pressure')
         return self.volumetric_flow_rate * self.pressure_increase / self.efficiency
 
     @property

@@ -7,7 +7,7 @@ import numpy as np
 from typing import Tuple
 
 base_args = args.base_arguments_o
-plot_defaults = {'pressure_range': (1E5, 3E7), 'mixture_range': (1.5, 4.0), 'detail_number': 50}
+plot_defaults = {'pressure_range': (5E5, 3E7), 'mixture_range': (1.5, 4.0), 'detail_number': 50}
 
 
 def set_attribute_cycle(attribute: str, cycle_type: str, compare: bool = False):

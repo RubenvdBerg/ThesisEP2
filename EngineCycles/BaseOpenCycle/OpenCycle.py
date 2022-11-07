@@ -146,7 +146,7 @@ class OpenEngineCycle(EngineCycle):
     def total_mass_flow(self):
         return self.chamber_mass_flow + self.turbine_mass_flow
 
-    @property  # Override EngineCycle.simple_specific_impulse to use correct thrust
+    @property
     def overall_specific_impulse(self):
         return self.thrust / self.total_mass_flow / g
 

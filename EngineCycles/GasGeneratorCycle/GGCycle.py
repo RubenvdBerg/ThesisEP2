@@ -62,14 +62,20 @@ class GasGeneratorCycle(OpenEngineCycle):
         return self._iterative_turbine_mass_flow
 
     @property
+    def gg_oxidizer_flow(self):
+        return self.gg_mass_mixture_ratio / (self.gg_mass_mixture_ratio + 1) * self.gg_mass_flow
+
+    @property
+    def gg_fuel_flow(self):
+        return 1 / (self.gg_mass_mixture_ratio + 1) * self.gg_mass_flow
+
+    @property
     def main_fuel_flow(self):  # Override EngineCycle flows
-        return (self.chamber_fuel_flow
-                + 1 / (self.gg_mass_mixture_ratio + 1) * self.gg_mass_flow)
+        return self.chamber_fuel_flow + self.gg_fuel_flow
 
     @property
     def main_oxidizer_flow(self):  # Override EngineCycle flows
-        return (self.chamber_oxidizer_flow
-                + self.gg_mass_mixture_ratio / (self.gg_mass_mixture_ratio + 1) * self.gg_mass_flow)
+        return self.chamber_oxidizer_flow + self.gg_oxidizer_flow
 
     @property
     def cooling_inlet_flow_state(self):

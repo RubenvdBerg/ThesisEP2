@@ -72,8 +72,8 @@ class Tank(FlowComponent, PressureStructure):
     @property
     def volume(self):
         if self.pressurant_tank_volume is not None:
+            warnings.warn(
+                f'Pressurant tank volume was given for {self.inlet_flow_state.propellant_name} tank. Assumed pressurant tank is submerged in this tank')
             return self.propellant_volume * self.ullage_factor + self.pressurant_tank_volume
         else:
-            warnings.warn(
-                f'No pressurant tank volume was given. Assumed pressurant tank is not submerged in {self.inlet_flow_state.propellant_name} tank')
             return self.propellant_volume * self.ullage_factor
