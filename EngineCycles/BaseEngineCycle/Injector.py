@@ -12,12 +12,12 @@ class Injector(Merger, Structure):
     combustion_chamber_pressure: float = 0  # [Pa]
     combustion_chamber_area: float = 0  # [m2]
     propellant_is_gas: Optional[bool] = None
-    _pressure_drop_factor: float = .3  # [-]
+    pressure_drop_factor: float = 0  # [-]
     is_homogeneous_flows: bool = False
 
     @property
     def pressure_change(self):
-        option1 = self.combustion_chamber_pressure * self._pressure_drop_factor
+        option1 = self.combustion_chamber_pressure * self.pressure_drop_factor
         # # Mota 2008 -> Kesaev and Almeida 2005
         # f = .4 if self.propellant_is_gas else .8
         # option2 = f * 10E2 * sqrt(10 * self.combustion_chamber_pressure)

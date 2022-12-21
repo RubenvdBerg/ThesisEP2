@@ -11,7 +11,10 @@ class KwakBattery(Battery):
     def total_energy(self):
         return self.output_power * self.burn_time
 
-    # Overwrite Super _mass_
+    @property
+    def power_heat_loss(self):
+        return self.output_power * (1 - self.eta_e)
+
     @property
     def mass(self):
         return (self.battery_packing_factor * self.output_power / (self.electric_motor_efficiency * self.inverter_efficiency)

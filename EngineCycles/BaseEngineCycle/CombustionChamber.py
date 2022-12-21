@@ -42,12 +42,13 @@ class CombustionChamber(PressureStructure):
         return {'LOX/GH2': 0.635, 'LOX/LH2': 0.89, 'LOX/RP1': 1.145, 'LOX/LCH4': 1.45}
 
     @property
-    def volume(self):  # Of the cylindrical section
-        return self.characteristic_length * self.throat_area - self.convergent_volume_estimate
-
-    @property
     def volume_incl_convergent(self):
         return self.characteristic_length * self.throat_area
+
+    # All subsequent properties of the chamber concern only the cylindrical section
+    @property
+    def volume(self):
+        return self.volume_incl_convergent - self.convergent_volume_estimate
 
     @property
     def area(self):
@@ -68,6 +69,11 @@ class CombustionChamber(PressureStructure):
     @property
     def maximum_expected_operating_pressure(self):
         return self.combustion_chamber_pressure
+
+    @property
+    def surface_area(self):
+        return self.radius * 2 * pi * self.length
+
 
 @dataclass
 class ComplexCombustionChamber(CombustionChamber):

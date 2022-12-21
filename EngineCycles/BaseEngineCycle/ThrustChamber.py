@@ -4,12 +4,13 @@ from typing import Callable, Optional
 import scipy.integrate
 import scipy.optimize
 from matplotlib import pyplot as plt
-from numpy import linspace
-from dataclasses import dataclass
+from numpy import linspace, array, interp
+from dataclasses import dataclass, field
 from EngineCycles.BaseEngineCycle.CombustionChamber import CombustionChamber
 from EngineCycles.BaseEngineCycle.Nozzle import Nozzle
 from EngineCycles.Functions.IRTFunctions import get_local_mach
 from copy import deepcopy
+import matplotlib.pyplot as plt
 
 
 @dataclass
@@ -49,7 +50,11 @@ class ThrustChamber:
             return self.nozzle.get_radius(distance_from_throat)
 
     @property
-    def surface(self):
+    def surface_area(self):
+        return self.nozzle.surface_area + self.chamber.surface_area
+
+    @property
+    def surface_area_original(self):
         result = scipy.integrate.quad(lambda x: self.get_radius(x) * 2 * pi, *self.throat_distance_tuple)
         return result[0]
 
@@ -121,7 +126,8 @@ class ThrustChamberSection(ThrustChamber):
             eps = getattr(self, f'{minmax}_distance_expansion_ratio')
             if eps is not None:
                 if eps > total_eps:
-                    warnings.warn(f'{minmax}_distance_expansion_ratio is larger than the overall nozzle expansion ratio.[{total_eps}:.1f] The latter is used instead.')
+                    warnings.warn(
+                        f'{minmax}_distance_expansion_ratio is larger than the overall nozzle expansion ratio.[{total_eps}:.1f] The latter is used instead.')
                     eps = total_eps
                 if getattr(self, f'{minmax}_distance') is not None:
                     warnings.warn(f'{minmax}_distance_expansion_ratio was provided as well as {minmax}_distance,'
@@ -135,7 +141,8 @@ class ThrustChamberSection(ThrustChamber):
             return super().min_distance_from_throat
         else:
             if self.min_distance < super().min_distance_from_throat:
-                raise ValueError('ThrustChamberSection min distance (from throat) out of bounds of complete ThrustChamber')
+                raise ValueError(
+                    'ThrustChamberSection min distance (from throat) out of bounds of complete ThrustChamber')
             return self.min_distance
 
     @property
@@ -144,5 +151,6 @@ class ThrustChamberSection(ThrustChamber):
             return super().max_distance_from_throat
         else:
             if self.max_distance > super().max_distance_from_throat:
-                raise ValueError('ThrustChamberSection max distance (from throat) out of bounds of complete ThrustChamber')
+                raise ValueError(
+                    'ThrustChamberSection max distance (from throat) out of bounds of complete ThrustChamber')
             return self.max_distance

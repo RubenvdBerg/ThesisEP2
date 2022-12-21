@@ -129,12 +129,12 @@ if __name__ == '__main__':
                 ('CC. Fuel Flow', '[kg/s]', engine.chamber_fuel_flow, 5.82),
                 ('CC. Oxid. Flow', '[kg/s]', engine.chamber_oxidizer_flow, 22.72),
                 ('CC Isp. Vac.', '[s]', engine.chamber_vacuum_specific_impulse, 352.5),
-                ('2E Isp. Vac.', '[s]', engine.turbine_exhaust.vacuum_specific_impulse, 141.4),
+                ('2E Isp. Vac.', '[s]', engine.secondary_exhaust.vacuum_specific_impulse, 141.4),
 
                 # ('', '[]', 1, 1),
                 ('Act. Heat Trans.', '[MW]', engine.heat_transfer_section.total_heat_transfer * 1e-6, 6.749),
                 ('Act. Heat Trans.2', '[MW]', engine.secondary_heat_transfer_section.total_heat_transfer * 1e-6, .302),
-                ('Pumps Power Req.', '[MW]', engine.pump_power_required * 1e-6, 0),
+                ('Pumps Power Req.', '[MW]', engine.pumps_power_required * 1e-6, 0),
                 # ('', '[]', 1, 1),
                 ]
 

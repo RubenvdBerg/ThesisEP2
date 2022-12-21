@@ -1,40 +1,49 @@
 from dataclasses import dataclass, field
 from scipy.constants import gas_constant
 from typing import Optional
-from EngineCycles.BaseOpenCycle.OpenCycle import OpenEngineCycle
+from EngineCycles.BaseOpenCycle.OpenCycle import OpenEngineCycle, OpenEngineCycle_DoubleTurbine
 from EngineCycles.BaseEngineCycle.Splitter import Splitter
 from EngineCycles.BaseEngineCycle.FlowState import FlowState
 from EngineCycles.GasGeneratorCycle.GGComponents import GasGenerator
+from EngineCycles.Functions.CEAFunctions import get_gas_generator_mmr
 
 
+# Baseclass that can either inherit from single or double turbine OpenCycle (see next classes)
 @dataclass
-class GasGeneratorCycle(OpenEngineCycle):
+class BaseGasGeneratorCycle:
     # TODO: dataclass inheritance is stupid see EP-class
-    gg_gas_specific_gas_constant: float = 0  # [J/(kg*K)]
-    gg_mass_mixture_ratio: float = 0  # [-]
     gg_stay_time: float = 0  # [s]
     gg_structural_factor: float = 0  # [-]
     gg_material_density: float = 0  # [kg/m3]
     gg_yield_strength: float = 0  # [Pa]
-    gg_pressure: Optional[float] = None  # [Pa]
-    _is_temp_calc_needed: bool = field(init=False, repr=False, default=False)
 
-    # No longer required, but calculated from gg_specific_gas_constant
-    turbine_gas_molar_mass: float = field(init=False)
+    gg_is_frozen: Optional[bool] = None
+    gg_pressure: Optional[float] = None  # [Pa]
+    gg_mass_mixture_ratio: Optional[float] = None  # [-]
+    gg_gas_molar_mass: Optional[float] = None  # [kg/mol]
+    gg_gas_specific_heat_capacity: Optional[float] = None  # [J/(kg*K)]
+    gg_gas_heat_capacity_ratio: Optional[float] = None  # [-]
 
     def __post_init__(self):
-        self.turbine_gas_molar_mass = gas_constant / self.gg_gas_specific_gas_constant
         super().__post_init__()
 
-    @property
-    def default_turbine_flow_check_state(self) -> FlowState:
-        return self.gas_generator.outlet_flow_state
+    def set_initial_values(self):
+        super().set_initial_values()
+        if self.gg_is_frozen is None:
+            self.gg_is_frozen = self.is_frozen
+        if self.gg_pressure is None:
+            self.gg_pressure = self.combustion_chamber_pressure
+        if self.gg_mass_mixture_ratio is None:
+            self.gg_mass_mixture_ratio = get_gas_generator_mmr(**self.cea_gg_kwargs,
+                                                               temp_limit=self.turbine_maximum_temperature)
 
     @property
-    def turbine_mass_flow_initial_guess(self):
-        """Initial guess based on verification engines. If no iteration is requested start at 0 to clearly show flows
-        without any turbine requirements"""
-        return .03 * self.base_mass_flow if self.iterate else 0
+    def cea_gg_kwargs(self):
+        return {'fuelName': self.fuel_name,
+                'oxName': self.oxidizer_name,
+                'Pc': self.gg_pressure,
+                'frozen': 1 if self.gg_is_frozen else 0,
+                'frozenAtThroat': 1 if self.gg_is_frozen else 0}
 
     @property
     def turbine_inlet_flow_state(self):
@@ -59,7 +68,7 @@ class GasGeneratorCycle(OpenEngineCycle):
 
     @property
     def gg_mass_flow(self):  # Must be equal
-        return self._iterative_turbine_mass_flow
+        return self.turbine_mass_flow
 
     @property
     def gg_oxidizer_flow(self):
@@ -91,13 +100,18 @@ class GasGeneratorCycle(OpenEngineCycle):
         return GasGenerator(oxidizer_inlet_flow_state=self.post_oxidizer_pump_splitter.outlet_flow_state_gg,
                             fuel_inlet_flow_state=self.post_fuel_pump_splitter.outlet_flow_state_gg,
                             mass_mixture_ratio=self.gg_mass_mixture_ratio,
-                            gas_constant=self.gg_gas_specific_gas_constant,
                             stay_time=self.gg_stay_time,
                             pressure=self.combustion_chamber_pressure if self.gg_pressure is None else self.gg_pressure,
                             turbine_temp_limit=self.turbine_maximum_temperature,
                             safety_factor=self.gg_structural_factor,
                             material_density=self.gg_material_density,
                             yield_strength=self.gg_yield_strength,
+                            fuel_name=self.fuel_name,
+                            oxidizer_name=self.oxidizer_name,
+                            specific_heat_capacity=self.gg_gas_specific_heat_capacity,
+                            heat_capacity_ratio=self.gg_gas_heat_capacity_ratio,
+                            molar_mass=self.gg_gas_molar_mass,
+                            is_frozen=self.gg_is_frozen,
                             )
 
     @property
@@ -114,11 +128,28 @@ class GasGeneratorCycle(OpenEngineCycle):
 
     @property
     def mass(self):
-        return (self.cc_propellant_mass
-                + self.gg_propellant_mass
-                + self.feed_system_mass
-                + self.tanks_mass
-                + self.pressurant.mass)
+        return super().mass + self.gas_generator.mass
+
+
+@dataclass
+class GasGeneratorCycle(BaseGasGeneratorCycle, OpenEngineCycle):
+    @property
+    def turbine_mass_flow_initial_guess(self):
+        """Initial guess based on verification engines. If no iteration is requested start at 0 to clearly show flows
+        without any turbine requirements"""
+        return .03 * self.base_mass_flow if self.iterate else 0
+
+
+@dataclass
+class GasGeneratorCycle_DoubleTurbine(BaseGasGeneratorCycle, OpenEngineCycle_DoubleTurbine):
+
+    @property
+    def fuel_turbine_mass_flow_initial_guess(self):
+        return .015 * self.base_mass_flow if self.iterate else 0
+
+    @property
+    def oxidizer_turbine_mass_flow_initial_guess(self):
+        return .015 * self.base_mass_flow if self.iterate else 0
 
 
 if __name__ == '__main__':

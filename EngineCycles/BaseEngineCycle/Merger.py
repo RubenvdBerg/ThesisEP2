@@ -1,7 +1,8 @@
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, replace, field
 from EngineCycles.BaseEngineCycle.FlowState import FlowState, DefaultFlowState
 from EngineCycles.BaseEngineCycle.FlowComponent import BaseFlowComponent
 import warnings
+from math import isclose
 
 from EngineCycles.BaseEngineCycle.Splitter import Splitter
 
@@ -15,15 +16,17 @@ class Merger(BaseFlowComponent):
     """
     inlet_flow_states: tuple[FlowState, ...] = (DefaultFlowState(),)
     is_homogeneous_flows: bool = True
+    _warn_pressure: bool = field(init=False, repr=False, default=True)
 
     def __post_init__(self):
-        self.pressure_check()
+        if Merger._warn_pressure:
+            self.pressure_check()
         if self.is_homogeneous_flows:
             self.name_check()
 
     def pressure_check(self):
         pressures = [flow_state.pressure for flow_state in self.inlet_flow_states]
-        if not all(pressure == pressures[0] for pressure in pressures):
+        if not all(isclose(pressure, pressures[0]) for pressure in pressures):
             pressures = [f'{flow_state.pressure:.4e}' + " Pa" for flow_state in self.inlet_flow_states]
             warnings.warn(
                 'Pressures of incoming streams in Merger are not equal, which could lead to back flow. Ensure '

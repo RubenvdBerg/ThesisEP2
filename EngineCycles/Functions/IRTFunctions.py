@@ -1,7 +1,7 @@
 from scipy.constants import g, gas_constant, Boltzmann, pi, R
 from typing import Optional
 from scipy.optimize import fsolve
-from math import sqrt
+from math import sqrt, isclose
 import numpy as np
 import warnings
 
@@ -73,16 +73,34 @@ def get_characteristic_velocity(molar_mass: float, chamber_temperature: float,
     return 1 / gamma * sqrt(r * chamber_temperature)
 
 
-def get_thrust_coefficient(pressure_ratio: float, heat_capacity_ratio: float, expansion_ratio: float,
-                           chamber_pressure: Optional[float] = 1, ambient_pressure: Optional[float] = 0,
-                           ideal_expansion: bool = True) -> float:
+def get_ideal_thrust_coefficient(pressure_ratio: float, heat_capacity_ratio: float) -> float:
     pe_pc = 1 / pressure_ratio
     y = heat_capacity_ratio
-    if ideal_expansion:
-        pressure_term = 0
-    else:
-        pressure_term = (pe_pc - ambient_pressure / chamber_pressure) * expansion_ratio
-    return get_kerckhove(y) * sqrt(2 * y / (y - 1) * (1 - pe_pc ** ((y - 1) / y))) + pressure_term
+    return get_kerckhove(y) * sqrt(2 * y / (y - 1) * (1 - pe_pc ** ((y - 1) / y)))
+
+
+def get_thrust_coefficient_from_ideal(ideal_thrust_coefficient: float, chamber_pressure: float, exit_pressure: float,
+                                      expansion_ratio: float, ambient_pressure: Optional[float], __summerfield_criterion:float = .35):
+    if ambient_pressure is None:
+        return ideal_thrust_coefficient
+    elif ambient_pressure == 0:
+        pass
+    elif exit_pressure / ambient_pressure < __summerfield_criterion:
+        # Summerfield Criterion
+        raise ValueError('The ratio between the exit pressure and ambient pressure is lower than the Summerfield '
+                         f'criterion of {__summerfield_criterion}. Please adjust either pressure to pass this criterion.')
+    return ideal_thrust_coefficient + (exit_pressure / chamber_pressure
+                                       - ambient_pressure / chamber_pressure) * expansion_ratio
+
+
+def get_thrust_coefficient(pressure_ratio: float, heat_capacity_ratio: float, expansion_ratio: float,
+                           chamber_pressure: float, ambient_pressure: Optional[float] = None) -> float:
+    cf0 = get_ideal_thrust_coefficient(pressure_ratio=pressure_ratio, heat_capacity_ratio=heat_capacity_ratio)
+    return get_thrust_coefficient_from_ideal(ideal_thrust_coefficient=cf0,
+                                             chamber_pressure=chamber_pressure,
+                                             exit_pressure=chamber_pressure / pressure_ratio,
+                                             expansion_ratio=expansion_ratio,
+                                             ambient_pressure=ambient_pressure)
 
 
 def get_specific_impulse(thrust_coefficient: float, characteristic_velocity: float) -> float:
@@ -101,7 +119,7 @@ def get_throat_area(molar_mass: float, heat_capacity_ratio: float, chamber_tempe
                     chamber_pressure: float) -> float:
     r = gas_constant / molar_mass
     gamma = get_kerckhove(heat_capacity_ratio)
-    return gamma * chamber_pressure * mass_flow / sqrt(r * chamber_temperature)
+    return mass_flow * sqrt(r * chamber_temperature) / (gamma * chamber_pressure)
 
 
 def get_exhaust_velocity(molar_mass: float, heat_capacity_ratio: float, chamber_temperature: float,
@@ -153,7 +171,7 @@ def get_sonic_velocity(heat_capacity_ratio: float, molar_mass: float, temperatur
 
 
 def get_local_mach(local_area_ratio, is_subsonic=False, heat_capacity_ratio=1.14):
-    if local_area_ratio == 1:
+    if isclose(local_area_ratio, 1, rel_tol=1e-12):
         return 1
     p, q, r, a, s, r2, x0 = get_mach_b4wind_factors(local_area_ratio, is_subsonic, heat_capacity_ratio)
 
@@ -176,11 +194,13 @@ def get_local_mach(local_area_ratio, is_subsonic=False, heat_capacity_ratio=1.14
     final = newton_raphson_plus(x0)
     return sqrt(final) ** s
 
+
 def get_approx_mach(local_area_ratio, is_subsonic=False, heat_capacity_ratio=1.14):
     if local_area_ratio == 1:
         return 1
     p, q, r, a, s, r2, x0 = get_mach_b4wind_factors(local_area_ratio, is_subsonic, heat_capacity_ratio)
-    return x0**(s*.5)
+    return x0 ** (s * .5)
+
 
 def get_mach_b4wind_factors(local_area_ratio, is_subsonic=False, heat_capacity_ratio=1.14):
     a_at = local_area_ratio
@@ -196,6 +216,7 @@ def get_mach_b4wind_factors(local_area_ratio, is_subsonic=False, heat_capacity_r
     if not is_subsonic:
         p, q = q, p
     return p, q, r, a, s, r2, x0
+
 
 def get_local_mach_nasa(local_area_ratio, is_subsonic=False, heat_capacity_ratio=1.14):
     """Returns Mach, given local area ratio and heat capacity ratio. Very unstable version, but simple and quick"""
@@ -220,4 +241,3 @@ def get_local_mach_nasa(local_area_ratio, is_subsonic=False, heat_capacity_ratio
         if iterations > 10:
             return 1
     return M0
-

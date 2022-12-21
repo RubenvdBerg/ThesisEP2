@@ -44,8 +44,8 @@ def plot_fuel_flow_battery(burn_times=burn_times_def, ylimits=ylims_def, chamber
         )
             for p_cc in chamber_pressures]
         total_fuel_flow = [engine.total_fuelpump_flow for engine in engines]
-        coolant_flow = [engine.battery.coolant_flow_required for engine in engines]
-        main_flow = [engine.total_fuelpump_flow - engine.battery.coolant_flow_required for engine in engines]
+        coolant_flow = [engine.battery_cooler.coolant_flow_required for engine in engines]
+        main_flow = [engine.total_fuelpump_flow - engine.battery_cooler.coolant_flow_required for engine in engines]
         for main, checkengine in zip(main_flow, engines):
             if abs(main - checkengine.fuel.mass_flow) / main > .00001:
                 print(f'main and check should be equal, but they are: {main}, {checkengine.fuel.mass_flow} '

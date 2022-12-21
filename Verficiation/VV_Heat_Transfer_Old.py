@@ -76,7 +76,7 @@ def convective_heat_transfer_validation():
     print(f'Parameter         Test  \t  Goal')
     print(f'Thr HeatTrsfr:  {test_heat_exchanger.get_convective_heat_flux(0):{f_string}}\t{71e6:.3e}\n')
     print(f'Total Heattransfer:{test_heat_exchanger.total_heat_transfer:.3e}')
-    print(f'Surface: {test_thrust_chamber.surface:.2f} m2')
+    print(f'Surface: {test_thrust_chamber.surface_area:.2f} m2')
 
 if __name__ == '__main__':
     convective_heat_transfer_validation()

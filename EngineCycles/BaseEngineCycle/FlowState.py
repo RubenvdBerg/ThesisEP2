@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from CoolProp.CoolProp import PropsSI
 from functools import cached_property
 from typing import Literal, Optional
+from scipy import constants
 
 
 @dataclass
@@ -47,8 +48,20 @@ class FlowState:
     def molar_mass(self):
         return PropsSI('MOLAR_MASS', self.coolprop_name)
 
+    @cached_property
+    def specific_gas_constant(self):
+        return constants.gas_constant / self.molar_mass
+
     @property
     def state_inputs(self):
+        # if self.temperature < PropsSI('T_min', self.coolprop_name):
+        #     raise ValueError(f'Fluid [{self.coolprop_name}] temperature has become too low')
+        # elif self.temperature > PropsSI('T_max', self.coolprop_name):
+        #     raise ValueError(f'Fluid [{self.coolprop_name}] temperature has become too high')
+        # if self.pressure < PropsSI('P_min', self.coolprop_name):
+        #     raise ValueError(f'Fluid [{self.coolprop_name}] pressure has become too low')
+        # elif self.pressure > PropsSI('P_max', self.coolprop_name):
+        #     raise ValueError(f'Fluid [{self.coolprop_name}] pressure has become too high')
         return 'T', self.temperature, 'P', self.pressure, self.coolprop_name
 
     @property
@@ -108,11 +121,14 @@ class FlowState:
         """Checks if flowstates have the same fields but leaves some margin for floating point errors"""
         equals_list = []
         for own_val, other_val in zip(self.__dict__.values(), other.__dict__.values()):
-            if type(own_val) == float:
-                equals_list.append( abs(own_val - other_val) / own_val < margin)
+            if type(own_val) not in [str, type(None)]:
+                error = (abs(own_val - other_val) / own_val)
+
+                equals_list.append(error < margin)
             else:
                 equals_list.append(own_val == other_val)
         return all(equals_list)
+
 
 
 @dataclass
@@ -163,10 +179,11 @@ class DynamicFlowState(FlowState):
             self._static_temperature = self.static_temperature
             self._static_pressure = self.static_pressure
             if self.mach > 1:
-                print(f'Total state: {self.total_pressure*1e-5:.1f} bar, {self.total_temperature:.1f} K')
-                print(f'Static state: {self._static_pressure*1e-5:.1f} bar, {self._static_temperature:.1f} K')
-                raise ValueError('CoolingFlowState flow_speed is higher than Mach 1, decrease the mass flow or increase '
-                                 'the total flow area to decrease the flow speed')
+                print(f'Total state: {self.total_pressure * 1e-5:.1f} bar, {self.total_temperature:.1f} K')
+                print(f'Static state: {self._static_pressure * 1e-5:.1f} bar, {self._static_temperature:.1f} K')
+                raise ValueError(
+                    'CoolingFlowState flow_speed is higher than Mach 1, decrease the mass flow or increase '
+                    'the total flow area to decrease the flow speed')
 
     @property
     def state_inputs(self):
@@ -214,6 +231,7 @@ class DynamicFlowState(FlowState):
     @property
     def total_mass_specific_enthalpy(self):
         return PropsSI('H', *self.total_state_inputs)
+
 
 
 @dataclass

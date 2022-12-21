@@ -5,9 +5,10 @@ from EngineCycles.BaseEngineCycle.FlowComponent import FlowComponent
 
 @dataclass
 class Pump(FlowComponent):
-    pressure_increase: float = 0 # [Pa]
-    efficiency: float = 0 # [-]
-    specific_power: float = 0 # [W/kg]
+    expected_outlet_pressure: float = 0  # [Pa]
+    # pressure_increase: float = 0  # [Pa]
+    efficiency: float = 0  # [-]
+    specific_power: float = 0  # [W/kg]
     propellant_density: Optional[float] = None
 
     @property
@@ -23,9 +24,9 @@ class Pump(FlowComponent):
 
     @property
     def power_required(self):
-        if self.pressure_increase < 0:
-            raise ValueError('Negative pressure increase required over pump, increase combustion pressure or decrease tank pressure')
-        return self.volumetric_flow_rate * self.pressure_increase / self.efficiency
+        if self.pressure_change < 0:
+            raise ValueError('Negative pressure change required over pump, increase combustion pressure or decrease tank pressure')
+        return self.volumetric_flow_rate * self.pressure_change / self.efficiency
 
     @property
     def mass(self):
@@ -33,4 +34,4 @@ class Pump(FlowComponent):
 
     @property
     def pressure_change(self):
-        return self.pressure_increase
+        return self.expected_outlet_pressure - self.inlet_pressure

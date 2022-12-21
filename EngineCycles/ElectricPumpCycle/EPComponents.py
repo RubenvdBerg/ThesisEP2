@@ -1,7 +1,9 @@
+import warnings
 from dataclasses import dataclass, field
 from math import log
 from typing import Optional
 from EngineCycles.BaseEngineCycle.FlowComponent import FlowComponent
+from EngineCycles.BaseEngineCycle.FlowState import FlowState
 
 
 @dataclass
@@ -21,7 +23,23 @@ class ElectricComponent:
 
 @dataclass
 class ElectricMotor(ElectricComponent):
-    pass
+    electric_heat_loss_factor: float 
+    oxidizer_pump_inlet_flow_state: FlowState
+    oxidizer_leakage_factor: float
+    magnet_temp_limit: float
+
+    @property
+    def power_heat_loss(self):
+        return self.output_power * .015
+
+    def calc_cooling(self):
+        cp_ox = self.oxidizer_pump_inlet_flow_state.specific_heat_capacity
+        m_ox_leak = self.oxidizer_pump_inlet_flow_state.mass_flow * self.oxidizer_leakage_factor
+        deltaT = (self.magnet_temp_limit - 50) - self.oxidizer_pump_inlet_flow_state.temperature
+        required_mass_flow = self.power_heat_loss / (cp_ox * deltaT)
+        if required_mass_flow > m_ox_leak:
+            warnings.warn('The expected cooling due to oxidizer leakage through the electric motor is too low. The motor magnets will be too hot and possibly demagnetize.')
+            print(f'-------------------------------------------------{required_mass_flow} required, {m_ox_leak} expected')
 
 
 @dataclass
@@ -34,8 +52,7 @@ class Battery(ElectricComponent):
     specific_energy: float  # J/kg
     battery_packing_factor: float  # -
     burn_time: float  # s
-    fuel_specific_heat: float  # J/(kg*K)
-    coolant_allowable_temperature_change: float  # K
+
     # Overwrite ElectricComponent attribute
     electric_energy_efficiency: Optional[float] = field(init=False, default=None)
 
@@ -51,8 +68,12 @@ class Battery(ElectricComponent):
         return self.input_power * self.burn_time
 
     @property
-    def heat_loss(self):
+    def energy_heat_loss(self):
         return self.total_energy * (1 - self.eta_e)
+
+    @property
+    def power_heat_loss(self):
+        return self.input_power * (1 - self.eta_e)
 
     @property
     def coolant_flow_required(self):
@@ -67,8 +88,14 @@ class Battery(ElectricComponent):
 class BatteryCooler(FlowComponent):
     """Component that adjusts its outlet flow to be equal to the coolant flow required. Used to iterate until flows
     through pump and battery are matching in the EP Cycle"""
-    coolant_flow_required: float = 0  # [kg/s]
+    power_heat_loss: float = 0  # [W]
     outlet_pressure_required: float = 0  # [Pa]
+    coolant_allowable_temperature_change: float = 0  # [K]
+    coolant_specific_heat_capacity: Optional[float] = None  # [J/(kgK)]
+
+    def __post_init__(self):
+        if self.coolant_specific_heat_capacity is None:
+            self.coolant_specific_heat_capacity = self.inlet_flow_state.specific_heat_capacity
 
     @property
     def mass_flow_change(self):
@@ -77,3 +104,7 @@ class BatteryCooler(FlowComponent):
     @property
     def pressure_change(self):
         return self.outlet_pressure_required - self.inlet_pressure
+
+    @property
+    def coolant_flow_required(self):
+        return self.power_heat_loss / (self.coolant_specific_heat_capacity * self.coolant_allowable_temperature_change)

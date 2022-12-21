@@ -2,29 +2,32 @@ from EngineCycles.BaseEngineCycle.EngineCycle import EngineCycle
 from EngineCycles.BaseOpenCycle.Turbine import Turbine
 from EngineCycles.BaseOpenCycle.SecondaryExhaust import SecondaryExhaust
 from EngineCycles.BaseEngineCycle.FlowState import FlowState
-from dataclasses import dataclass, field
+from EngineCycles.BaseEngineCycle.Splitter import Splitter
+from dataclasses import dataclass, field, replace
 from scipy.constants import g
+from math import isclose
 from typing import Optional
 import warnings
+from functools import cached_property
 
 
-# Abstract class that has the attributes GasGenerator and OpenExpander share
+# Abstract class that has the attributes GasGenerator and OpenExpander share, the turbine_mass_flow property needs to be
+# used somewhere to increase the main flows, such that this iterative process works.
+# OpenEngineCycle does NOT work on its own!
 @dataclass
 class OpenEngineCycle(EngineCycle):
     turbine_efficiency: float = 0  # [-]
     turbopump_specific_power: float = 0  # [W/kg]
-    exhaust_thrust_contribution: float = 0  # [-]
-    exhaust_expansion_ratio: float = 0  # [-]
     turbine_maximum_temperature: float = 0  # [K]
+    secondary_specific_impulse_correction_factor: float = 1
+    exhaust_expansion_ratio: Optional[float] = None  # [-]
+    exhaust_exit_pressure: Optional[float] = None  # [Pa]
     turbine_pressure_ratio: Optional[float] = None  # [-]
-    turbine_outlet_pressure: Optional[float] = None  # [Pa]
-
-    turbine_gas_specific_heat_capacity: Optional[float] = None  # [J/kg]
-    turbine_gas_heat_capacity_ratio: Optional[float] = None  # [-]
-    turbine_gas_molar_mass: Optional[float] = None
+    turbine_outlet_pressure_forced: Optional[float] = None  # [Pa]
 
     # Iteration attribute, not required at init
-    _iterative_turbine_mass_flow: float = field(init=False, repr=False)  # [kg/s]
+    _iterative_turbine_mass_flow: float = field(init=False, repr=False, default=0.00001)  # [kg/s]
+    _exhaust_thrust_contribution: float = field(init=False, repr=False, default=.01)  # [-]
 
     # Override from EngineCycle, are assigned later, not required at init
     fuel_pump_specific_power: float = field(init=False, repr=False, default=None)
@@ -32,124 +35,201 @@ class OpenEngineCycle(EngineCycle):
 
     def __post_init__(self):
         super().__post_init__()
-        # Combination of turbine, oxidizer-pump and fuel-pump seen as a single turbopump with single specific power
-        self.fuel_pump_specific_power = self.oxidizer_pump_specific_power = self.turbopump_specific_power
-        self.resolve_turbine_pressure_ratio_choice()
-        self._iterative_turbine_mass_flow = self.turbine_mass_flow_initial_guess
         if self.iterate:
             self.iterate_mass_flow()
-        if self.verbose and self.iterate:
-            self.flow_check()
-            self.check_exhaust_thrust_contribution()
-            self.do_pressure_check()
-
-    def flow_check(self, turbine_compare_flow_state: Optional[FlowState] = None):
-        if turbine_compare_flow_state is None:
-            turbine_compare_flow_state = self.default_turbine_flow_check_state
-        turbine_inlet_state = self.turbine.inlet_flow_state
-        # Line below ensures that warning after if statement is given multiple times if encountered multiple times, instead of only once
-        warnings.simplefilter('always', UserWarning)
-        if not turbine_compare_flow_state.almost_equal(turbine_inlet_state):
-            if self.verbose:
-                warnings.warn(
-                    'FlowStates at the Turbine Inlet and the upstream Outlet FlowState are not equal after iteration')
-                print('Param.         : \t     XX-out \t      TU-in')
-                for key, gg_item in turbine_compare_flow_state.print_pretty_dict.items():
-                    tu_item = turbine_inlet_state.print_pretty_dict[key]
-                    print(f'{key: <15}: \t {gg_item: >10} \t {tu_item: >10}')
-
-    @property
-    def default_turbine_flow_check_state(self) -> FlowState:
-        raise NotImplementedError
-
-    def turbine_flow_error_larger_than_accuracy(self):
-        error = abs(self.turbine.mass_flow_required - self._iterative_turbine_mass_flow)
-        margin = self.turbine.mass_flow_required * self.iteration_accuracy
-        return error > margin
 
     def iterate_mass_flow(self):
         if self.verbose:
             print('Iterate Turbine Mass Flow')
+        self._iterative_turbine_mass_flow = self.turbine_mass_flow_initial_guess
         while self.turbine_flow_error_larger_than_accuracy():
             if self.verbose:
                 print(f'Actual:  {self._iterative_turbine_mass_flow:.5f} kg/s')
                 print(f'Required:{self.turbine.mass_flow_required:.5f} kg/s\n')
             self._iterative_turbine_mass_flow = self.turbine.mass_flow_required
+            self._exhaust_thrust_contribution = self.secondary_exhaust.thrust / self.thrust
+
         if self.verbose:
             print(f'Turbine Mass Flow Set\n')
 
-    def reiterate(self):
-        if self.verbose:
-            print('Start reiteration')
-        self.update_cea()
-        self.iterate_mass_flow()
+    @cached_property
+    def turbine_mass_flow_initial_guess(self):
+        return 0.0
 
-    def resolve_turbine_pressure_ratio_choice(self):
-        if not ((self.turbine_pressure_ratio is None) ^ (self.turbine_outlet_pressure is None)):
-            raise ValueError('Both or neither turbine_pressure_ratio and turbine_outlet_pressure are provided. '
-                             'Provide one and only one')
-        elif self.turbine_pressure_ratio is None:
-            self.turbine_pressure_ratio = self._turbine_inlet_pressure / self.turbine_outlet_pressure
+    def set_initial_values(self):
+        super().set_initial_values()
+        # Combination of turbine, oxidizer-pump and fuel-pump seen as a single turbopump with single specific power
+        self.fuel_pump_specific_power = self.oxidizer_pump_specific_power = self.turbopump_specific_power
 
-    def check_exhaust_thrust_contribution(self):
-        if self.verbose:
-            warnings.warn(f'\nExhaust thrust contribution initial value (used in program) different from final estimate:\n'
-                          f'Used         : {self.exhaust_thrust_contribution * self.thrust * 1e-3:.3f} kN\n'
-                          f'Estimate     : {self.turbine_exhaust.thrust * 1e-3:.3f} kN')
+    def turbine_flow_error_larger_than_accuracy(self):
+        error = abs(self.turbine.mass_flow_required - self.turbine_mass_flow)
+        margin = self.turbine.mass_flow_required * self.iteration_accuracy
+        return error > margin
+
+    @property
+    def chamber_thrust(self):
+        return (1 - self._exhaust_thrust_contribution) * self.thrust
 
     @property
     def turbine_mass_flow(self):
         return self._iterative_turbine_mass_flow
 
     @property
-    def turbine_mass_flow_initial_guess(self):
-        return 0.0
-
-    @property
-    def turbine_inlet_temperature(self):
-        return 0.0
-
-    @property
-    def turbine_inlet_pressure(self):
-        return self.cooling_channel_section.outlet_pressure
-
-    @property
     def turbine_inlet_flow_state(self):
-        return FlowState(propellant_name=self.fuel_name,
-                         temperature=self.turbine_inlet_temperature,
-                         pressure=self.turbine_inlet_pressure,
-                         mass_flow=self._iterative_turbine_mass_flow,
-                         type='fuel',)
+        return self.cooling_channel_section.outlet_flow_state
 
     @property
     def turbine(self):
         return Turbine(inlet_flow_state=self.turbine_inlet_flow_state,
-                       pump_power_required=self.pump_power_required,
+                       power_required=self.pumps_power_required,
                        efficiency=self.turbine_efficiency,
                        pressure_ratio=self.turbine_pressure_ratio,
-                       gas_heat_capacity_ratio=self.turbine_gas_heat_capacity_ratio,
-                       gas_specific_heat_capacity=self.turbine_gas_specific_heat_capacity, )
+                       outlet_pressure_forced=self.turbine_outlet_pressure_forced, )
 
     @property
-    def turbine_exhaust(self):
+    def secondary_exhaust(self):
         return SecondaryExhaust(inlet_flow_state=self.turbine.outlet_flow_state,
                                 expansion_ratio=self.exhaust_expansion_ratio,
+                                exit_pressure=self.exhaust_exit_pressure,
                                 ambient_pressure=self.ambient_pressure,
-                                gas_heat_capacity_ratio=self.turbine_gas_heat_capacity_ratio,
-                                gas_molar_mass=self.turbine_gas_molar_mass, )
-
-    @property
-    def chamber_mass_flow(self):
-        return (1 - self.exhaust_thrust_contribution) * self.base_mass_flow
-
-    @property
-    def total_mass_flow(self):
-        return self.chamber_mass_flow + self.turbine_mass_flow
-
-    @property
-    def overall_specific_impulse(self):
-        return self.thrust / self.total_mass_flow / g
+                                specific_impulse_correction_factor=self.secondary_specific_impulse_correction_factor, )
 
     @property
     def secondary_specific_impulse(self):
-        return self.turbine_exhaust.specific_impulse
+        return self.secondary_exhaust.specific_impulse
+
+
+@dataclass
+class OpenEngineCycle_DoubleTurbine(EngineCycle):
+    turbine_maximum_temperature: float = 0  # [K]
+    turbopump_specific_power: float = 0
+    oxidizer_turbine_efficiency: float = 0  # [-]
+    fuel_turbine_efficiency: float = 0  # [-]
+    oxidizer_shaft_mechanical_efficiency: float = 1  # [-]
+    fuel_shaft_mechanical_efficiency: float = 1  # [-]
+
+    oxidizer_secondary_specific_impulse_correction_factor: float = 1
+    fuel_secondary_specific_impulse_correction_factor: float = 1
+
+    oxidizer_exhaust_expansion_ratio: Optional[float] = None  # [-]
+    oxidizer_exhaust_exit_pressure_forced: Optional[float] = None  # [Pa]
+    oxidizer_turbine_pressure_ratio: Optional[float] = None  # [-]
+    oxidizer_turbine_outlet_pressure_forced: Optional[float] = None  # [Pa]
+    fuel_exhaust_exit_pressure_forced: Optional[float] = None  # [Pa]
+    fuel_exhaust_expansion_ratio: Optional[float] = None  # [-]
+    fuel_turbine_pressure_ratio: Optional[float] = None  # [-]
+    fuel_turbine_outlet_pressure_forced: Optional[float] = None  # [Pa]
+
+    # Iteration attribute, not required at init
+    _iterative_oxidizer_turbine_mass_flow: float = field(init=False, repr=False, default=0.00001)  # [kg/s]
+    _iterative_fuel_turbine_mass_flow: float = field(init=False, repr=False, default=0.00001)  # [kg/s]
+    _iterative_turbine_mass_flow: float = field(init=False, repr=False, default=0.0000001)  # [kg/s]
+    _exhaust_thrust_contribution: float = field(init=False, repr=False, default=.01)  # [-]
+
+    # Override from EngineCycle, are assigned later, not required at init
+    fuel_pump_specific_power: float = field(init=False, repr=False, default=None)
+    oxidizer_pump_specific_power: float = field(init=False, repr=False, default=None)
+
+    def __post_init__(self):
+        super().__post_init__()
+        if self.iterate:
+            self.iterate_mass_flow()
+
+    def iterate_mass_flow(self):
+        if self.verbose:
+            print('Iterate Turbine Mass Flow')
+        self._iterative_oxidizer_turbine_mass_flow = self.oxidizer_turbine_mass_flow_initial_guess
+        self._iterative_fuel_turbine_mass_flow = self.fuel_turbine_mass_flow_initial_guess
+        while self.turbine_flow_error_larger_than_accuracy():
+            req_ox = self.oxidizer_turbine.mass_flow_required
+            req_fu = self.fuel_turbine.mass_flow_required
+            if self.verbose:
+                print(f'Actual:  {self.turbine_mass_flow:.5f} kg/s')
+                print(f'Required:{req_ox + req_fu:.5f} kg/s\n')
+            self._iterative_oxidizer_turbine_mass_flow = req_ox
+            self._iterative_fuel_turbine_mass_flow = req_fu
+            self._exhaust_thrust_contribution = (self.oxidizer_secondary_exhaust.thrust
+                                                 + self.fuel_secondary_exhaust.thrust) / self.thrust
+
+        if self.verbose:
+            print(f'Turbine Mass Flow Set\n')
+
+    @cached_property
+    def oxidizer_turbine_mass_flow_initial_guess(self):
+        return 0.0
+
+    @cached_property
+    def fuel_turbine_mass_flow_initial_guess(self):
+        return 0.0
+
+    def set_initial_values(self):
+        super().set_initial_values()
+        self.fuel_pump_specific_power = self.oxidizer_pump_specific_power = self.turbopump_specific_power
+
+    def turbine_flow_error_larger_than_accuracy(self):
+        required = self.oxidizer_turbine.mass_flow_required + self.fuel_turbine.mass_flow_required
+        error = abs(required - self.turbine_mass_flow)
+        margin = required * self.iteration_accuracy
+        return error > margin
+
+    @property
+    def chamber_thrust(self):
+        return (1 - self._exhaust_thrust_contribution) * self.thrust
+
+    @property
+    def turbine_mass_flow(self):
+        return self._iterative_fuel_turbine_mass_flow + self._iterative_oxidizer_turbine_mass_flow
+
+    @property
+    def turbine_inlet_flow_state(self):
+        return self.cooling_channel_section.outlet_flow_state
+
+    @property
+    def turbine_splitter(self):
+        return Splitter(inlet_flow_state=self.turbine_inlet_flow_state,
+                        required_outlet_mass_flows=(self._iterative_oxidizer_turbine_mass_flow,),
+                        outlet_flow_names=('oxidizer_turbine', 'fuel_turbine'))
+
+    @property
+    def fuel_pumps_power_required(self):
+        return self.fuel_pump.power_required / self.shaft_mechanical_efficiency
+
+    @property
+    def fuel_turbine(self):
+        return Turbine(inlet_flow_state=self.turbine_splitter.outlet_flow_states['fuel_turbine'],
+                       power_required=self.fuel_pumps_power_required,
+                       efficiency=self.fuel_turbine_efficiency,
+                       pressure_ratio=self.fuel_turbine_pressure_ratio,
+                       outlet_pressure_forced=self.fuel_turbine_outlet_pressure_forced, )
+
+    @property
+    def fuel_secondary_exhaust(self):
+        return SecondaryExhaust(
+            inlet_flow_state=self.fuel_turbine.outlet_flow_state,
+            expansion_ratio=self.fuel_exhaust_expansion_ratio,
+            exit_pressure=self.fuel_exhaust_exit_pressure_forced,
+            ambient_pressure=self.ambient_pressure,
+            specific_impulse_correction_factor=self.fuel_secondary_specific_impulse_correction_factor,
+        )
+
+    @property
+    def oxidizer_pumps_power_required(self):
+        return self.oxidizer_pump.power_required / self.shaft_mechanical_efficiency
+
+    @property
+    def oxidizer_turbine(self):
+        return Turbine(inlet_flow_state=self.turbine_splitter.outlet_flow_states['oxidizer_turbine'],
+                       power_required=self.oxidizer_pumps_power_required,
+                       efficiency=self.oxidizer_turbine_efficiency,
+                       pressure_ratio=self.oxidizer_turbine_pressure_ratio,
+                       outlet_pressure_forced=self.oxidizer_turbine_outlet_pressure_forced, )
+
+    @property
+    def oxidizer_secondary_exhaust(self):
+        return SecondaryExhaust(
+            inlet_flow_state=self.oxidizer_turbine.outlet_flow_state,
+            expansion_ratio=self.oxidizer_exhaust_expansion_ratio,
+            exit_pressure=self.oxidizer_exhaust_exit_pressure_forced,
+            ambient_pressure=self.ambient_pressure,
+            specific_impulse_correction_factor=self.oxidizer_secondary_specific_impulse_correction_factor,
+        )

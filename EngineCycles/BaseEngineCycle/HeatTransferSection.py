@@ -1,8 +1,10 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from math import pi
-from typing import Optional
+from typing import Optional, Callable
 
+import numpy
 import scipy.integrate
+import scipy.interpolate
 from scipy import constants as constants
 
 from EngineCycles.BaseEngineCycle.ThrustChamber import ThrustChamber
@@ -28,7 +30,7 @@ class RadiativeHeatTransfer:
 
     @property
     def theoretical_total_radiative_heat_transfer(self):  # [W]
-        return self.netto_average_wall_radiative_heat_flux * self.thrust_chamber.surface
+        return self.netto_average_wall_radiative_heat_flux * self.thrust_chamber.surface_area
 
     @property
     def radiative_factor(self):
@@ -53,6 +55,10 @@ class ConvectiveHeatTransfer:
     recovery_factor: Optional[float] = None  # [-]
     verbose: bool = True
 
+    heat_transfer_func: Callable = field(init=False, repr=False)
+    total_convective_heat_transfer: float = field(init=False, repr=False)
+    _interpolation_num: float = 120
+
     def __post_init__(self):
         # Setting recovery factor with turbulent estimate if not provided
         # ORDER OF THESE LINES IS IMPORTANT
@@ -66,6 +72,8 @@ class ConvectiveHeatTransfer:
             # transfer is reached as percentage of total chamber length, is determined by post_injection_build_up_ratio
             # Rough estimate based on Perakis2021
             self.post_injection_build_up_ratio = 0.25
+
+        self.init_heat_transfer()
 
     @property
     def min_distance_from_throat(self):
@@ -183,21 +191,12 @@ class ConvectiveHeatTransfer:
     def distance_tuple(self):
         return self.min_distance_from_throat, self.max_distance_from_throat
 
-    @property
-    def total_convective_heat_transfer(self):  # [W]
-        # k = 15
-        # num = 2**k + 1
-        # xs = np.linspace(*self.distance_tuple, num=num)
-        # length = self.distance_tuple[1] - self.distance_tuple[0]
-        # dx = length / (num - 1)
-        # ys = [self.get_convective_heat_transfer_per_axial_meter(x) for x in xs]
-        # result2 = scipy.integrate.romb(ys, dx=dx)
-        # return result2
-        result = scipy.integrate.quad(lambda x: self.get_convective_heat_transfer_per_axial_meter(x),
-                                      *self.distance_tuple)
-        result1 = float(result[0])
-
-        return result1
+    def init_heat_transfer(self):
+        xs = numpy.linspace(*self.distance_tuple, self._interpolation_num)
+        dx = (self.max_distance_from_throat - self.min_distance_from_throat) / (self._interpolation_num - 1)
+        ys = numpy.array([self.get_convective_heat_transfer_per_axial_meter(x) for x in xs])
+        self.total_convective_heat_transfer = sum(dx * ys)
+        self.heat_transfer_func = lambda x : numpy.interp(x, xs, ys)
 
     def distance_plot(self, **kwargs):
         self.thrust_chamber.distance_plot(**kwargs, distance_tuple=self.distance_tuple)
@@ -246,7 +245,7 @@ class HeatTransferSection(ConvectiveHeatTransfer):
         else:
             return self.max_distance_section
 
-    def total_heat_flux(self, distance_from_throat:float):
+    def total_heat_flux(self, distance_from_throat: float):
         return self.get_convective_heat_flux(distance_from_throat) * (1 + self.radiative_heat_transfer_factor)
 
     @property

@@ -1,10 +1,11 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cached_property
-from math import pi, sqrt, cos, sin, tan, asin
-from typing import Optional
+from math import pi, sqrt, cos, sin, tan, asin, degrees
+from typing import Optional, Callable
 import scipy.optimize
-from numpy import array
+from numpy import array, linspace, interp, concatenate, trapz
 from EngineCycles.Functions.EmpiricalRelations import get_chamber_throat_area_ratio_estimate
+from scipy.integrate import quad
 
 
 @dataclass
@@ -19,6 +20,10 @@ class Nozzle:
     div_longi_throat_radius: Optional[float] = None  # [rad]
     area_ratio_chamber_throat: Optional[float] = None
 
+    _interpol_num: float = 20
+    surface_area: float = field(init=False, repr=False)
+    radius_func: Callable = field(init=False, repr=False)
+
     def __post_init__(self):
         if self.conv_half_angle > pi / 2 or self.conv_half_angle < 0:
             raise ValueError(
@@ -29,6 +34,27 @@ class Nozzle:
         # radius of the nozzle after the throat curve and distance between throat and end of throat curve
         self.div_radius_p = self.throat_radius + (1 - cos(self.div_throat_half_angle)) * self.div_longi_throat_radius
         self.div_length_p = self.div_longi_throat_radius * sin(self.div_throat_half_angle)
+
+        self.set_radius_func()
+
+    @property
+    def end_interpol_distances(self):
+        return array([self.div_length])
+
+    def set_radius_func(self):
+        x_cc_bend = linspace(-self.conv_length, -self.conv_length_p, self._interpol_num)
+        length_q = self.conv_throat_long_radius * sin(self.conv_half_angle)
+        x_throat = linspace(-length_q, self.div_length_p, self._interpol_num)
+
+        x_distances = concatenate((x_cc_bend, x_throat, self.end_interpol_distances))
+
+        y_radii = array([self.get_radius_original(distance) for distance in x_distances])
+
+        self.surface_area = trapz(y_radii * 2 * pi, x=x_distances)
+        self.radius_func = lambda x: interp(x, x_distances, y_radii)
+
+    def get_radius(self, distance_from_throat):
+        return self.radius_func(distance_from_throat)
 
     @property
     def exit_area(self):
@@ -66,7 +92,7 @@ class Nozzle:
              - (self.conv_throat_long_radius + self.conv_chamber_long_radius) * (1 - cos(self.conv_half_angle)))
         if z < 0:
             raise ValueError(f'The length of the straight part of the convergent is calculated to be less than zero, '
-                             f'please change the bend ratios or divergence half angle')
+                             f'please change the bend ratios or chamber/throat area ratio.')
         return self.conv_throat_long_radius * sin(self.conv_half_angle) + z / tan(self.conv_half_angle)
 
     @cached_property
@@ -78,7 +104,7 @@ class Nozzle:
         r1 = self.throat_radius
         r2 = self.chamber_radius
         h = self.conv_length
-        return pi / 3 * h * (r1**2 + r1*r2 + r2**2)
+        return pi / 3 * h * (r1 ** 2 + r1 * r2 + r2 ** 2)
 
     @property
     def div_length(self):
@@ -123,10 +149,11 @@ class Nozzle:
             div_radius = self.div_radius_after_throat_curve(distance_from_throat)
         return float(div_radius)
 
-    def div_radius_after_throat_curve(self, distance_from_throat:float) -> float:
-        raise NotImplementedError('Abstract Class Nozzle does not have a defined divergent radius after the throat curve')
+    def div_radius_after_throat_curve(self, distance_from_throat: float) -> float:
+        raise NotImplementedError(
+            'Abstract Class Nozzle does not have a defined divergent radius after the throat curve')
 
-    def get_radius(self, distance_from_throat: float) -> float:
+    def get_radius_original(self, distance_from_throat: float) -> float:
         if distance_from_throat < 0:
             return self.conv_radius(-distance_from_throat)
         elif distance_from_throat > 0:
@@ -147,8 +174,8 @@ class BellNozzle(Nozzle):
         super().__post_init__()
         # [MODERN ENGINEERING FOR DESIGN OF LIQUID-PROPELLANT ROCKET ENGINES, Huzel&Huang 1992, p.76, fig. 4-15]
         # parabolic equation parameters
-        tan_th = tan(pi/2 - self.div_throat_half_angle)
-        tan_ex = tan(pi/2 - self.div_exit_half_angle)
+        tan_th = tan(pi / 2 - self.div_throat_half_angle)
+        tan_ex = tan(pi / 2 - self.div_exit_half_angle)
         self.div_a = ((tan_ex - tan_th) / (2 * (self.exit_radius - self.div_radius_p)))
         self.div_b = tan_th - 2 * self.div_a * self.div_radius_p
         self.div_c = self.div_length_p - self.div_a * self.div_radius_p ** 2 - self.div_b * self.div_radius_p
@@ -167,9 +194,9 @@ class BellNozzle(Nozzle):
         b = self.div_b
         c = self.div_c
         y = self.exit_radius
-        return a * y**2 + b * y + c
+        return a * y ** 2 + b * y + c
 
-    def div_radius_after_throat_curve(self, distance_from_throat:float) -> float:
+    def div_radius_after_throat_curve(self, distance_from_throat: float) -> float:
         def func(x):
             a = float(self.div_a * x ** 2 + self.div_b * x + self.div_c - distance_from_throat)
             return array([a], dtype=float)
@@ -179,6 +206,9 @@ class BellNozzle(Nozzle):
         div_radius, *_ = scipy.optimize.fsolve(func, array([x0], dtype=float))
         return float(div_radius)
 
+    @property
+    def end_interpol_distances(self):
+        return linspace(self.div_length_p, self.div_length, self._interpol_num)
 
     # def div_radius(self, distance_from_throat: float) -> float:
     #     # Distance from throat positive towards nozzle exit
@@ -212,9 +242,8 @@ class ConicalNozzle(Nozzle):
         r_t = self.throat_radius
         r_u = self.div_longi_throat_radius
         theta = self.div_throat_half_angle
-        part = (e**.5 - 1) * r_t + r_u * (1/cos(theta) - 1)
+        part = (e ** .5 - 1) * r_t + r_u * (1 / cos(theta) - 1)
         return part / tan(theta)
 
     def div_radius_after_throat_curve(self, distance_from_throat: float) -> float:
         return self.div_radius_p + (distance_from_throat - self.div_length_p) * tan(self.div_throat_half_angle)
-
