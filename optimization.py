@@ -3,11 +3,11 @@ import pygmo as pg
 
 import scipy.optimize
 
-from EngineCycles.BaseEngineCycle.EngineCycle import EngineCycle
-from EngineCycles.GasGeneratorCycle.GGCycle import GasGeneratorCycle
-from EngineCycles.ElectricPumpCycle.EPCycle import ElectricPumpCycle
+from EngineCycles.Abstract.EngineCycle import EngineCycle
+from EngineCycles.GasGeneratorCycle import GasGeneratorCycle
+from EngineCycles.ElectricPumpCycle import ElectricPumpCycle
 import matplotlib.pyplot as plt
-import arguments as args
+from EngineArguments import arguments as args
 
 
 class EngineCycleOptimization:

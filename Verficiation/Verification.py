@@ -1,5 +1,5 @@
-from EngineCycles.OpenExpanderCycle.OECycle import CoolantBleedCycle
-import arguments as args
+from EngineCycles.CoolantBleedCycle import CoolantBleedCycle
+from EngineArguments import arguments as args
 from Verficiation.VV_Heat_Transfer_Old import convective_heat_transfer_validation
 
 

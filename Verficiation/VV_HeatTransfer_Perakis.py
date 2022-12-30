@@ -1,8 +1,8 @@
 import matplotlib.pyplot as plt
 
 from Verficiation.VV_test_heat_transfer import test_heat_transfer
-from EngineCycles.BaseEngineCycle.HeatExchanger import HeatExchanger
-import arguments as args
+from EngineComponents.Base.HeatExchanger import HeatExchanger
+from EngineArguments import arguments as args
 from math import radians
 import numpy as np
 

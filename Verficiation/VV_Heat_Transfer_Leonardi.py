@@ -1,6 +1,6 @@
 from Verficiation.VV_test_heat_transfer import test_heat_transfer
-from EngineCycles.BaseEngineCycle.HeatExchangerOMECA import RectangularOMECAHeatExchanger
-import arguments as args
+from Archive.HeatExchangerOMECA import RectangularOMECAHeatExchanger
+from EngineArguments import arguments as args
 from math import pi
 from dataclasses import dataclass, field
 from functools import cached_property

@@ -1,6 +1,6 @@
 from Verficiation.VV_test_heat_transfer import test_heat_transfer
-import arguments as args
-from math import radians, pi
+from EngineArguments import arguments as args
+from math import pi
 
 test_heat_transfer(engine_kwargs=args.hyprob_kwargs,
                    throat_area=0.002879753,

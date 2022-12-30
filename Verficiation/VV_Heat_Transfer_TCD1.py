@@ -1,7 +1,7 @@
 import numpy as np
 
-from EngineCycles.BaseEngineCycle.EngineCycle import EngineCycle
-import arguments as args
+from EngineCycles.Abstract.EngineCycle import EngineCycle
+from EngineArguments import arguments as args
 from numpy import linspace
 import matplotlib.pyplot as plt
 from math import radians

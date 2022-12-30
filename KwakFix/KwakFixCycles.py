@@ -1,15 +1,14 @@
-from EngineCycles.BaseEngineCycle.EngineCycle import EngineCycle
-from EngineCycles.GasGeneratorCycle.GGCycle import GasGeneratorCycle
-from EngineCycles.ElectricPumpCycle.EPCycle import ElectricPumpCycle
-from EngineCycles.BaseOpenCycle import OpenCycle
+from EngineCycles.Abstract.EngineCycle import EngineCycle
+from EngineCycles.GasGeneratorCycle import GasGeneratorCycle
+from EngineCycles.ElectricPumpCycle import ElectricPumpCycle
 from dataclasses import dataclass
 from scipy import constants
 from KwakFix.KwakFixComponents import KwakBattery
-from typing import Literal
 
 
 @dataclass
 class KwakEngineCycle(EngineCycle):
+
     def set_pump_outlet_pressures(self):
         Merger._warn_pressure = False
         Merger._warn_pressure = True
@@ -27,8 +26,11 @@ class KwakEngineCycle(EngineCycle):
 class KwakFixGasGeneratorCycle(GasGeneratorCycle, EngineCycle):
     _iteration_done: bool = False
 
-    def __post_init__(self):
-        super().__post_init__()
+    def set_initial_values(self):
+        super().set_initial_values()
+        if self.gg_gas_molar_mass:
+            r = constants.gas_constant / self.gg_gas_molar_mass
+            self.gg_gas_density = self.gg_pressure / (r * self.turbine_maximum_temperature)
 
     def iterate_mass_flow(self):
         m_tu = self.turbine.mass_flow_required
@@ -46,6 +48,7 @@ class KwakFixGasGeneratorCycle(GasGeneratorCycle, EngineCycle):
         self.mf = self.main_fuel_flow - m_gg_f
         self._iterative_turbine_mass_flow = m_tu
         self._iteration_done = True
+
 
     @property
     def turbine_mass_flow_initial_guess(self):

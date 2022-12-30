@@ -555,8 +555,8 @@ omeca_data_dict = {'Distance from Throat [m]': [0, 1],
                    }
 
 from Verficiation.VV_test_heat_transfer import test_heat_transfer
-from EngineCycles.BaseEngineCycle.HeatExchangerDenies import DeniesHeatExchanger
-import arguments as args
+from Archive.HeatExchangerDenies import DeniesHeatExchanger
+from EngineArguments import arguments as args
 
 original = False
 heat_transfer = test_heat_transfer(engine_kwargs=args.denies_kwargs,

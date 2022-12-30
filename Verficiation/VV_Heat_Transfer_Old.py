@@ -1,12 +1,12 @@
 from scipy import constants
 
-import arguments as args
-from EngineCycles.BaseEngineCycle.CombustionChamber import CombustionChamber
-from EngineCycles.BaseEngineCycle.Injector import Injector
-from EngineCycles.BaseEngineCycle.EngineCycle import EngineCycle
-from EngineCycles.BaseEngineCycle.HeatTransferSection import HeatTransferSection
-from EngineCycles.BaseEngineCycle.Nozzle import BellNozzle
-from EngineCycles.BaseEngineCycle.ThrustChamber import ThrustChamber
+from EngineArguments import arguments as args
+from EngineComponents.Base.CombustionChamber import CombustionChamber
+from EngineComponents.Base.Injector import Injector
+from EngineCycles.Abstract.EngineCycle import EngineCycle
+from EngineComponents.Base.HeatTransferSection import HeatTransferSection
+from EngineComponents.Base.Nozzle import BellNozzle
+from EngineComponents.Base.ThrustChamber import ThrustChamber
 
 
 def convective_heat_transfer_validation():

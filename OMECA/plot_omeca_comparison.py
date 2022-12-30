@@ -1,4 +1,4 @@
-from EngineCycles.Functions.BaseFunctions import multi_legend
+from EngineFunctions.BaseFunctions import multi_legend
 import matplotlib.pyplot as plt
 import json
 import numpy as np

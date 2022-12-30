@@ -1,12 +1,12 @@
 import os
 
-from EngineCycles.ElectricPumpCycle.EPCycle import ElectricPumpCycle
-from EngineCycles.GasGeneratorCycle.GGCycle import GasGeneratorCycle
-from EngineCycles.BaseEngineCycle.EngineCycle import EngineCycle
-from EngineCycles.OpenExpanderCycle.OECycle import OpenExpanderCycle, CoolantBleedCycle
+from EngineCycles.ElectricPumpCycle import ElectricPumpCycle
+from EngineCycles.GasGeneratorCycle import GasGeneratorCycle
+from EngineCycles.OpenExpanderCycle import OpenExpanderCycle
+from EngineCycles.CoolantBleedCycle import CoolantBleedCycle
 from KwakFix.KwakFixCycles import KwakFixElectricPumpCycle, KwakFixGasGeneratorCycle
-from typing import Optional, Tuple, Callable
-import arguments as args
+from typing import Optional, Tuple
+from EngineArguments import arguments as args
 import matplotlib.pyplot as plt
 from time import strftime
 import json

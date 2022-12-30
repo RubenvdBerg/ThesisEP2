@@ -1,15 +1,15 @@
 from dataclasses import replace
 from typing import Optional
 
-import arguments as args
-from EngineCycles.BaseEngineCycle.CombustionChamber import CombustionChamber
-from EngineCycles.BaseEngineCycle.EngineCycle import EngineCycle
-from EngineCycles.BaseEngineCycle.FlowState import ManualFlowState
-from EngineCycles.BaseEngineCycle.HeatExchanger import HeatTransferPlots
-from EngineCycles.BaseEngineCycle.HeatExchangerOMECA import OMECAHeatExchanger
-from EngineCycles.BaseEngineCycle.Injector import Injector
-from EngineCycles.BaseEngineCycle.Nozzle import ConicalNozzle
-from EngineCycles.BaseEngineCycle.ThrustChamber import ThrustChamberSection
+from EngineArguments import arguments as args
+from EngineComponents.Base.CombustionChamber import CombustionChamber
+from EngineCycles.Abstract.EngineCycle import EngineCycle
+from EngineComponents.Abstract.FlowState import ManualFlowState
+from EngineComponents.Base.HeatExchanger import HeatTransferPlots
+from Archive.HeatExchangerOMECA import OMECAHeatExchanger
+from EngineComponents.Base.Injector import Injector
+from EngineComponents.Base.Nozzle import ConicalNozzle
+from EngineComponents.Base.ThrustChamber import ThrustChamberSection
 
 
 def test_heat_transfer(engine_kwargs: dict,

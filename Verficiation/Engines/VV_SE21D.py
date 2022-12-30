@@ -1,6 +1,68 @@
-import arguments as args
-from EngineCycles.OpenExpanderCycle.SE21D import SE21D_Exact_V3, SE21D_V3
+import math
+from dataclasses import dataclass
+
+from EngineArguments import arguments as args
 from math import log10, radians
+
+from EngineCycles.OpenExpanderCycle import OpenExpanderCycle_DoubleTurbine
+
+
+@dataclass
+class SE21D_V3(OpenExpanderCycle_DoubleTurbine):
+    """See 'Sippel et al. 2003 - Studies on Expander Bleed Cycle Engines for Launchers' for this rocket's configuration.
+        """
+
+    @property
+    def coolant_base_state(self):
+        cbs = super().coolant_base_state
+        cbs.temperature = 32.375
+        return cbs
+
+    @property
+    def turbine_mass_flow_initial_guess(self):
+        return self.base_mass_flow * .015
+
+    @property
+    def fuel_pump(self):
+        fuel_pump = super().fuel_pump
+        fuel_pump._temperature_change = 8.44
+        return fuel_pump
+
+    @property
+    def oxidizer_pump(self):
+        oxidizer_pump = super().oxidizer_pump
+        oxidizer_pump._temperature_change = 92.983 - 90
+        return oxidizer_pump
+
+    @property
+    def secondary_fuel_pump(self):
+        pump = super().secondary_fuel_pump
+        pump._temperature_change = 32.375 - 29.44
+        return pump
+
+
+@dataclass
+class SE21D_Exact_V3(SE21D_V3):
+    cooling_section_pressure_drop: float = 3.36e6
+
+    @property
+    def fuel_pump_expected_pressure(self):
+        return 8.749e6
+
+    @property
+    def oxidizer_pump_expected_pressure(self):
+        return 8.749e6
+
+    @property
+    def secondary_fuel_pump_expected_pressure(self):
+        return 12.109e6
+
+    @property
+    def throat_area(self):
+        return math.pi * .286 ** 2
+
+    def set_heat_transfer(self):
+        self.total_heat_transfer = 111.037e6
 
 
 se_21d_kwargs = args.base_arguments_o | {
@@ -21,17 +83,21 @@ se_21d_kwargs = args.base_arguments_o | {
     'oxidizer_initial_pressure': .5e6,
     'turbine_maximum_temperature': 506.452,
     'turbopump_specific_power': 13.5E3,
-    'turbine_efficiency': .45,
     'area_ratio_chamber_throat': (.985 / 2) ** 2 / .286 ** 2,
-    'turbine_outlet_pressure_forced': .3e6,
-    'exhaust_exit_pressure': .04e6,
     'ambient_pressure': 101325,
     'divergent_throat_half_angle': radians(15),
     'specific_impulse_correction_factor': .99,
-    'secondary_specific_impulse_correction_factor': .98,
-    # 'turbine_pressure_ratio': 27.7033333,
-    # 'exhaust_expansion_ratio': 1.655,
+    'oxidizer_turbine_efficiency': .45,
+    'fuel_turbine_efficiency': .45,
+    'shaft_mechanical_efficiency': .99,
+    'oxidizer_exhaust_exit_pressure_forced': .04e6,
+    'fuel_exhaust_exit_pressure_forced': .04e6,
+    'oxidizer_turbine_outlet_pressure_forced': .3e6,
+    'fuel_turbine_outlet_pressure_forced': .3e6,
+    'oxidizer_secondary_specific_impulse_correction_factor': .98,
+    'fuel_secondary_specific_impulse_correction_factor': .98,
 }
+
 se_21d_vac_kwargs = se_21d_kwargs | {'thrust': 2196.682e3, 'ambient_pressure': 0}
 
 
@@ -47,7 +113,8 @@ def get_SE21D_data(is_pressure_exact: bool, is_vacuum: bool = False, show_schema
     name = '2nd Estimate' if is_pressure_exact else 'Estimate'
     return (('Name', 'Unit', name, 'Expected'),
             ('Chamber Sp. Impulse', '[s]', engine.chamber_specific_impulse, 365.085),
-            ('Secondary Sp. Impulse', '[s]', engine.secondary_exhaust.specific_impulse, 154.51576),
+            ('Exhaust Sp. Impulse Fu.', '[s]', engine.oxidizer_secondary_exhaust.specific_impulse, 158.933),
+            ('Exhaust Sp. Impulse Ox.', '[s]', engine.fuel_secondary_exhaust.specific_impulse, 153.064),
             ('Overall Sp. Impulse', '[s]', engine.overall_specific_impulse, 360.985),
             (r'$\Delta P$ Oxid. Pump', '[MPa]', engine.oxidizer_pump.pressure_change * 1e-6, 8.749 - .5),
             (r'$\Delta P$ Fuel Pump', '[MPa]', engine.fuel_pump.pressure_change * 1e-6, 8.749 - .3),
@@ -64,7 +131,7 @@ def get_SE21D_data(is_pressure_exact: bool, is_vacuum: bool = False, show_schema
             ('Main Fuel Flow', '[kg/s]', engine.main_fuel_flow, 93.677),
             ('Main Oxid. Flow', '[kg/s]', engine.main_oxidizer_flow, 456.323),
             ('Chamber Diameter', '[m]', engine.combustion_chamber.radius * 2, 0.985),
-            ('Chamber Volume', '[m$^3$]', engine.combustion_chamber.volume_incl_convergent, 1.029),
+            ('Chamber Volume', '[m$^3$]', engine.combustion_chamber.volume_incl_nozzle_convergent, 1.029),
             ('Subs. Length', '[m]', engine.combustion_chamber.length + engine.nozzle.conv_length, 1.582),
             ('Throat Radius', '[m]', engine.nozzle.throat_radius, 0.286),
             ('Nozzle Length', '[m]', engine.nozzle.div_length, 2.548),
@@ -90,7 +157,7 @@ def write_SE21D_data_to_excel(**kwargs):
     data_exact = get_SE21D_data(is_pressure_exact=True, **kwargs)
 
     def diff(new_list: list, old_list: list):
-        return [r'Diff [\%]'] + [None if new is None else abs(new - old) / old * 100 for new, old in
+        return [r'Diff. [\%]'] + [None if new is None else abs(new - old) / old * 100 for new, old in
                                 zip(new_list[1:], old_list[1:])]
 
     var_col = [row[0] for row in data_estimated]  # Variable
@@ -122,7 +189,7 @@ def write_SE21D_data_to_excel(**kwargs):
         worksheet = writer.sheets['Sheet1']
         format1 = workbook.add_format({'num_format': '0.00'})
         format2 = workbook.add_format({'num_format': '0.000'})
-        for range in ['G2:G4', 'G8:G11', 'G13:G19', 'G21', 'E2:E30']:
+        for range in ['G2:G5', 'G9:G12', 'G14:G20', 'G22', 'E2:E30']:
             worksheet.conditional_format(range, {'type': '3_color_scale',
                                                  'min_type': 'num',
                                                  'mid_type': 'num',
@@ -142,3 +209,5 @@ def write_SE21D_data_to_excel(**kwargs):
 
 if __name__ == '__main__':
     write_SE21D_data_to_excel(show_schematic=True, is_vacuum=False)
+
+

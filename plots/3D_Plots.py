@@ -1,7 +1,7 @@
-from EngineCycles.ElectricPumpCycle.EPCycle import ElectricPumpCycle
-from EngineCycles.GasGeneratorCycle.GGCycle import GasGeneratorCycle
+from EngineCycles.ElectricPumpCycle import ElectricPumpCycle
+from EngineCycles.GasGeneratorCycle import GasGeneratorCycle
 from optimization import fast_optimize
-import arguments as args
+from EngineArguments import arguments as args
 import matplotlib.pyplot as plt
 import numpy as np
 from typing import Tuple

@@ -1,6 +1,6 @@
-from EngineCycles.ElectricPumpCycle.EPCycle import ElectricPumpCycle
+from EngineCycles.ElectricPumpCycle import ElectricPumpCycle
 from KwakFix.KwakFixCycles import KwakFixElectricPumpCycle
-import arguments as args
+from EngineArguments import arguments as args
 import matplotlib.pyplot as plt
 
 arguments = args.common_arguments_kwak | args.ep_arguments | {'is_frozen': False}

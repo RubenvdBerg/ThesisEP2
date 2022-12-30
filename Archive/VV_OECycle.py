@@ -1,5 +1,5 @@
-import arguments as args
-from EngineCycles.OpenExpanderCycle.OECycle import CoolantBleedCycle
+from EngineArguments import arguments as args
+from EngineCycles.CoolantBleedCycle import CoolantBleedCycle
 
 engine = CoolantBleedCycle(**args.le5a_kwargs_cnozzle, **args.open_arguments)
 # engine.thrust_chamber.show_mach()
