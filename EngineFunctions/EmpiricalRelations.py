@@ -92,8 +92,19 @@ def get_film_temp(wall_temp: float, adiabatic_wall_temp: float, static_temp: flo
 
 def get_chamber_throat_area_ratio_estimate(throat_area: float):
     # Humble 1995 p.222
-    throat_diameter_in_cm = 2 * sqrt(throat_area / pi) * 1e2
-    return 8.0 * throat_diameter_in_cm ** -.6 + 1.25
+    # throat_diameter_in_cm = 2 * r * 1e2
+    # return 8.0 * throat_diameter_in_cm ** -.6 + 1.25
+    return .469479 * throat_area**-.3 + 1.25
+
+
+def get_gas_generator_mmr_rp1(temperature_limit: float) -> float:
+    # Choi - 2009 "Development of 30-Ton  LOX/Kerosene Rocket Engine Combustion Devices(II) - Gas Generator" p.1044
+    if not 800 < temperature_limit < 1100:
+        warnings.warn(
+            f'Gas generator mixture ratio estimation is done with a gas generator combustion temperature '
+            f'[{temperature_limit:.1f}] outside the range of empirical relation [800-1100 K].'
+        )
+    return (temperature_limit - 409.3) / 1550.3
 
 
 def get_friction_factor(roughness_height: float, reynolds_number: float, diameter: float) -> float:

@@ -1,4 +1,4 @@
-from EngineComponents.Base.Nozzle import BellNozzle, ConicalNozzle
+from EngineComponents.Base.Nozzle import BellNozzle, Nozzle
 from EngineComponents.Base.ThrustChamber import ThrustChamber
 from EngineComponents.Base.CombustionChamber import CombustionChamber
 from EngineComponents.Base.Injector import Injector
@@ -17,22 +17,22 @@ inj = Injector(1, 1, 1, 1, 1, False)
 bnozzle = BellNozzle(throat_area=throat_area, expansion_ratio=expansion_ratio, chamber_radius=cc.radius,
                      conv_chamber_bend_ratio=1.0, conv_throat_bend_ratio=.8, conv_half_angle=radians(30),
                      div_throat_half_angle=radians(35), div_exit_half_angle=radians(5))
-cnozzle = ConicalNozzle(throat_area=throat_area, expansion_ratio=expansion_ratio, chamber_radius=cc.radius,
-                        conv_chamber_bend_ratio=1.0, conv_throat_bend_ratio=.8, conv_half_angle=radians(30),
-                        div_throat_half_angle=radians(15))
+cnozzle = Nozzle(throat_area=throat_area, expansion_ratio=expansion_ratio, chamber_radius=cc.radius,
+                 conv_chamber_bend_ratio=1.0, conv_throat_bend_ratio=.8, conv_half_angle=radians(30),
+                 div_throat_half_angle=radians(15))
 tc = ThrustChamber(nozzle=bnozzle, chamber=cc, injector=inj, heat_capacity_ratio=1.14)
 tc.show_contour()
 print(tc.length)
 tc2 = ThrustChamber(nozzle=cnozzle, chamber=cc, injector=inj, heat_capacity_ratio=1.14)
 tc2.show_contour()
 print(tc2.length)
-print(ConicalNozzle(throat_area=.1 ** 2 * pi,
-                    expansion_ratio=50,
-                    chamber_radius=.2,
-                    conv_half_angle=radians(20),
-                    div_throat_half_angle=radians(15),
-                    conv_chamber_bend_ratio=1,
-                    conv_throat_bend_ratio=.8).div_length)
+print(Nozzle(throat_area=.1 ** 2 * pi,
+             expansion_ratio=50,
+             chamber_radius=.2,
+             conv_half_angle=radians(20),
+             div_throat_half_angle=radians(15),
+             conv_chamber_bend_ratio=1,
+             conv_throat_bend_ratio=.8).div_length)
 print(BellNozzle(throat_area=.1 ** 2 * pi,
                  expansion_ratio=50,
                  chamber_radius=.2,

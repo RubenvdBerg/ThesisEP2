@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 
 @dataclass
-class ElectricComponent:
+class ElectricalComponent:
     electric_energy_efficiency: float  # -
     specific_power: float  # W/kg
     output_power: float  # W

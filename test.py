@@ -21,5 +21,5 @@ class C(B):
         return super(type(super()), self).mass
 
 if __name__ == '__main__':
-    c = C()
-    print(c.mass)
+    c = -1.
+    print(-c)

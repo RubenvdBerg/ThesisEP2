@@ -5,7 +5,8 @@ from numpy import linspace
 from scipy import integrate
 from math import pi
 from EngineComponents.Base.ThrustChamber import ThrustChamberSection
-from EngineComponents.Abstract.FlowState import FlowState, ManualFlowState, CoolantFlowState
+from EngineComponents.Abstract.FlowState import FlowState, ManualFlowState
+from EngineComponents.Abstract.DynamicFlowState import CoolantFlowState
 import EngineFunctions.EmpiricalRelations as empirical
 from CoolProp import CoolProp
 

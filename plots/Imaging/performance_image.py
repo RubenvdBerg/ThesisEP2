@@ -6,38 +6,12 @@ from EngineCycles.CoolantBleedCycle import CoolantBleedCycle
 from EngineComponents.Abstract.FlowState import FlowState, ManualFlowState
 from EngineComponents.Base.Pump import Pump
 from EngineComponents.Other.Battery import Battery
-from EngineComponents.Abstract.ElectricComponent import ElectricComponent
+from EngineComponents.Abstract.ElectricalComponent import ElectricalComponent
 from EngineComponents.Other.Turbine import Turbine
-from numpy import log10, isclose
+from numpy import isclose
 from typing import Optional
 from PIL import Image, ImageDraw, ImageFont
-
-
-def format_si(value: float, unit: str, digits: int = 5, force_prefix: Optional[dict] = None):
-    if force_prefix is None:
-        force_prefix = {'g/s': 'k', 'Pa': 'M', 'W': 'M'}
-
-    si_prefixes = ('Y', 'Z', 'E', 'P', 'T', 'G', 'M', 'k', '', 'd', 'c', 'm', '\u03BC', 'n', 'p', 'f', 'a', 'z', 'y')
-    si_index = 8
-    n_before_comma = log10(abs(value)) // 1 + 1
-    if force_prefix is not None and unit in force_prefix:
-        prefix = force_prefix[unit]
-        x = si_index - si_prefixes.index(prefix)
-    else:
-        x = round(n_before_comma / 3 - 1)
-        if (1 > x > -2):
-            x = 0
-        si_index -= x
-        prefix = si_prefixes[si_index]
-    value *= 10 ** (-3 * x)
-    decimals = int(digits - (n_before_comma - (3 * x)))
-    format = min(digits, decimals)
-    if digits == decimals:
-        format = digits - 1
-    val = f'{value:.{format}f}'
-    if len(val) > digits + 1:
-        val = f'{value:.{format - 1}f}'
-    return rf'{val} {prefix}{unit}'
+from EngineFunctions.BaseFunctions import format_si
 
 
 def make_schematic(engine: EngineCycle):
@@ -50,14 +24,22 @@ def make_schematic(engine: EngineCycle):
         OpenExpanderCycle_DoubleTurbine: (get_oe2_components_coordinates, 'OE2'),
         GasGeneratorCycle_DoubleTurbineSeries: (get_gg3_components_coordinates, 'GG3'),
     }
+    # Get the name and component and coordinate function of the Cycle of which input engine is a subclass
     for base_class, value in switcher.items():
         if issubclass(type(engine), base_class):
             get_comps_coords, name = value
+    # Get the component (values) and their respective coordinates on the final image
     comps, coords = get_comps_coords(engine)
+
     fontsize = 42
-    myfont = ImageFont.truetype(r'C:\Users\rvand\PycharmProjects\ThesisEP2\plots\Imaging\DejaVuSans.ttf', fontsize)
-    image_path = rf'C:\Users\rvand\PycharmProjects\ThesisEP2\plots\Imaging\Schematics\{name}_Cycle.png'
+    font_file = r'C:\Users\rvand\PycharmProjects\ThesisEP2\plots\Imaging\DejaVuSans.ttf'
+    myfont = ImageFont.truetype(font_file, fontsize)
+
+    image_path = rf'C:\Users\rvand\PycharmProjects\ThesisEP2\plots\Imaging\PerformanceSchematics\{name}_Cycle.png'
+
+    # Format the components to output (groups of) string values
     strings = tuple(format_values(comps))
+    # Write the string values on the image
     with Image.open(image_path) as img:
         drawer = ImageDraw.Draw(img)
         for coord, string_row in zip(coords, strings):
@@ -99,8 +81,8 @@ def get_base_comps_coords(engine: EngineCycle, x_y1: tuple, x_y2: tuple):
                         mass_flow=engine.chamber_mass_flow,
                         type='combusted'),
         (engine.chamber_thrust, engine.chamber_specific_impulse, engine.expansion_ratio),
-        engine.propellant_mix_name.split('/')[0],  # Oxidizer
-        engine.propellant_mix_name.split('/')[1],  # Fuel
+        engine.oxidizer_name.split('_')[0],
+        engine.fuel_name.split('_')[0],
         f"{ambient_string: >20}",
     ]
 
@@ -147,8 +129,8 @@ def get_ep_components_coordinates(engine: ElectricPumpCycle):
                         type='combusted'),
         (engine.chamber_thrust, engine.chamber_specific_impulse, engine.expansion_ratio),
         f"{ambient_string: >20}",
-        engine.propellant_mix_name.split('/')[0],  # Oxidizer
-        engine.propellant_mix_name.split('/')[1],  # Fuel
+        engine.oxidizer_name.split('_')[0],  # Oxidizer
+        engine.fuel_name.split('_')[0],  # Fuel
         engine.electric_motor,
         engine.inverter,
         format_si(engine.thrust, 'N'),
@@ -215,8 +197,8 @@ def get_gg_components_coordinates(engine: GasGeneratorCycle):
                                   mass_flow=engine.chamber_mass_flow,
                                   type='combusted'),
                   (engine.chamber_thrust, engine.chamber_specific_impulse, engine.expansion_ratio),
-                  engine.propellant_mix_name.split('/')[0],  # Oxidizer
-                  engine.propellant_mix_name.split('/')[1],  # Fuel
+                  engine.oxidizer_name.split('_')[0],  # Oxidizer
+                  engine.fuel_name.split('_')[0],  # Fuel
                   f"{ambient_string: >20}",
                   engine.gas_generator.outlet_flow_state,
                   (engine.secondary_exhaust.thrust, engine.secondary_exhaust.specific_impulse,
@@ -297,8 +279,8 @@ def get_gg2_components_coordinates(engine: GasGeneratorCycle_DoubleTurbine):
          engine.oxidizer_secondary_exhaust.expansion_ratio),
         engine.oxidizer_turbine.outlet_flow_state,
         engine.oxidizer_turbine,
-        engine.propellant_mix_name.split('/')[0],  # Oxidizer
-        engine.propellant_mix_name.split('/')[1],  # Fuel
+        engine.oxidizer_name.split('_')[0],  # Oxidizer
+        engine.fuel_name.split('_')[0],  # Fuel
         f"{ambient_string: >20}",
         format_si(engine.thrust, 'N'),
         format_si(engine.overall_specific_impulse, 's'),
@@ -377,8 +359,8 @@ def get_gg3_components_coordinates(engine: GasGeneratorCycle_DoubleTurbineSeries
          engine.oxidizer_secondary_exhaust.expansion_ratio),
         engine.oxidizer_turbine.outlet_flow_state,
         engine.oxidizer_turbine,
-        engine.propellant_mix_name.split('/')[0],  # Oxidizer
-        engine.propellant_mix_name.split('/')[1],  # Fuel
+        engine.oxidizer_name.split('_')[0],  # Oxidizer
+        engine.fuel_name.split('_')[0],  # Fuel
         f"{ambient_string: >20}",
         format_si(engine.thrust, 'N'),
         format_si(engine.overall_specific_impulse, 's'),
@@ -557,8 +539,8 @@ def get_oe2_components_coordinates(engine: OpenExpanderCycle_DoubleTurbine):
         engine.oxidizer_turbine.outlet_flow_state,
         # Other
         format_si(m_tu * 1e3, 'g/s', 5),
-        engine.propellant_mix_name.split('/')[0],  # Oxidizer
-        engine.propellant_mix_name.split('/')[1],  # Fuel
+        engine.oxidizer_name.split('_')[0],  # Oxidizer
+        engine.fuel_name.split('_')[0],  # Fuel
         f"{ambient_string: >20}",
         format_si(engine.thrust, 'N'),
         format_si(engine.overall_specific_impulse, 's'),
@@ -634,7 +616,7 @@ def format_values(components: tuple):
             isp = format_si(component[1], 's')
             eps = format_si(component[2], '')
             yield thrust, isp, eps
-        elif isinstance(component, ElectricComponent):
+        elif isinstance(component, ElectricalComponent):
             digits = 5 if isinstance(component, Battery) else 5
             power, efficiency = format_power_comp(component.output_power,
                                                   component.electric_energy_efficiency,
@@ -689,11 +671,11 @@ if __name__ == '__main__':
     }
 
     cycle_list = (
-        # (ElectricPumpCycle, args.ep_arguments),
-        # (GasGeneratorCycle, args.gg_arguments),
-        # (CoolantBleedCycle, args.cb_arguments),
-        # (OpenExpanderCycle, args.oe_arguments),
-        (OpenExpanderCycle_DoubleTurbine, se_21d_kwargs),
+        (ElectricPumpCycle, args.ep_arguments),
+        (GasGeneratorCycle, args.gg_arguments),
+        (CoolantBleedCycle, args.cb_arguments),
+        (OpenExpanderCycle, args.oe_arguments),
+        # (OpenExpanderCycle_DoubleTurbine, se_21d_kwargs),
         # (GasGeneratorCycle_DoubleTurbine, j2_total_kwargs),
     )
 

@@ -6,8 +6,10 @@ import numpy
 from scipy import constants as constants
 
 from EngineComponents.Base.ThrustChamber import ThrustChamber
-from EngineFunctions.AssumeValueFunctions import get_prandtl_number_estimate, get_turbulent_recovery_factor
-from EngineFunctions.EmpiricalRelations import get_netto_average_wall_radiative_heat_flux, get_hot_gas_convective_heat_transfer_coefficient
+from EngineComponents.Abstract.FlowState import FlowState
+from EngineFunctions.EmpiricalRelations import get_netto_average_wall_radiative_heat_flux, \
+    get_hot_gas_convective_heat_transfer_coefficient
+
 
 @dataclass
 class RadiativeHeatTransfer:
@@ -39,22 +41,15 @@ class RadiativeHeatTransfer:
 @dataclass
 class ConvectiveHeatTransfer:
     thrust_chamber: ThrustChamber
-    # Properties of hot gas in combustion chamber
-    combustion_temperature: float  # [K}
-    combustion_chamber_pressure: float  # [Pa]
-    mass_flow: float  # [kg/s]
-    dynamic_viscosity: float  # [Pa*s]
-    specific_heat_capacity: float  # [J/(kg*K)]
+    combustion_chamber_flow_state: FlowState
     hot_gas_emissivity: float  # [-]
-    heat_capacity_ratio: float  # [-]
     maximum_wall_temperature: float  # [K]
+    recovery_factor: float  # [-]
     post_injection_build_up_ratio: float = 0.25  # [-]
     # post_injection_build_up_ratio: Heat transfer to combustion chamber wall is assumed zero at injector face and
     # builds up to a constant heat transfer based on combustion temperature as reference temperature. At which point
     # this constant heat transfer is reached as percentage of total chamber length, is determined by
     # post_injection_build_up_ratio. Default value based on rough estimate from Perakis2021
-    prandtl_number: Optional[float] = None  # [-]
-    recovery_factor: Optional[float] = None  # [-]
     verbose: bool = True
 
     heat_transfer_func: Callable = field(init=False, repr=False)
@@ -62,14 +57,15 @@ class ConvectiveHeatTransfer:
     _interpolation_num: float = 120
 
     def __post_init__(self):
-        # Setting recovery factor with turbulent estimate if not provided
-        # ORDER OF THESE LINES IS IMPORTANT
-        if self.prandtl_number is None:
-            self.prandtl_number = get_prandtl_number_estimate(self.heat_capacity_ratio)
-        if self.recovery_factor is None:
-            self.recovery_factor = get_turbulent_recovery_factor(self.prandtl_number)
-
         self.init_heat_transfer()
+
+    @property
+    def combustion_temperature(self):
+        return self.combustion_chamber_flow_state.temperature
+
+    @property
+    def heat_capacity_ratio(self):
+        return self.combustion_chamber_flow_state.heat_capacity_ratio
 
     @property
     def min_distance_from_throat(self):
@@ -82,11 +78,11 @@ class ConvectiveHeatTransfer:
     def get_convective_heat_transfer_coefficient(self, distance_from_throat: float):
         return get_hot_gas_convective_heat_transfer_coefficient(
             mode="ModifiedBartz",
-            mass_flow=self.mass_flow,
+            mass_flow=self.combustion_chamber_flow_state.mass_flow,
             local_diameter=2 * self.thrust_chamber.get_radius(distance_from_throat),
-            dynamic_viscosity=self.dynamic_viscosity,
-            specific_heat_capacity=self.specific_heat_capacity,
-            prandtl_number=self.prandtl_number,
+            dynamic_viscosity=self.combustion_chamber_flow_state.dynamic_viscosity,
+            specific_heat_capacity=self.combustion_chamber_flow_state.specific_heat_capacity,
+            prandtl_number=self.combustion_chamber_flow_state.prandtl_number,
             film_temp=self.get_film_temperature(distance_from_throat),
             stagnation_temp=self.combustion_temperature,
         )

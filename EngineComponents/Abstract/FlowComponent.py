@@ -1,30 +1,27 @@
 from dataclasses import dataclass, replace
-from EngineComponents.Abstract.FlowState import FlowState, DefaultFlowState
+from EngineComponents.Abstract.FlowState import FlowState
 
 
 @dataclass
-class BaseFlowComponent:
+class FlowComponent:
     # These parameters are back-ups in case child class does not define them
     #  ,so FlowComponents can always change the pressure, temperature or mass flow
+    inlet_flow_state: FlowState
     _temperature_change: float = 0
     _pressure_change: float = 0
     _mass_flow_change: float = 0
 
     @property
-    def _inlet_flow_state(self) -> FlowState:
-        raise NotImplementedError
-
-    @property
     def inlet_pressure(self):
-        return self._inlet_flow_state.pressure
+        return self.inlet_flow_state.pressure
 
     @property
     def inlet_temperature(self):
-        return self._inlet_flow_state.temperature
+        return self.inlet_flow_state.temperature
 
     @property
     def inlet_mass_flow(self):
-        return self._inlet_flow_state.mass_flow
+        return self.inlet_flow_state.mass_flow
 
     @property
     def temperature_change(self):
@@ -52,7 +49,7 @@ class BaseFlowComponent:
 
     @property
     def outlet_flow_state(self):
-        return replace(self._inlet_flow_state,
+        return replace(self.inlet_flow_state,
                        pressure=self.outlet_pressure,
                        temperature=self.outlet_temperature,
                        mass_flow=self.outlet_mass_flow,
@@ -67,10 +64,3 @@ class BaseFlowComponent:
                              'ambiguous, please use inlet_mass_flow or outlet_mass_flow instead')
 
 
-@dataclass
-class FlowComponent(BaseFlowComponent):
-    inlet_flow_state: FlowState = DefaultFlowState()
-
-    @property
-    def _inlet_flow_state(self):
-        return self.inlet_flow_state

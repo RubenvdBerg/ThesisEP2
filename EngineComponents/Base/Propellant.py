@@ -7,7 +7,6 @@ class Propellant:
     initial_flow_state: FlowState
     burn_time: float  # [s]
     margin_factor: float  # [-]
-    propellant_density: Optional[float]  # [kg/m3]
 
     @property
     def name(self):
@@ -19,10 +18,7 @@ class Propellant:
 
     @property
     def density(self):
-        if self.propellant_density is None:
-            return self.initial_flow_state.density
-        else:
-            return self.propellant_density
+        return self.initial_flow_state.density
 
     @property
     def mass(self):

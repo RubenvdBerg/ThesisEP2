@@ -1,15 +1,21 @@
 import EngineArguments.arguments as args
+from EngineComponents.Abstract.Material import Inconel600
 
 gg_base_kwargs = args.base_arguments_o | {
     'ambient_pressure': 0,
-    'fuel_pump_efficiency': .714,  # Estimated from average!!
+    'fuel_pump_efficiency': .714,  # Estimated from average and overriden if known
     'oxidizer_pump_efficiency': .764,  # Estimated from average!!
     'turbopump_specific_power': 13.5E3,
     'gg_stay_time': args.gg_arguments['gg_stay_time'],
     'gg_structural_factor': args.gg_arguments['gg_structural_factor'],
     'gg_material': args.gg_arguments['gg_material'],
+    'exhaust_material': Inconel600,
+    'exhaust_safety_factor': 1.5,
 }
 exhaust_expansion_ratio = 4  # Arbitrarily Determined
+
+# All values below taken from:
+# McHugh 1995 - "Numerical Analysis of Existing Liquid Rocket Engines as a Design Process Starter"
 
 # Double Turbine
 hm60_kwargs = gg_base_kwargs | {
@@ -34,6 +40,7 @@ hm60_kwargs = gg_base_kwargs | {
     'burn_time': 605,
     'fuel_exhaust_expansion_ratio': exhaust_expansion_ratio,
     'oxidizer_exhaust_expansion_ratio': exhaust_expansion_ratio,
+
 }
 
 j2_kwargs = gg_base_kwargs | {

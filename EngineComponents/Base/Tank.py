@@ -15,15 +15,10 @@ class Tank(FlowComponent, PressureComponent):
     ullage_factor: float = 0  # [-]
     propellant_volume: float = 0  # [m3]
     pressurant_tank_volume: Optional[float] = None  # [m3]
-    propellant_density: Optional[float] = None
 
     @property
-    def _propellant_density(self):
-        if self.propellant_density is None:
-            return self.inlet_flow_state.density
-        else:
-            warnings.warn(f'Manual {self.inlet_flow_state.type} density provided:[{self.propellant_density:.2f}], estimated density:[{self.inlet_flow_state.density:.2f}]')
-            return self.propellant_density
+    def propellant_density(self):
+        return self.inlet_flow_state.density
 
     @property
     def initial_pressure(self):
@@ -58,15 +53,15 @@ class Tank(FlowComponent, PressureComponent):
 
     @property
     def total_lower_pressure(self):
-        return self.initial_pressure + self._propellant_density * self.max_acceleration * self.initial_head
+        return self.initial_pressure + self.propellant_density * self.max_acceleration * self.initial_head
 
     @property
     def total_upper_pressure(self):
-        return self.initial_pressure + self._propellant_density * self.max_acceleration * (self.initial_head -
-                                                                                                self.radius)
+        return self.initial_pressure + self.propellant_density * self.max_acceleration * (self.initial_head -
+                                                                                          self.radius)
 
     @property
-    def maximum_expected_operating_pressure(self):
+    def max_pressure(self):
         return (self.total_upper_pressure + self.total_lower_pressure) / 2
 
     @property

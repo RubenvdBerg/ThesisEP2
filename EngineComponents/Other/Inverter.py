@@ -1,8 +1,7 @@
 from dataclasses import dataclass
-
-from EngineComponents.Abstract.ElectricComponent import ElectricComponent
+from EngineComponents.Abstract.ElectricalComponent import ElectricalComponent
 
 
 @dataclass
-class Inverter(ElectricComponent):
+class Inverter(ElectricalComponent):
     pass

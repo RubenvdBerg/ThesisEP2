@@ -1,9 +1,11 @@
+import numpy as np
 from rocketcea.cea_obj import CEA_Obj
 from rocketcea.cea_obj_w_units import CEA_Obj as CEA_Obj_w_units
 import re
 from typing import Optional
 from functools import wraps
 from numpy import logspace, interp
+from EngineFunctions.EmpiricalRelations import get_gas_generator_mmr_rp1
 
 
 def get_match_from_cea_output(variable_name: str, full_output: str) -> list:
@@ -20,10 +22,9 @@ def get_values_from_cea_output(variable_name: str, column: int, full_output: str
     value = float(values[column])
     if exponents:
         exponent = float(exponents[column])
-        return value*10**exponent
+        return value * 10 ** exponent
     else:
         return value
-
 
 
 def cea_u_in_si_units(func):
@@ -82,34 +83,25 @@ def get_cea_dict_gg(**kwargs):
                         **kwargs)
 
 
-def get_gas_generator_mmr(fuelName: str, oxName: str, temp_limit: float, **kwargs):
+def get_gas_generator_mmr(temperature_limit: float, fuelName: str, oxName: str, Pc: float):
     if 'LH2' in fuelName:
-        log_range = (-.8, .4)
-    elif 'RP1' in fuelName:
-        log_range = (-1.60, .1)
+        range_tuple = (.01, 6.)
+    elif 'RP' in fuelName:
+        range_tuple = (.01, 3.)
     elif 'CH4' in fuelName:
-        log_range = (-1.4, .15)
-    mmr_list = list(float(f'{x:.2f}') for x in logspace(*log_range, 25))
+        range_tuple = (.01, 4.)
+    cea_obj = CEA_Obj(fuelName=fuelName, oxName=oxName)
 
-    # Increase the start of MMR range until CEA doesn't crash, then return temp range and find MMR from interpolation
-    i = 0
-    while True:
-        cea = CEA_Obj(fuelName=fuelName, oxName=oxName)
-        kwargs['Pc'] *= 1e-5
-        full_output = cea.get_full_cea_output(MR=mmr_list, **kwargs, short_output=1, pc_units='bar', output='siunits')
-        match = get_match_from_cea_output(variable_name='T, K', full_output=full_output)
-        temps = [float(val.split()[0]) for val in match]
-        if temps:
-            break
-        i += 1
-        mmr_list.pop(0)
-        if i > 10:
-            raise ValueError(
-                'Could not solve gas generator mass mixture ratio (MMR) with CEA for given turbine temperature limit. Give the gas generator MMR manually or change the turbine temp limit.')
-    # Ugly bug fix, sometimes full output contains a duplicate at the start
-    if len(temps) > len(mmr_list):
-        temps = temps[-len(mmr_list):]
-    return interp(temp_limit, temps, mmr_list)
+    def get_t_comb(MR: float, Pc: float):
+        Pc /= 6894.76  # Pa to PSIA
+        t_comb_rankine = cea_obj.get_Tcomb(Pc=Pc, MR=MR)
+        return t_comb_rankine / 1.8  # Rankine to Kelvin
+
+    mixture_ratios = np.linspace(*range_tuple, num=100)
+    combustion_temperatures = [get_t_comb(MR=mr, Pc=Pc) for mr in mixture_ratios]
+    cea_mmr = np.interp(temperature_limit, combustion_temperatures, mixture_ratios)
+    return cea_mmr
+
 
 
 def get_cea_chamber_dict(**kwargs):
@@ -119,10 +111,3 @@ def get_cea_chamber_dict(**kwargs):
     return get_cea_dict(regex_dict=regex_dict, **kwargs, eps=None)
 
 
-if __name__ == '__main__':
-    kwargs1 = {'Pc': 34.5, 'eps': None, 'fuelName': 'CH4', 'oxName': 'LO2_NASA'}
-    kwargs2 = kwargs1 | {'MR': (.32, .33, .34), 'PcOvPe': 100, }
-    # print(get_cea_dict(fuelName='LH2_NASA', oxName='LO2_NASA', regex_dict={'T_C': ('T, K', 0)}, frozen=1, frozenAtThroat=1, **kwargs1))
-    get_gas_generator_mmr(**kwargs1, frozen=1, frozenAtThroat=1, temp_limit=900)
-
-    # get_cea_chamber_dict(fuelName='LH2_NASA', oxName='LO2_NASA', Pc=55e5, MR=5.6)

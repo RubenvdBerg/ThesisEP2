@@ -8,9 +8,14 @@ from KwakFix.KwakFixCycles import KwakFixElectricPumpCycle, KwakFixGasGeneratorC
 from typing import Optional, Tuple
 from EngineArguments import arguments as args
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 from time import strftime
 import json
+import scienceplots
 
+
+# plt.style.use('science')
+# mpl.use('Qt5Agg')
 
 def get_engines(cycle_name: str, thrust: float = 100e3, burn_time: float = 300, p_cc_range: tuple = tuple(range(3, 11)),
                 is_frozen: bool = False, verbose: bool = False, kwak: bool = False, _p_cc_factor: float = 1e6,
@@ -31,20 +36,16 @@ def get_engines(cycle_name: str, thrust: float = 100e3, burn_time: float = 300, 
         base_args = args.base_arguments
     cycle = cycle_selection[cycle_name]
     extra_args = extra_args_selection[cycle_name]
-    total_args = base_args | extra_args | kwargs
-
-
+    total_args = base_args | extra_args | kwargs | {'thrust': thrust,
+                                                    'burn_time': burn_time,
+                                                    'is_frozen': is_frozen,
+                                                    'verbose': verbose, }
 
     def yield_engines():
         for p_cc in p_cc_range:
             try:
                 # noinspection PyArgumentList
-                yield cycle(combustion_chamber_pressure=p_cc * _p_cc_factor,
-                            thrust=thrust,
-                            burn_time=burn_time,
-                            is_frozen=is_frozen,
-                            verbose=verbose,
-                            **total_args)
+                yield cycle(combustion_chamber_pressure=p_cc * _p_cc_factor, **total_args)
             except ValueError:
                 # raise
                 return None
@@ -84,7 +85,9 @@ def ratio_plot(attribute_name: str, ylabel: str, variable_title: str, pngname: s
                ylim: Optional[Tuple[float, float]] = None,
                sub_legend_kwargs: Optional[dict] = None,
                savefig: bool = False,
-               dir_name: str = '', ):
+               dir_name: str = '',
+               unit: str = '-',
+               ):
     linestyles = ('-', '--', '-.', ':')
     colors = ('tab:red', 'tab:green', 'tab:orange', 'tab:blue', 'tab:purple')
 
@@ -137,6 +140,7 @@ def value_plot(attribute_name: str, ylabel: str, variable_title: str, pngname: s
                sub_legend_kwargs: Optional[dict] = None,
                savefig: bool = False,
                dir_name: str = '',
+               unit: str = '-',
                line_val: Optional[float] = None):
     linestyles = ('-', '--', '-.', ':')
     colors = ('tab:red', 'tab:green', 'tab:orange', 'tab:blue', 'tab:purple')
@@ -145,7 +149,6 @@ def value_plot(attribute_name: str, ylabel: str, variable_title: str, pngname: s
     names = tuple(data)
     burn_times = tuple(data['EP'])
     thrusts = tuple(data['EP'][next(iter(burn_times))])
-
     for burn_time in burn_times:
         fig, ax = plt.subplots()
         p = []
@@ -159,7 +162,7 @@ def value_plot(attribute_name: str, ylabel: str, variable_title: str, pngname: s
                 p.append(p_leg)
         if ylim:
             ax.set_ylim(*ylim)
-        full_ylabel = ylabel + ' [-]'
+        full_ylabel = ylabel + f' [{unit}]'
         ax.set_ylabel(full_ylabel)
         ax.set_xlabel('$p_{cc}$ [MPa]')
         mode = 'Frozen' if is_frozen else 'Shifting Equilibrium'
@@ -200,13 +203,21 @@ def vertical_header_legend(headervalues, subvalues, linelist,
 def plot_dv_ratio(default_ylim=False, is_ratio: bool = True, **kwargs):
     if default_ylim:
         kwargs['ylim'] = (.72, .96)
-    plotter = ratio_plot if is_ratio else value_plot
+    if is_ratio:
+        plotter = ratio_plot
+        ylabel = r'$I_{sp}*ln(MR^{-1})$'
+        unit = 's'
+    else:
+        plotter =value_plot
+        ylabel = r'$\Delta V$'
+        unit = 'm/s'
     plotter(attribute_name='ideal_delta_v',
-            ylabel=r'$I_{sp}*ln(MR^{-1})$',
+            ylabel=ylabel,
             variable_title=r'Ideal $\Delta$V',
             pngname='DeltaV_Comparison',
-            sub_legend_kwargs={'fontsize': 7}, **kwargs)
-
+            sub_legend_kwargs={'fontsize': 7},
+            unit=unit,
+            **kwargs)
 
 def plot_mr_ratio(default_ylim=False, is_ratio: bool = True, **kwargs):
     if default_ylim:
@@ -216,18 +227,21 @@ def plot_mr_ratio(default_ylim=False, is_ratio: bool = True, **kwargs):
             ylabel=r'$MR$',
             variable_title='Mass Ratio',
             pngname='Mass_Ratio_Comparison',
-            sub_legend_kwargs={'loc': 2, 'fontsize': 6}, **kwargs)
+            sub_legend_kwargs={'loc': 2, 'fontsize': 6},
+            **kwargs)
 
 
 def plot_m0_ratio(default_ylim=False, is_ratio: bool = True, **kwargs):
     if default_ylim:
         kwargs['ylim'] = (.98, 1.010)
     plotter = ratio_plot if is_ratio else value_plot
-    plotter(attribute_name='mass',
+    plotter(attribute_name='initial_mass',
             ylabel=r'm⁰',
             variable_title='Initial Mass',
             pngname='Initial_Mass_Comparison',
-            line_val=1, **kwargs)
+            line_val=1,
+            unit='kg',
+            **kwargs)
 
 
 def plot_isp_ratio(p_cc_range: tuple, is_frozen: bool, kwak: bool,
@@ -282,7 +296,7 @@ def plot_isp_ratio(p_cc_range: tuple, is_frozen: bool, kwak: bool,
     ax2.set_ylabel('$I_{sp}$ Ratio (EP/XX)')
 
     if default_ylim:
-        ax.set_ylim(340, 380)
+        # ax.set_ylim(340, 380)
         ax2.set_ylim(1.00, 1.08)
     elif ylim:
         ax.set_ylim(*ylim[0])
@@ -326,11 +340,12 @@ def plot_all_ratio_plots_data(short: bool = False,
                               kwak: bool = False,
                               ylims: Optional[dict] = None,
                               isp_single_figure: bool = True,
+                              is_ratio: bool = True,
                               **kwargs):
     if short:
         thrusts = [max(thrusts)]
 
-    data_dict = get_data_dict(attributes=('ideal_delta_v', 'mass_ratio', 'mass', 'overall_specific_impulse'),
+    data_dict = get_data_dict(attributes=('ideal_delta_v', 'mass_ratio', 'initial_mass', 'overall_specific_impulse'),
                               thrusts=thrusts, burn_times=burn_times, names=names, kwak=kwak, is_frozen=is_frozen,
                               **kwargs)
     data_dict['info'] = kwargs | {'burn_times': burn_times, 'thrusts': thrusts, 'names': names,
@@ -381,14 +396,28 @@ def plot_all_ratio_from_data(data_dict: dict, savefig: bool = False, ylims: Opti
 
 if __name__ == '__main__':
     kwargs = {'p_cc_range': tuple(range(3, 11)),
-              'is_frozen': True,
+              'is_frozen': False,
               'verbose': True,
               'kwak': False,
               'exit_pressure_forced': None,
               'expansion_ratio': 30,
               'expansion_ratio_end_cooling': 20,
-              'thrusts': (100e3,)
+              'thrusts': (100e3,),
+              '_ignore_cooling': True,
+              'specific_impulse_quality_factor': 1,
               }
+
+
+    plot_all_ratio_plots_data(default_ylim=True, savedata=False, savefig=False, names=('EP', 'GG'),
+                              fuel_name='RP1_NASA', isp_single_figure=True, **kwargs)
+    # def open_data_dict(filepath: str) -> dict:
+    #     with open(filepath, 'r') as f:
+    #         return json.load(f)
+    #
+    #
+    # data_dict = open_data_dict(
+    #     r'C:\Users\rvand\PycharmProjects\ThesisEP2\plots\KwakPlots\all_plots_data\20230108-155954_Normal')
+    # plot_all_ratio_from_data(data_dict, savefig=False, isp_single_figure=False, is_ratio=False)
 
     # engine_data = get_engines('oe', **kwargs)
     # # print(engine_data[0].cooling_channel_section.outlet_temperature)
@@ -407,8 +436,33 @@ if __name__ == '__main__':
     # ylims = {'dv': (0.7, 1.0), 'mr': (1.2, 3.2), 'm0': (0.99, 1.03), 'isp': None}
     # plot_all_ratio_from_data(data_dict, savefig=True, is_ratio=True, default_ylims=True)
 
+    # with open(r'C:\Users\rvand\PycharmProjects\ThesisEP2\plots\KwakPlots\all_plots_data\20221214-151458_Normal', 'r') as f:
+    #     data_dict =json.load(f)
+    # plot_all_ratio_from_data(data_dict=data_dict,savefig=False, isp_single_figure=False, is_ratio=False)
 
-    # plot_all_ratio_plots_data(default_ylim=False, savedata=True, savefig=False, names=('EP', 'GG', 'OE'), fuel_name='LH2_NASA', isp_single_figure=False,**kwargs)
-    with open(r'C:\Users\rvand\PycharmProjects\ThesisEP2\plots\KwakPlots\all_plots_data\20221214-151458_Normal', 'r') as f:
-        data_dict =json.load(f)
-    plot_all_ratio_from_data(data_dict=data_dict,savefig=False, isp_single_figure=False, is_ratio=False)
+    # from plots.Imaging.mass_image import make_mass_schematic
+    #
+    # design_kwargs = {
+    #     'is_frozen': True,
+    #     'verbose': True,
+    #     'exit_pressure_forced': None,
+    #     'expansion_ratio': 30,
+    #     'expansion_ratio_end_cooling': 20,
+    #     'thrust': 100e3,
+    #     'combustion_chamber_pressure': 3e6,
+    #     'burn_time': 1200,
+    # }
+    # total_args = args.base_arguments | design_kwargs
+    #
+    # engine_dict = {
+    #     ElectricPumpCycle: args.ep_arguments,
+    #     GasGeneratorCycle: args.gg_arguments,
+    #     # OpenExpanderCycle: args.oe_arguments,
+    # }
+    # def make_engines():
+    #     for EngineClass, class_args in engine_dict.items():
+    #         engine = EngineClass(**total_args, **class_args)
+    #         make_mass_schematic(engine)
+    #         yield engine
+    # a = tuple(make_engines())
+    # print()

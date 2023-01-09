@@ -1,4 +1,4 @@
-from EngineComponents.Base.Nozzle import BellNozzle, ConicalNozzle
+from EngineComponents.Base.Nozzle import BellNozzle, Nozzle
 from EngineComponents.Base.CombustionChamber import CombustionChamber
 from EngineComponents.Base.ThrustChamber import ThrustChamber
 from math import radians
@@ -15,9 +15,9 @@ area_ratio_chamber_throat = 1.6
 bnozzle = BellNozzle(throat_area=throat_area, expansion_ratio=expansion_ratio, area_ratio_chamber_throat=area_ratio_chamber_throat,
                      conv_chamber_bend_ratio=0, conv_throat_bend_ratio=1.5, conv_half_angle=radians(20),
                      div_throat_half_angle=radians(27.4), div_exit_half_angle=radians(9.8))
-cnozzle = ConicalNozzle(throat_area=throat_area, expansion_ratio=expansion_ratio, area_ratio_chamber_throat=area_ratio_chamber_throat,
-                        conv_chamber_bend_ratio=0, conv_throat_bend_ratio=1.5, conv_half_angle=radians(20),
-                        div_throat_half_angle=radians(15))
+cnozzle = Nozzle(throat_area=throat_area, expansion_ratio=expansion_ratio, area_ratio_chamber_throat=area_ratio_chamber_throat,
+                 conv_chamber_bend_ratio=0, conv_throat_bend_ratio=1.5, conv_half_angle=radians(20),
+                 div_throat_half_angle=radians(15))
 cc = CombustionChamber(1, 1, 1, throat_area=throat_area,
                        characteristic_length=45*inch_to_meter,
                        combustion_chamber_pressure=1E6,

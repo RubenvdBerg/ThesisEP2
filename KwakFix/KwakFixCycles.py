@@ -3,36 +3,94 @@ from EngineCycles.GasGeneratorCycle import GasGeneratorCycle
 from EngineCycles.ElectricPumpCycle import ElectricPumpCycle
 from dataclasses import dataclass
 from scipy import constants
-from KwakFix.KwakFixComponents import KwakBattery
+from KwakFix.KwakFixComponents import KwakBattery, KwakPump, KwakTank, KwakPropellant
+from EngineComponents.Abstract.FlowState import ManualFlowState
 
 
 @dataclass
 class KwakEngineCycle(EngineCycle):
+    pressurant_heat_capacity_ratio: float = 1.667,
+    pressurant_molar_mass: float = 0.00399733779,
+    manual_oxidizer_density: float = 0
+    manual_fuel_density: float = 0
 
-    def set_pump_outlet_pressures(self):
-        Merger._warn_pressure = False
-        Merger._warn_pressure = True
+    def calc_pump_outlet_pressures(self):
+        pass
 
     @property
-    def oxidizer_pump_outlet_pressure(self):
-        return self.combustion_chamber_pressure * self._oxidizer_pump_pressure_factor_first_guess
+    def pressurant_initial_state(self):
+        super_state = super().pressurant_initial_state
+        return ManualFlowState(propellant_name=super_state.propellant_name,
+                               temperature=super_state.temperature,
+                               pressure=super_state.pressure,
+                               mass_flow=super_state.mass_flow,
+                               type=super_state.type,
+                               _molar_mass=self.pressurant_molar_mass,
+                               _heat_capacity_ratio=self.pressurant_heat_capacity_ratio, )
 
     @property
-    def fuel_pump_outlet_pressure(self):
-        return self.combustion_chamber_pressure * self._fuel_pump_pressure_factor_first_guess
+    def oxidizer(self):
+        return KwakPropellant(initial_flow_state=self.oxidizer_initial_flow_state,
+                              burn_time=self.burn_time,
+                              margin_factor=self.propellant_margin_factor,
+                              manual_propellant_density=self.manual_oxidizer_density)
+
+    @property
+    def fuel(self):
+        return KwakPropellant(initial_flow_state=self.fuel_initial_flow_state,
+                              burn_time=self.burn_time,
+                              margin_factor=self.propellant_margin_factor,
+                              manual_propellant_density=self.manual_fuel_density)
+
+    @property
+    def oxidizer_tank(self):
+        return KwakTank(inlet_flow_state=self.oxidizer_initial_flow_state,
+                        propellant_volume=self.oxidizer.volume,
+                        max_acceleration=self.max_acceleration,
+                        ullage_factor=self.ullage_volume_factor,
+                        pressurant_tank_volume=self.pressurant_tank.volume,
+                        structure_material=self.oxidizer_tank_material,
+                        safety_factor=self.tanks_structural_factor,
+                        manual_propellant_density=self.manual_oxidizer_density, )
+
+    @property
+    def fuel_tank(self):
+        return KwakTank(inlet_flow_state=self.fuel_initial_flow_state,
+                        propellant_volume=self.fuel.volume,
+                        max_acceleration=self.max_acceleration,
+                        ullage_factor=self.ullage_volume_factor,
+                        pressurant_tank_volume=None,
+                        structure_material=self.fuel_tank_material,
+                        safety_factor=self.tanks_structural_factor,
+                        manual_propellant_density=self.manual_fuel_density, )
+
+    @property
+    def oxidizer_pump(self):
+        return KwakPump(inlet_flow_state=self.oxidizer_tank.outlet_flow_state,
+                        expected_outlet_pressure=self.oxidizer_pump_outlet_pressure,
+                        efficiency=self.oxidizer_pump_efficiency,
+                        specific_power=self.oxidizer_pump_specific_power,
+                        manual_propellant_density=self.manual_oxidizer_density, )
+
+    @property
+    def fuel_pump(self):
+        return KwakPump(inlet_flow_state=self.fuel_tank.outlet_flow_state,
+                        expected_outlet_pressure=self.fuel_pump_outlet_pressure,
+                        efficiency=self.fuel_pump_efficiency,
+                        specific_power=self.fuel_pump_specific_power,
+                        manual_propellant_density=self.manual_fuel_density, )
 
 
 @dataclass
-class KwakFixGasGeneratorCycle(GasGeneratorCycle, EngineCycle):
+class KwakFixGasGeneratorCycle(GasGeneratorCycle, KwakEngineCycle):
     _iteration_done: bool = False
 
     def set_initial_values(self):
         super().set_initial_values()
-        if self.gg_gas_molar_mass:
-            r = constants.gas_constant / self.gg_gas_molar_mass
-            self.gg_gas_density = self.gg_pressure / (r * self.turbine_maximum_temperature)
+        r = self.gg_base_flow_state.specific_gas_constant
+        self.gg_base_flow_state._density = self.gg_pressure / (r * self.turbine_maximum_temperature)
 
-    def iterate_mass_flow(self):
+    def iterate_flow(self):
         m_tu = self.turbine.mass_flow_required
         m_gg_o = m_tu * self.gg_mass_mixture_ratio / (1 + self.gg_mass_mixture_ratio)
         m_gg_f = m_tu * 1 / (1 + self.gg_mass_mixture_ratio)
@@ -40,15 +98,10 @@ class KwakFixGasGeneratorCycle(GasGeneratorCycle, EngineCycle):
         m_tu = self.turbine.mass_flow_required
         m_gg_o = m_tu * self.gg_mass_mixture_ratio / (1 + self.gg_mass_mixture_ratio)
         m_gg_f = m_tu * 1 / (1 + self.gg_mass_mixture_ratio)
-        # self._iterative_turbine_mass_flow = m_gg_f + m_gg_o
-        # m_tu = self.turbine.mass_flow_required
-        # m_gg_o = m_tu * self.gg_mass_mixture_ratio / (1 + self.gg_mass_mixture_ratio)
-        # m_gg_f = m_tu * 1 / (1 + self.gg_mass_mixture_ratio)
         self.mo = self.main_oxidizer_flow - m_gg_o
         self.mf = self.main_fuel_flow - m_gg_f
         self._iterative_turbine_mass_flow = m_tu
         self._iteration_done = True
-
 
     @property
     def turbine_mass_flow_initial_guess(self):
@@ -86,7 +139,7 @@ class KwakFixGasGeneratorCycle(GasGeneratorCycle, EngineCycle):
 
 
 @dataclass
-class KwakFixElectricPumpCycle(ElectricPumpCycle, EngineCycle):
+class KwakFixElectricPumpCycle(ElectricPumpCycle, KwakEngineCycle):
 
     @property
     def battery(self):
@@ -97,3 +150,11 @@ class KwakFixElectricPumpCycle(ElectricPumpCycle, EngineCycle):
                            burn_time=self.burn_time,
                            inverter_efficiency=self.inverter.electric_energy_efficiency,
                            electric_motor_efficiency=self.electric_motor.electric_energy_efficiency)
+
+    @property
+    def fuel_pump(self):
+        return KwakPump(inlet_flow_state=self.pre_fuel_pump_merger.outlet_flow_state,
+                        expected_outlet_pressure=self.fuel_pump_outlet_pressure,
+                        efficiency=self.fuel_pump_efficiency,
+                        specific_power=self.fuel_pump_specific_power,
+                        manual_propellant_density=self.manual_fuel_density)

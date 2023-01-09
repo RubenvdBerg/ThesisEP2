@@ -1,47 +1,28 @@
-from scipy.constants import g
 from math import radians
-from EngineComponents.Abstract.Material import KwakGasGeneratorMaterial, KwakPressurantTankMaterial, KwakPropellantTankMaterial, Inconel600, NarloyZ
-
-def copy_without(origin_dict, iterable_keys):
-    copy_dict = origin_dict.copy()
-    for key in iterable_keys:
-        copy_dict.pop(key)
-    return copy_dict
-
-
-def change_to_conical_nozzle(arg_dict, throat_half_angle=radians(15)):
-    copy_dict = copy_without(arg_dict, [
-        'divergent_throat_half_angle',
-        'divergent_exit_half_angle',
-        'nozzle_type'
-    ])
-    new_args_dict = {'divergent_throat_half_angle': throat_half_angle,
-                     'divergent_exit_half_angle': None,
-                     'nozzle_type': 'conical'}
-    return copy_dict | new_args_dict
-
+from EngineComponents.Abstract.Material import KwakGasGeneratorMaterial, KwakPressurantTankMaterial, \
+    KwakPropellantTankMaterial, Inconel600, NarloyZ
+from EngineComponents.Abstract.FlowState import ManualFlowState
+from EngineFunctions.BaseFunctions import copy_without
 
 desgin_arguments = {
     'thrust': 75e3,
     'combustion_chamber_pressure': 7e6,
     'burn_time': 500,
-    'is_frozen': False
 }
 
 base_arguments_kwak = {
     'oxidizer_name': 'LO2_NASA',
     'fuel_name': 'RP1_NASA',
     'max_acceleration': 4.5 * 9.80665,
-    'pressurant_heat_capacity_ratio': 1.667,
     'mass_mixture_ratio': 2.45,
-    'pressurant_initial_pressure': 27E6,
-    'pressurant_final_pressure': 5E6,
     'oxidizer_initial_pressure': .4E6,
     'fuel_initial_pressure': .25E6,
-    'pressurant_molar_mass': 0.00399733779,  # From gas_constant 2048
-    'pressurant_initial_temperature': 100,
     'oxidizer_pump_efficiency': .66,
     'fuel_pump_efficiency': .61,
+    'pressurant_name': 'Helium',
+    'pressurant_initial_pressure': 27E6,
+    'pressurant_final_pressure': 5E6,
+    'pressurant_initial_temperature': 100,
     'pressurant_margin_factor': 1.1,
     'pressurant_tank_safety_factor': 1.2,
     'propellant_margin_factor': 1.01,
@@ -60,19 +41,18 @@ base_arguments_own = {
     'nozzle_material': Inconel600,
     'combustion_chamber_safety_factor': 1.5,
     'injector_safety_factor': 1.5,
+    'nozzle_safety_factor': 1.5,
     'injector_pressure_drop_factor': .15,
     'convergent_half_angle': radians(30),
     'convergent_throat_bend_ratio': 0.8,
     'convergent_chamber_bend_ratio': 1.0,
     'divergent_throat_half_angle': radians(15),
-    'nozzle_type': 'conical',
     'maximum_wall_temperature': 850,
     'thrust_chamber_wall_emissivity': .8,
     'hot_gas_emissivity': .1,
     'cooling_pressure_drop_factor': .4,
-    'specific_impulse_correction_factor': 1.0,
-    'shaft_mechanical_efficiency': 1.0,
-    'nozzle_safety_factor': 1.5,
+    'specific_impulse_quality_factor': None,
+    'shaft_mechanical_efficiency': 0.95,
 }
 
 duel_pump_kwargs = {'fuel_pump_specific_power': 15E3, 'oxidizer_pump_specific_power': 20E3}
@@ -87,6 +67,8 @@ open_arguments = {
     'turbine_maximum_temperature': 900,
     'turbopump_specific_power': 13.5E3,
     'exhaust_expansion_ratio': 20,
+    'exhaust_material': Inconel600,
+    'exhaust_safety_factor': 1.5,
 }
 gg_arguments = open_arguments | {
     'gg_stay_time': 10E-3,
@@ -97,14 +79,22 @@ gg_arguments = open_arguments | {
 cb_arguments = open_arguments | {}
 
 oe_arguments = open_arguments | {
-    'secondary_fuel_pump_pressure_change_factor': .4, 'secondary_fuel_pump_efficiency': None,
+    '_secondary_fuel_pump_pressure_factor_first_guess': .4, 'secondary_fuel_pump_efficiency': None,
 }
 
 ep_arguments = {
-    'fuel_pump_specific_power': 15E3, 'oxidizer_pump_specific_power': 20E3,
-    'electric_motor_specific_power': 5.3E3, 'inverter_specific_power': 60E3, 'battery_specific_power': 6.95E3,
-    'battery_specific_energy': 198 * 3600, 'electric_motor_efficiency': .95, 'inverter_efficiency': .85,
-    'battery_structural_factor': 1.2, 'battery_coolant_temperature_change': 40,
+    # All values taken from H.D. Kwak 2018 - "Performance assessment of electrically driven pump-fed LOX/kerosene
+    # cycle rocket engine: Comparison with gas generator cycle"
+    'fuel_pump_specific_power': 15E3,
+    'oxidizer_pump_specific_power': 20E3,
+    'electric_motor_specific_power': 5.3E3,
+    'inverter_specific_power': 60E3,
+    'battery_specific_power': 6.95E3,
+    'battery_specific_energy': 198 * 3600,
+    'electric_motor_efficiency': .95,
+    'inverter_efficiency': .85,
+    'battery_structural_factor': 1.2,
+    'battery_coolant_temperature_change': 40,
     'electric_motor_heat_loss_factor': 0.015,
     'electric_motor_magnet_temp_limit': 400,
     'electric_motor_ox_leak_factor': 0.005,
@@ -112,9 +102,16 @@ ep_arguments = {
 
 # Kwak Arguments
 gg_arguments_rp1_kwak = gg_arguments | {
-    'gg_gas_specific_heat_capacity': 2024.7,
-    'gg_gas_heat_capacity_ratio': 1.16,
-    'gg_gas_molar_mass': 0.03033368339292229,
+    'gg_base_flow_state': ManualFlowState(propellant_name='ExhaustGas',
+                                          temperature=open_arguments['turbine_maximum_temperature'],
+                                          pressure=None,
+                                          mass_flow=None,
+                                          type='combusted',
+                                          _molar_mass=0.03033368339292229,
+                                          _specific_heat_capacity=2024.7,
+                                          _heat_capacity_ratio=1.16,
+                                          _density=None),
+
     'gg_mass_mixture_ratio': 0.320,
 }
 
@@ -122,8 +119,6 @@ ep_arguments_rp1_kwak = ep_arguments | {'battery_coolant_specific_heat_capacity'
 
 common_arguments_kwak = base_arguments | {
     '_ignore_cooling': True,
-    'oxidizer_density': 1126.1,
-    'fuel_density': 804.2,
     'fuel_initial_temperature': 263.6,
     # To get the as close as possible to density given by Kwak with his initial pressure of 2.5 bar
     'oxidizer_initial_temperature': 93.340,  # To get the same density as Kwak with his initial pressure of 4 bar
@@ -170,7 +165,6 @@ tcd1_kwargs = base_arguments_o | {
     'burn_time': 100,
     'exit_pressure_forced': None,
     'expansion_ratio_end_cooling': 22,
-    'nozzle_type': 'conical',
     'maximum_wall_temperature': 850,
 }
 
@@ -258,7 +252,6 @@ vinci_kwargs = base_arguments_o | {
     'burn_time': 720,
     'exit_pressure_forced': None,
     'expansion_ratio_end_cooling': None,
-    'nozzle_type': 'conical',
     'maximum_wall_temperature': 850,
 }
 

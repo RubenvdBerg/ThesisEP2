@@ -1,6 +1,7 @@
 if __name__ == '__main__':
     from EngineCycles.GasGeneratorCycle import GasGeneratorCycle, GasGeneratorCycle_DoubleTurbine, \
         GasGeneratorCycle_DoubleTurbineSeries
+    from plots.Imaging.performance_image import make_schematic
     from math import sqrt, pi
     import pandas as pd
     import numpy as np
@@ -10,10 +11,10 @@ if __name__ == '__main__':
         hm60_kwargs
 
     engine_dict = {
-        'HM7-B': ('single', hm7b_kwargs),
-        'H-1': ('single', h1_kwargs),
-        'RS-27': ('single', rs27_kwargs),
-        'F-1': ('single', f1_kwargs),
+        # 'HM7-B': ('single', hm7b_kwargs),
+        # 'H-1': ('single', h1_kwargs),
+        # 'RS-27': ('single', rs27_kwargs),
+        # 'F-1': ('single', f1_kwargs),
         'HM60': ('double', hm60_kwargs),
         'J-2': ('double_single', j2_kwargs),
     }
@@ -28,7 +29,7 @@ if __name__ == '__main__':
         engine = Engine_Class(**engine_kwargs)
         main_data = [engine.thrust_chamber.length,
                      sqrt(engine.exit_area / pi) * 2,
-                     engine.dry_mass,
+                     engine.engine_dry_mass,
                      engine.combustion_chamber.length + engine.nozzle.conv_length,
                      engine.combustion_chamber.radius * 2,
                      engine.thrust_chamber.mass + engine.injector.mass,
@@ -48,7 +49,7 @@ if __name__ == '__main__':
         total_data = [*main_data, *extra_data, engine.overall_specific_impulse]
         data[engine_name] = total_data
 
-        # make_schematic(engine)
+        make_schematic(engine)
     index = [
         'Thrust Chamber Length [m]',
         'Exit Diameter [m]',

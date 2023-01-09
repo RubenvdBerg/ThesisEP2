@@ -12,19 +12,21 @@ from EngineComponents.Base.Injector import Injector
 from EngineComponents.Base.Cooling import CoolingChannelSection
 from EngineComponents.Base.HeatTransferSection import HeatTransferSection, ConvectiveHeatTransfer, \
     RadiativeHeatTransfer
-from EngineComponents.Base.Nozzle import BellNozzle, ConicalNozzle
+from EngineComponents.Base.Nozzle import Nozzle
 from EngineComponents.Base.Pressurant import Pressurant, PressurantTank
 from EngineComponents.Base.Propellant import Propellant
 from EngineComponents.Base.Tank import Tank
 from EngineComponents.Base.ThrustChamber import ThrustChamber
 from EngineComponents.Base.Pump import Pump
 from EngineComponents.Base.Merger import Merger
-from EngineComponents.Abstract.FlowState import FlowState
+from EngineComponents.Abstract.FlowState import FlowState, ManualFlowState
 from EngineComponents.Abstract.Material import Material
 from EngineFunctions.CEAFunctions import get_cea_dict, get_cea_chamber_dict
 from EngineFunctions.IRTFunctions import get_expansion_ratio_from_p_ratio, \
     get_pressure_ratio_fsolve, get_throat_area, get_thrust_coefficient_from_ideal
-from EngineFunctions.AssumeValueFunctions import get_characteristic_length, get_initial_propellant_temperature
+from EngineFunctions.AssumeValueFunctions import get_characteristic_length, get_initial_propellant_temperature, \
+    get_prandtl_number_estimate, get_turbulent_recovery_factor, get_specific_impulse_quality_factor, get_propellant_mixture
+from EngineFunctions.EmpiricalRelations import get_chamber_throat_area_ratio_estimate
 
 
 @dataclass
@@ -47,8 +49,7 @@ class EngineCycle:
     tanks_structural_factor: float  # [-]
     fuel_tank_material: Material
     oxidizer_tank_material: Material
-    pressurant_heat_capacity_ratio: float  # [-]
-    pressurant_molar_mass: float  # [kg/mol]
+    pressurant_name: str
     pressurant_initial_temperature: float  # [K]
     pressurant_margin_factor: float  # [-]
     pressurant_initial_pressure: float  # [Pa]
@@ -67,11 +68,9 @@ class EngineCycle:
     divergent_throat_half_angle: float  # [rad]
     nozzle_material: Material
     nozzle_safety_factor: float  # [-]
-    nozzle_type: str
     maximum_wall_temperature: float  # [K]
     thrust_chamber_wall_emissivity: float  # [-]
     hot_gas_emissivity: float  # [-]
-    specific_impulse_correction_factor: float  # [-]
     shaft_mechanical_efficiency: float  # [-]
 
     is_frozen: bool = True
@@ -81,21 +80,19 @@ class EngineCycle:
     exit_pressure_forced: Optional[float] = None  # [Pa]
 
     # Values that can be estimated or are not necessarily required
+    specific_impulse_quality_factor: Optional[float] = None  # [-]
     oxidizer_initial_temperature: Optional[float] = None  # [k]
     fuel_initial_temperature: Optional[float] = None  # [K]
-    divergent_exit_half_angle: Optional[float] = None  # [rad]
     recovery_factor: Optional[float] = None  # [-]
     area_ratio_chamber_throat: Optional[float] = None  # [-]
     chamber_characteristic_length: Optional[float] = None  # [m]
-    coolant_inlet_temperature: Optional[float] = None  # [K]
     expansion_ratio_start_cooling: Optional[float] = None
     expansion_ratio_end_cooling: Optional[float] = None  # [-]
     distance_from_throat_end_cooling: Optional[float] = None  # [m]
     distance_from_throat_start_cooling: Optional[float] = None  # [m]
     cooling_section_pressure_drop: Optional[float] = None  # [Pa]
+    injector_pressure_drop: Optional[float] = None  # [Pa]
     ambient_pressure: Optional[float] = None  # [Pa]
-    fuel_density: Optional[float] = None  # [kg/m3]
-    oxidizer_density: Optional[float] = None  # [kg/m3]
 
     # Values that can be estimated by CEA
     characteristic_velocity: Optional[float] = None  # [m/s]
@@ -133,6 +130,13 @@ class EngineCycle:
             self.set_heat_transfer()
             self.set_pump_outlet_pressures()
             self.calc_minimum_required_coolant_mass_flow()
+        if self.iterate:
+            self.print_verbose_start_iteration_message()
+            self.print_verbose_iteration_message()
+
+            self.iterate_flow()
+
+            self.print_verbose_end_iteration_message()
 
     def initialize_cea(self):
         # Setting of internal variables
@@ -157,7 +161,12 @@ class EngineCycle:
                                                             self.cc_hot_gas_heat_capacity_ratio)
 
     def set_initial_values(self):
-        """Used by child classes as well to init values directly after CEA is set, but before other operations"""
+        """Set missing input values."""
+        # Order is important
+        if self.specific_impulse_quality_factor is None:
+            self.specific_impulse_quality_factor = get_specific_impulse_quality_factor(
+                propellant_mix=self.propellant_mix
+            )
         if self.fuel_initial_temperature is None:
             self.fuel_initial_temperature = get_initial_propellant_temperature(
                 propellant_name=self.fuel_name
@@ -168,13 +177,60 @@ class EngineCycle:
             )
         if self.chamber_characteristic_length is None:
             self.chamber_characteristic_length = get_characteristic_length(
-                fuel_name=self.fuel_name,
-                oxidizer_name=self.oxidizer_name
+                propellant_mix=self.propellant_mix
             )
+        if self.area_ratio_chamber_throat is None:
+            self.area_ratio_chamber_throat = get_chamber_throat_area_ratio_estimate(
+                throat_area=self.throat_area
+            )
+        if self.cc_hot_gas_prandtl_number is None:
+            self.cc_hot_gas_prandtl_number = get_prandtl_number_estimate(
+                heat_capacity_ratio=self.cc_hot_gas_heat_capacity_ratio
+            )
+        if self.recovery_factor is None:
+            self.recovery_factor = get_turbulent_recovery_factor(
+                prandtl_number=self.cc_hot_gas_prandtl_number
+            )
+        if self.cooling_section_pressure_drop is None:
+            self.cooling_section_pressure_drop = self.combustion_chamber_pressure * self.cooling_pressure_drop_factor
+        if self.injector_pressure_drop is None:
+            self.injector_pressure_drop = self.combustion_chamber_pressure * self.injector_pressure_drop_factor
 
     def set_heat_transfer(self):
         self.total_heat_transfer = self.heat_transfer_section.total_heat_transfer
         self.heat_transfer_func = self.heat_transfer_section.init_heat_transfer()
+
+    def iterate_flow(self):
+        raise NotImplementedError
+
+    @property
+    def verbose_iteration_name(self):
+        raise NotImplementedError
+
+    @property
+    def verbose_iteration_actual(self):
+        raise NotImplementedError
+
+    @property
+    def verbose_iteration_required(self):
+        raise NotImplementedError
+
+    def print_verbose_start_iteration_message(self):
+        if self.verbose:
+            print(f'Start {self.verbose_iteration_name} Iteration')
+
+    def print_verbose_iteration_message(self):
+        if self.verbose:
+            print(f'Actual:   {self.verbose_iteration_actual:.5f} kg/s\t'
+                  f'Required: {self.verbose_iteration_required:.5f} kg/s')
+
+    def print_verbose_end_iteration_message(self):
+        if self.verbose:
+            print(f'{self.verbose_iteration_name} Set\n')
+
+    @cached_property
+    def propellant_mix(self):
+        return get_propellant_mixture(fuel_name=self.fuel_name, oxidizer_name=self.oxidizer_name)
 
     @cached_property
     def cea_dict(self):
@@ -217,8 +273,8 @@ class EngineCycle:
             setattr(self, attribute, cea_values[cea_name])
 
     def get_heat_capacity_ratio(self):
-        # Get the heat_capacity_ratio before an expansion ratio or pressure ratio is provided,
-        #  required for setting all CEA values at once
+        # Get the heat_capacity_ratio only, to be able to estimate a pressure ratio, which is required for setting all
+        # other CEA values
         kwargs = {key: value for key, value in self.cea_kwargs.items() if key not in ('eps', 'PcOvPe')}
         return get_cea_chamber_dict(**kwargs)['y_cc']
 
@@ -242,22 +298,17 @@ class EngineCycle:
         return (self.combustion_chamber_pressure
                 - self.injector.pressure_change)
 
-
-    @property
-    def propellant_mix_name(self):
-        return get_propellant_mix_name(fuel_name=self.fuel_name, oxidizer_name=self.oxidizer_name)
-    
     @property
     def thrust_coefficient(self):
         return get_thrust_coefficient_from_ideal(ideal_thrust_coefficient=self.ideal_thrust_coefficient,
                                                  chamber_pressure=self.combustion_chamber_pressure,
                                                  exit_pressure=self.exit_pressure,
                                                  expansion_ratio=self.expansion_ratio,
-                                                 ambient_pressure=self.ambient_pressure,)
+                                                 ambient_pressure=self.ambient_pressure, )
 
     @cached_property
     def chamber_specific_impulse(self):
-        return self.thrust_coefficient * self.characteristic_velocity * self.specific_impulse_correction_factor / constants.g
+        return self.thrust_coefficient * self.characteristic_velocity * self.specific_impulse_quality_factor / constants.g
 
     @property
     def base_mass_flow(self):
@@ -339,15 +390,21 @@ class EngineCycle:
     def oxidizer(self):
         return Propellant(initial_flow_state=self.oxidizer_initial_flow_state,
                           burn_time=self.burn_time,
-                          margin_factor=self.propellant_margin_factor,
-                          propellant_density=self.oxidizer_density)
+                          margin_factor=self.propellant_margin_factor)
 
     @property
     def fuel(self):
         return Propellant(initial_flow_state=self.fuel_initial_flow_state,
                           burn_time=self.burn_time,
-                          margin_factor=self.propellant_margin_factor,
-                          propellant_density=self.fuel_density)
+                          margin_factor=self.propellant_margin_factor)
+
+    @property
+    def pressurant_initial_state(self):
+        return FlowState(propellant_name=self.pressurant_name,
+                         temperature=self.pressurant_initial_temperature,
+                         pressure=self.pressurant_initial_pressure,
+                         mass_flow=None,
+                         type='pressurant')
 
     @property
     def pressurant(self):
@@ -356,11 +413,8 @@ class EngineCycle:
                           fuel_tank_initial_pressure=self.fuel_initial_pressure,
                           oxidizer_tank_initial_pressure=self.oxidizer_initial_pressure,
                           margin_factor=self.pressurant_margin_factor,
-                          initial_pressure=self.pressurant_initial_pressure,
+                          initial_flow_state=self.pressurant_initial_state,
                           final_pressure=self.pressurant_final_pressure,
-                          heat_capacity_ratio=self.pressurant_heat_capacity_ratio,
-                          molar_mass=self.pressurant_molar_mass,
-                          initial_temperature=self.pressurant_initial_temperature,
                           propellant_tanks_ullage_factor=self.ullage_volume_factor)
 
     @property
@@ -377,8 +431,7 @@ class EngineCycle:
                     ullage_factor=self.ullage_volume_factor,
                     pressurant_tank_volume=self.pressurant_tank.volume,
                     structure_material=self.oxidizer_tank_material,
-                    safety_factor=self.tanks_structural_factor,
-                    propellant_density=self.oxidizer_density, )
+                    safety_factor=self.tanks_structural_factor, )
 
     @property
     def fuel_tank(self):
@@ -388,24 +441,21 @@ class EngineCycle:
                     ullage_factor=self.ullage_volume_factor,
                     pressurant_tank_volume=None,
                     structure_material=self.fuel_tank_material,
-                    safety_factor=self.tanks_structural_factor,
-                    propellant_density=self.fuel_density, )
+                    safety_factor=self.tanks_structural_factor)
 
     @property
     def oxidizer_pump(self):
         return Pump(inlet_flow_state=self.oxidizer_tank.outlet_flow_state,
                     expected_outlet_pressure=self.oxidizer_pump_outlet_pressure,
                     efficiency=self.oxidizer_pump_efficiency,
-                    specific_power=self.oxidizer_pump_specific_power,
-                    propellant_density=self.oxidizer_density, )
+                    specific_power=self.oxidizer_pump_specific_power, )
 
     @property
     def fuel_pump(self):
         return Pump(inlet_flow_state=self.fuel_tank.outlet_flow_state,
                     expected_outlet_pressure=self.fuel_pump_outlet_pressure,
                     efficiency=self.fuel_pump_efficiency,
-                    specific_power=self.fuel_pump_specific_power,
-                    propellant_density=self.fuel_density, )
+                    specific_power=self.fuel_pump_specific_power)
 
     @property
     def injector_inlet_flow_states(self):
@@ -417,27 +467,20 @@ class EngineCycle:
                         combustion_chamber_pressure=self.combustion_chamber_pressure,
                         combustion_chamber_area=self.combustion_chamber.area,
                         structure_material=self.injector_material,
-                        safety_factor=self.injector_safety_factor,
-                        pressure_drop_factor=self.injector_pressure_drop_factor)
+                        safety_factor=self.injector_safety_factor, )
 
     @cached_property
     def nozzle(self):
-        kwargs = {'throat_area': self.throat_area,
-                  'expansion_ratio': self.expansion_ratio,
-                  'area_ratio_chamber_throat': self.area_ratio_chamber_throat,
-                  'conv_half_angle': self.convergent_half_angle,
-                  'conv_throat_bend_ratio': self.convergent_throat_bend_ratio,
-                  'conv_chamber_bend_ratio': self.convergent_chamber_bend_ratio,
-                  'div_throat_half_angle': self.divergent_throat_half_angle,
-                  'structure_material': self.nozzle_material,
-                  'chamber_pressure': self.combustion_chamber_pressure,
-                  'safety_factor': self.nozzle_safety_factor,}
-        if self.nozzle_type == 'conical':
-            return ConicalNozzle(**kwargs)
-        elif self.nozzle_type == 'bell':
-            return BellNozzle(**kwargs, div_exit_half_angle=self.divergent_exit_half_angle)
-        else:
-            raise ValueError('No proper nozzle_type was provided, choose from [bell, conical]')
+        return Nozzle(throat_area=self.throat_area,
+                      expansion_ratio=self.expansion_ratio,
+                      area_ratio_chamber_throat=self.area_ratio_chamber_throat,
+                      conv_half_angle=self.convergent_half_angle,
+                      conv_throat_bend_ratio=self.convergent_throat_bend_ratio,
+                      conv_chamber_bend_ratio=self.convergent_chamber_bend_ratio,
+                      div_throat_half_angle=self.divergent_throat_half_angle,
+                      structure_material=self.nozzle_material,
+                      chamber_pressure=self.combustion_chamber_pressure,
+                      safety_factor=self.nozzle_safety_factor, )
 
     @cached_property
     def combustion_chamber(self):
@@ -447,7 +490,7 @@ class EngineCycle:
                                  characteristic_length=self.chamber_characteristic_length,
                                  convergent_volume_estimate=self.nozzle.conv_volume_estimate,
                                  safety_factor=self.combustion_chamber_safety_factor,
-                                 structure_material=self.combustion_chamber_material,)
+                                 structure_material=self.combustion_chamber_material, )
 
     @cached_property
     def thrust_chamber(self):
@@ -474,7 +517,7 @@ class EngineCycle:
                     return self.thrust_chamber.max_distance_from_throat
             else:
                 r_end = self.thrust_chamber.get_radius(self.distance_from_throat_end_cooling)
-                self._expansion_ratio_end_cooling = r_end**2 * constants.pi / self.throat_area
+                self._expansion_ratio_end_cooling = r_end ** 2 * constants.pi / self.throat_area
                 return self.distance_from_throat_end_cooling
 
     @property
@@ -482,18 +525,25 @@ class EngineCycle:
         return self.distance_from_throat_start_cooling
 
     @property
+    def chamber_flow_state(self):
+        return ManualFlowState(propellant_name='ChamberGas',
+                               temperature=self.combustion_temperature,
+                               pressure=self.combustion_chamber_pressure,
+                               mass_flow=self.chamber_mass_flow,
+                               type='combusted',
+                               _molar_mass=self.cc_hot_gas_molar_mass,
+                               _specific_heat_capacity=self.cc_hot_gas_specific_heat_capacity,
+                               _heat_capacity_ratio=self.cc_hot_gas_heat_capacity_ratio,
+                               _dynamic_viscosity=self.cc_hot_gas_dynamic_viscosity,
+                               _prandtl_number=self.cc_hot_gas_prandtl_number, )
+
+    @property
     def convective_heat_transfer_args(self):
-        return {'combustion_temperature': self.combustion_temperature,
-                'combustion_chamber_pressure': self.combustion_chamber_pressure,
-                'dynamic_viscosity': self.cc_hot_gas_dynamic_viscosity,
-                'specific_heat_capacity': self.cc_hot_gas_specific_heat_capacity,
-                'mass_flow': self.chamber_mass_flow,
+        return {'combustion_chamber_flow_state': self.chamber_flow_state,
                 'maximum_wall_temperature': self.maximum_wall_temperature,
                 'hot_gas_emissivity': self.hot_gas_emissivity,
-                'heat_capacity_ratio': self.cc_hot_gas_heat_capacity_ratio,
                 'thrust_chamber': self.thrust_chamber,
                 'recovery_factor': self.recovery_factor,
-                'prandtl_number': self.cc_hot_gas_prandtl_number,
                 'verbose': self.verbose, }
 
     @cached_property
@@ -508,7 +558,8 @@ class EngineCycle:
             maximum_wall_temperature=self.maximum_wall_temperature,
             thrust_chamber_wall_emissivity=self.thrust_chamber_wall_emissivity,
             hot_gas_emissivity=self.hot_gas_emissivity,
-            theoretical_total_convective_heat_transfer=self.theoretical_convective_heat_transfer.total_convective_heat_transfer, )
+            theoretical_total_convective_heat_transfer=self.theoretical_convective_heat_transfer.total_convective_heat_transfer,
+        )
 
     @cached_property
     def heat_transfer_section(self):
@@ -546,11 +597,8 @@ class EngineCycle:
         return CoolingChannelSection(inlet_flow_state=self.cooling_inlet_flow_state,
                                      total_heat_transfer=self.total_heat_transfer,
                                      maximum_outlet_temperature=self.maximum_coolant_outlet_temperature,
-                                     combustion_chamber_pressure=self.combustion_chamber_pressure,
                                      pressure_drop=self.cooling_section_pressure_drop,
-                                     verbose=self.verbose,
-                                     _is_temp_calc_needed=self._is_temp_calc_needed,
-                                     pressure_drop_factor=self.cooling_pressure_drop_factor,)
+                                     _is_temp_calc_needed=self._is_temp_calc_needed, )
 
     @property
     def expansion_ratio_end(self):
@@ -584,20 +632,40 @@ class EngineCycle:
         return self.oxidizer.mass + self.fuel.mass
 
     @property
-    def mass(self):
+    def mass_kwak(self):
         return self.props_mass + self.tanks_mass + self.pumps_mass + self.pressurant.mass
 
     @property
-    def final_mass(self):
-        return self.mass - self.props_mass
+    def total_thrust_chamber_mass(self):
+        return self.thrust_chamber.mass + self.injector.mass + self.cooling_channel_section.mass
+
+    @property
+    def chamber_propellant_mass(self):
+        return self.chamber_mass_flow * self.burn_time * self.propellant_margin_factor
+
+    @property
+    def feed_system_mass(self):
+        return self.pumps_mass
+
+    @property
+    def engine_dry_mass(self):
+        return self.feed_system_mass + self.thrust_chamber.mass
 
     @property
     def dry_mass(self):
-        return self.pumps_mass + self.combustion_chamber.mass + self.nozzle.mass
+        return self.engine_dry_mass + self.tanks_mass
+
+    @property
+    def initial_mass(self):
+        return self.final_mass + self.props_mass
+
+    @property
+    def final_mass(self):
+        return self.dry_mass + self.pressurant.mass
 
     @property
     def mass_ratio(self):
-        return self.final_mass / self.mass
+        return self.final_mass / self.initial_mass
 
     def get_payload(self, delta_v: float) -> float:
         e_dv = exp(delta_v / (self.overall_specific_impulse * constants.g))
@@ -608,6 +676,10 @@ class EngineCycle:
     @property
     def ideal_delta_v(self):
         return self.overall_specific_impulse * log(1 / self.mass_ratio) * constants.g
+
+    def get_payload_delta_v(self, payload_mass):
+        mass_ratio = (self.final_mass + payload_mass) / (self.initial_mass + payload_mass)
+        return self.overall_specific_impulse * log(1 / mass_ratio) * constants.g
 
     @property
     def gravity_delta_v(self, vertical_fraction: float = 0.2):
@@ -629,7 +701,7 @@ class EngineCycle:
     @cached_property
     def chamber_ideal_specific_impulse(self):
         return self.ideal_thrust_coefficient * self.characteristic_velocity / constants.g
-    
+
     @cached_property
     def chamber_vacuum_specific_impulse(self):
         return self.vacuum_thrust_coefficient * self.characteristic_velocity / constants.g

@@ -34,26 +34,16 @@ class ElectricPumpCycle(EngineCycle):
     def __post_init__(self):
         """"Initial iterative_flow_state """
         super().__post_init__()
-        if self.iterate:
-            self.iterate_coolant_flow()
         self.electric_motor.calc_cooling()
 
     def set_initial_values(self):
         super().set_initial_values()
         self._iterative_battery_cooler_outlet_flow_state = replace(self.fuel_tank.outlet_flow_state, mass_flow=0)
 
-    def iterate_coolant_flow(self):
-        if self.verbose:
-            print(f'Start Battery Coolant Flow Iteration')
-            print(f'm_f_cc: {self.main_fuel_flow:.5f}')
-            print(self.verbose_iteration_message)
-
+    def iterate_flow(self):
         while self.battery_flow_error_larger_than_accuracy():
             self._iterative_battery_cooler_outlet_flow_state = self.battery_cooler.outlet_flow_state
-            if self.verbose:
-                print(self.verbose_iteration_message)
-        if self.verbose:
-            print(f'Battery Coolant Flow Set\n')
+            self.print_verbose_iteration_message()
 
     def battery_flow_error_larger_than_accuracy(self):
         error = abs(self.actual_battery_coolant_flow - self.battery_cooler.coolant_flow_required)
@@ -61,15 +51,16 @@ class ElectricPumpCycle(EngineCycle):
         return error > margin
 
     @property
-    def verbose_iteration_message(self):
-        return f'm_fp: {self.fuel_pump.inlet_mass_flow:.5f}, m_f_cool_act:{self.actual_battery_coolant_flow:.5f}, ' \
-               f'm_f_cool_req: {self.battery_cooler.coolant_flow_required:.5f}'
+    def verbose_iteration_name(self):
+        return 'Battery Coolant Flow'
 
-    def reiterate(self):
-        if self.verbose:
-            print('Start reiteration')
-        self.update_cea()
-        self.iterate_coolant_flow()
+    @property
+    def verbose_iteration_actual(self):
+        return self.actual_battery_coolant_flow
+
+    @property
+    def verbose_iteration_required(self):
+        return self.battery_cooler.coolant_flow_required
 
     @property
     def pre_fuel_pump_merger(self):
@@ -87,8 +78,7 @@ class ElectricPumpCycle(EngineCycle):
         return Pump(inlet_flow_state=self.pre_fuel_pump_merger.outlet_flow_state,
                     expected_outlet_pressure=self.fuel_pump_outlet_pressure,
                     efficiency=self.fuel_pump_efficiency,
-                    specific_power=self.fuel_pump_specific_power,
-                    propellant_density=self.fuel_density,)
+                    specific_power=self.fuel_pump_specific_power,)
 
     @property
     def electric_motor(self):
@@ -124,21 +114,20 @@ class ElectricPumpCycle(EngineCycle):
 
     @property
     def cooling_inlet_flow_state(self):
-        return self.post_fuel_pump_splitter.outlet_flow_state_chamber
+        return self.post_fuel_pump_splitter.outlet_flow_states['chamber']
 
     @property
     def actual_battery_coolant_flow(self):
-        return self.post_fuel_pump_splitter.outlet_flow_state_battery.mass_flow
+        return self.post_fuel_pump_splitter.outlet_flow_states['battery'].mass_flow
 
     @property
     def feed_system_mass(self):
-        return self.electric_motor.mass + self.inverter.mass + self.pumps_mass
+        return super().feed_system_mass + self.electric_motor.mass + self.inverter.mass
 
     @property
-    def mass(self):
-        return super().mass + self.battery.mass + self.inverter.mass + self.electric_motor.mass
+    def dry_mass(self):
+        return super().engine_dry_mass + self.battery.mass
 
-if __name__ == '__main__':
-    from EngineArguments import arguments as args
-
-    print(ElectricPumpCycle(thrust=100e3, burn_time=300, combustion_chamber_pressure=1e6, is_frozen=True, **args.base_arguments, **args.ep_arguments))
+    @property
+    def mass_kwak(self):
+        return super().mass_kwak + + self.battery.mass + self.inverter.mass + self.electric_motor.mass

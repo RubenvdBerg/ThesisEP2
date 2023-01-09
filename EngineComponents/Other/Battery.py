@@ -1,12 +1,11 @@
 from dataclasses import dataclass, field
 from math import log
 from typing import Optional
-
-from EngineComponents.Abstract.ElectricComponent import ElectricComponent
+from EngineComponents.Abstract.ElectricalComponent import ElectricalComponent
 
 
 @dataclass
-class Battery(ElectricComponent):
+class Battery(ElectricalComponent):
     specific_energy: float  # J/kg
     battery_packing_factor: float  # -
     burn_time: float  # s

@@ -2,6 +2,9 @@ from dataclasses import dataclass, field
 from EngineComponents.Other.Battery import Battery
 from EngineComponents.Other.GasGenerator import GasGenerator
 from EngineComponents.Abstract.PressureComponent import PressureComponent
+from EngineComponents.Base.Tank import Tank
+from EngineComponents.Base.Pump import Pump
+from EngineComponents.Base.Propellant import Propellant
 
 @dataclass
 class KwakBattery(Battery):
@@ -21,4 +24,30 @@ class KwakBattery(Battery):
         return (self.battery_packing_factor * self.output_power / (self.electric_motor_efficiency * self.inverter_efficiency)
                 * max(1 / self.specific_power, self.burn_time / (self.specific_energy * self.eta_e)))
 
+
+@dataclass
+class KwakTank(Tank):
+    manual_propellant_density: float = 0
+
+    @property
+    def propellant_density(self):
+        return self.manual_propellant_density
+
+@dataclass
+class KwakPump(Pump):
+    manual_propellant_density: float = 0
+
+    @property
+    def propellant_density(self):
+        return self.manual_propellant_density
+
+@dataclass
+class KwakPropellant(Propellant):
+    manual_propellant_density: float = 0
+
+    @property
+    def density(self):
+        return self.manual_propellant_density
+    
+    
 

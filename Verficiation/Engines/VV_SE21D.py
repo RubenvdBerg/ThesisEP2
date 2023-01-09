@@ -86,7 +86,7 @@ se_21d_kwargs = args.base_arguments_o | {
     'area_ratio_chamber_throat': (.985 / 2) ** 2 / .286 ** 2,
     'ambient_pressure': 101325,
     'divergent_throat_half_angle': radians(15),
-    'specific_impulse_correction_factor': .99,
+    'specific_impulse_quality_factor': .99,
     'oxidizer_turbine_efficiency': .45,
     'fuel_turbine_efficiency': .45,
     'shaft_mechanical_efficiency': .99,
@@ -94,8 +94,8 @@ se_21d_kwargs = args.base_arguments_o | {
     'fuel_exhaust_exit_pressure_forced': .04e6,
     'oxidizer_turbine_outlet_pressure_forced': .3e6,
     'fuel_turbine_outlet_pressure_forced': .3e6,
-    'oxidizer_secondary_specific_impulse_correction_factor': .98,
-    'fuel_secondary_specific_impulse_correction_factor': .98,
+    'oxidizer_secondary_specific_impulse_quality_factor': .98,
+    'fuel_secondary_specific_impulse_quality_factor': .98,
 }
 
 se_21d_vac_kwargs = se_21d_kwargs | {'thrust': 2196.682e3, 'ambient_pressure': 0}

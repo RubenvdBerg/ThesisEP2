@@ -31,8 +31,13 @@ class Turbine(FlowComponent):
     def temperature_change(self):
         if self.mass_flow == 0:
             return 0
-        return -1 * self.power_required / (self.mass_flow * self.inlet_flow_state.specific_heat_capacity)
+        else:
+            return -1 * self.power_required / (self.mass_flow * self.inlet_flow_state.specific_heat_capacity)
 
     @property
     def pressure_change(self):
         return self.inlet_pressure / self.pressure_ratio - self.inlet_pressure
+
+    @property
+    def mass(self):
+        return 0

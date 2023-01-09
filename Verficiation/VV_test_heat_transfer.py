@@ -8,7 +8,7 @@ from EngineComponents.Abstract.FlowState import ManualFlowState
 from EngineComponents.Base.HeatExchanger import HeatTransferPlots
 from Archive.HeatExchangerOMECA import OMECAHeatExchanger
 from EngineComponents.Base.Injector import Injector
-from EngineComponents.Base.Nozzle import ConicalNozzle
+from EngineComponents.Base.Nozzle import Nozzle
 from EngineComponents.Base.ThrustChamber import ThrustChamberSection
 
 
@@ -34,13 +34,13 @@ def test_heat_transfer(engine_kwargs: dict,
         coolant_mass_flow = engine.cooling_inlet_flow_state.mass_flow
 
     injector = Injector(material_density=0, safety_factor=0, yield_strength=0)
-    nozzle = ConicalNozzle(throat_area=throat_area,
-                           expansion_ratio=engine_kwargs['expansion_ratio'],
-                           conv_chamber_bend_ratio=engine_kwargs['convergent_chamber_bend_ratio'],
-                           conv_throat_bend_ratio=engine_kwargs['convergent_throat_bend_ratio'],
-                           conv_half_angle=engine_kwargs['convergent_half_angle'],
-                           div_throat_half_angle=engine_kwargs['divergent_throat_half_angle'],
-                           area_ratio_chamber_throat=engine_kwargs['area_ratio_chamber_throat'])
+    nozzle = Nozzle(throat_area=throat_area,
+                    expansion_ratio=engine_kwargs['expansion_ratio'],
+                    conv_chamber_bend_ratio=engine_kwargs['convergent_chamber_bend_ratio'],
+                    conv_throat_bend_ratio=engine_kwargs['convergent_throat_bend_ratio'],
+                    conv_half_angle=engine_kwargs['convergent_half_angle'],
+                    div_throat_half_angle=engine_kwargs['divergent_throat_half_angle'],
+                    area_ratio_chamber_throat=engine_kwargs['area_ratio_chamber_throat'])
     chamber = CombustionChamber(material_density=0, safety_factor=0, yield_strength=0,
                                 throat_area=throat_area,
                                 combustion_chamber_pressure=engine_kwargs['combustion_chamber_pressure'],
