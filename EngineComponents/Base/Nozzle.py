@@ -129,7 +129,7 @@ class Nozzle(StructuralComponent):
         # Divergent longitudinal radius at throat [m]
         return .5 * self.throat_radius
 
-    @cached_property
+    @property
     def div_length(self):
         e = self.expansion_ratio
         r_t = self.throat_radius
