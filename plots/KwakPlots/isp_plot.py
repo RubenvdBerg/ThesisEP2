@@ -399,8 +399,7 @@ if __name__ == '__main__':
               'is_frozen': False,
               'verbose': True,
               'kwak': False,
-              'exit_pressure_forced': None,
-              'expansion_ratio': 30,
+              'exit_pressure_forced': 0.002e6,
               'expansion_ratio_end_cooling': 20,
               'thrusts': (100e3,),
               '_ignore_cooling': True,
@@ -408,7 +407,7 @@ if __name__ == '__main__':
               }
 
 
-    plot_all_ratio_plots_data(default_ylim=True, savedata=False, savefig=False, names=('EP', 'GG'),
+    plot_all_ratio_plots_data(default_ylim=True, savedata=True, savefig=True, names=('EP', 'GG'),
                               fuel_name='RP1_NASA', isp_single_figure=True, **kwargs)
     # def open_data_dict(filepath: str) -> dict:
     #     with open(filepath, 'r') as f:

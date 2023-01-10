@@ -14,7 +14,7 @@ from PIL import Image, ImageDraw, ImageFont
 from EngineFunctions.BaseFunctions import format_si
 
 
-def make_schematic(engine: EngineCycle):
+def make_performance_schematic(engine: EngineCycle):
     switcher = {
         ElectricPumpCycle: (get_ep_components_coordinates, 'EP'),
         GasGeneratorCycle: (get_gg_components_coordinates, 'GG'),
@@ -324,6 +324,7 @@ def get_gg2_components_coordinates(engine: GasGeneratorCycle_DoubleTurbine):
     coords = tuple((x, y + 120) for x, y in coords)
     return components, coords
 
+
 def get_gg3_components_coordinates(engine: GasGeneratorCycle_DoubleTurbineSeries):
     # Mass Flows after Splitters
     m_f_gg = engine.post_fuel_pump_splitter.outlet_flow_states['gg'].mass_flow
@@ -452,7 +453,7 @@ def get_oe_components_coordinates(engine: OpenExpanderCycle):
     i = base_components.index('placeholder')
     base_components[i] = engine.turbine
     # Change fuel_tank coordinates
-    i_rp1 = base_components.index(engine.propellant_mix_name.split('/')[1])
+    i_rp1 = base_components.index(engine.fuel_name.split('_')[0])
     base_coords[i_rp1] = (435, 190)
     # Switchs positions of fuel pump and cooling outlet
     ccs_out, fp_out = base_components[2], base_components[3]
@@ -682,4 +683,4 @@ if __name__ == '__main__':
     for Cycle, extra_args in cycle_list:
         complete_args = args.base_arguments | extra_args | design_args
         engine = Cycle(**complete_args)
-        make_schematic(engine)
+        make_performance_schematic(engine)

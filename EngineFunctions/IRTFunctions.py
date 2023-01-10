@@ -171,7 +171,7 @@ def get_sonic_velocity(heat_capacity_ratio: float, molar_mass: float, temperatur
     return sqrt(heat_capacity_ratio * (R / molar_mass) * temperature)
 
 
-def get_local_mach(local_area_ratio, is_subsonic=False, heat_capacity_ratio=1.14):
+def get_local_mach(local_area_ratio, heat_capacity_ratio, is_subsonic=False):
     if isclose(local_area_ratio, 1, rel_tol=1e-12):
         return 1
     p, q, r, a, s, r2, x0 = get_mach_b4wind_factors(local_area_ratio, is_subsonic, heat_capacity_ratio)
@@ -220,7 +220,9 @@ def get_mach_b4wind_factors(local_area_ratio, is_subsonic=False, heat_capacity_r
 
 
 def get_local_mach_nasa(local_area_ratio, is_subsonic=False, heat_capacity_ratio=1.14):
-    """Returns Mach, given local area ratio and heat capacity ratio. Very unstable version, but simple and quick"""
+    """Returns Mach, given local area ratio and heat capacity ratio.
+
+    Very unstable version, but simple and quick"""
     ar = local_area_ratio
     y = heat_capacity_ratio
     ym1 = y - 1

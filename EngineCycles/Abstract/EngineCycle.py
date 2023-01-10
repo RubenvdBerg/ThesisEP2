@@ -163,6 +163,10 @@ class EngineCycle:
     def set_initial_values(self):
         """Set missing input values."""
         # Order is important
+        if self.mass_mixture_ratio is None:
+            self.mass_mixture_ratio = get_mass_mixture_ratio(
+                propellant_mix=self.propellant_mix
+            )
         if self.specific_impulse_quality_factor is None:
             self.specific_impulse_quality_factor = get_specific_impulse_quality_factor(
                 propellant_mix=self.propellant_mix
@@ -467,7 +471,8 @@ class EngineCycle:
                         combustion_chamber_pressure=self.combustion_chamber_pressure,
                         combustion_chamber_area=self.combustion_chamber.area,
                         structure_material=self.injector_material,
-                        safety_factor=self.injector_safety_factor, )
+                        safety_factor=self.injector_safety_factor,
+                        pressure_drop=self.injector_pressure_drop,)
 
     @cached_property
     def nozzle(self):

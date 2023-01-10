@@ -1,7 +1,7 @@
 if __name__ == '__main__':
     from EngineCycles.GasGeneratorCycle import GasGeneratorCycle, GasGeneratorCycle_DoubleTurbine, \
         GasGeneratorCycle_DoubleTurbineSeries
-    from plots.Imaging.performance_image import make_schematic
+    from plots.Imaging.performance_image import make_performance_schematic
     from math import sqrt, pi
     import pandas as pd
     import numpy as np
@@ -49,7 +49,7 @@ if __name__ == '__main__':
         total_data = [*main_data, *extra_data, engine.overall_specific_impulse]
         data[engine_name] = total_data
 
-        make_schematic(engine)
+        make_performance_schematic(engine)
     index = [
         'Thrust Chamber Length [m]',
         'Exit Diameter [m]',

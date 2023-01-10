@@ -4,6 +4,8 @@ from EngineCycles.OpenExpanderCycle import OpenExpanderCycle
 from EngineCycles.Abstract.EngineCycle import EngineCycle
 from EngineCycles.Abstract.OpenCycle import OpenEngineCycle
 import EngineArguments.arguments as args
+from plots.Imaging.mass_image import make_mass_schematic
+from plots.Imaging.performance_image import make_performance_schematic
 from typing import Sequence
 import matplotlib.pyplot as plt
 
@@ -57,6 +59,8 @@ def plot_mass_pie_chart_comparison(design_args: dict, exclude_cc_prop: bool = Tr
     for CycleClass, unique_args in extra_args_switch.items():
         total_args = args.base_arguments | unique_args | design_args
         engine = CycleClass(**total_args)
+        make_performance_schematic(engine)
+        make_mass_schematic(engine)
         mass_dicts[CycleClass] = get_aggregate_mass_dict(engine)
 
     if exclude_cc_prop:
@@ -87,14 +91,5 @@ def plot_mass_pie_chart_comparison(design_args: dict, exclude_cc_prop: bool = Tr
     
 
 
-design_args = {'thrust': 1000e3,
-               'burn_time': 900,
-               'combustion_chamber_pressure': 3e6,
-               'exit_pressure_forced': 50000, }
 
-plot_mass_pie_chart_comparison(design_args)
-# for CycleClass, unique_args in extra_args_switch.items():
-#
-#     total_args = args.base_arguments | unique_args | design_args
-#     engine = CycleClass(**total_args)
-#     plot_mass_pie_chart(engine=engine)
+

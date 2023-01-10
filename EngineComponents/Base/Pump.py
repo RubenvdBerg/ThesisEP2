@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional
 from EngineComponents.Abstract.FlowComponent import FlowComponent
+import CoolProp.CoolProp as CoolProp
 
 
 @dataclass
@@ -31,3 +32,22 @@ class Pump(FlowComponent):
     @property
     def pressure_change(self):
         return self.expected_outlet_pressure - self.inlet_pressure
+
+    @property
+    def enthalpy_change(self):
+        return self.pressure_change / (self.propellant_density * self.efficiency)
+
+    @property
+    def outlet_enthalpy(self):
+        return self.inlet_flow_state.mass_specific_enthalpy + self.enthalpy_change
+
+    @property
+    def estimated_outlet_temperature(self):
+        return CoolProp.PropsSI('T',
+                                'H', self.outlet_enthalpy,
+                                'P', self.expected_outlet_pressure,
+                                self.inlet_flow_state.coolprop_name)
+
+    @property
+    def temperature_change(self):
+        return self.estimated_outlet_temperature - self.inlet_temperature

@@ -1,9 +1,8 @@
 import math
 from dataclasses import dataclass
-
 from EngineArguments import arguments as args
 from math import log10, radians
-
+import os
 from EngineCycles.OpenExpanderCycle import OpenExpanderCycle_DoubleTurbine
 
 
@@ -11,34 +10,9 @@ from EngineCycles.OpenExpanderCycle import OpenExpanderCycle_DoubleTurbine
 class SE21D_V3(OpenExpanderCycle_DoubleTurbine):
     """See 'Sippel et al. 2003 - Studies on Expander Bleed Cycle Engines for Launchers' for this rocket's configuration.
         """
-
-    @property
-    def coolant_base_state(self):
-        cbs = super().coolant_base_state
-        cbs.temperature = 32.375
-        return cbs
-
     @property
     def turbine_mass_flow_initial_guess(self):
         return self.base_mass_flow * .015
-
-    @property
-    def fuel_pump(self):
-        fuel_pump = super().fuel_pump
-        fuel_pump._temperature_change = 8.44
-        return fuel_pump
-
-    @property
-    def oxidizer_pump(self):
-        oxidizer_pump = super().oxidizer_pump
-        oxidizer_pump._temperature_change = 92.983 - 90
-        return oxidizer_pump
-
-    @property
-    def secondary_fuel_pump(self):
-        pump = super().secondary_fuel_pump
-        pump._temperature_change = 32.375 - 29.44
-        return pump
 
 
 @dataclass
@@ -107,8 +81,8 @@ def get_SE21D_data(is_pressure_exact: bool, is_vacuum: bool = False, show_schema
     engine = engineclass(**base_args)
 
     if show_schematic:
-        from plots.Imaging.performance_image import make_schematic
-        make_schematic(engine)
+        from plots.Imaging.performance_image import make_performance_schematic
+        make_performance_schematic(engine)
 
     name = '2nd Estimate' if is_pressure_exact else 'Estimate'
     return (('Name', 'Unit', name, 'Expected'),
@@ -182,8 +156,8 @@ def write_SE21D_data_to_excel(**kwargs):
 
     df = pd.DataFrame(data=columns)
     time = strftime("%Y%m%d_%H%M%S")
-
-    with pd.ExcelWriter(rf'C:\Users\rvand\PycharmProjects\ThesisEP2\Verficiation\data\SE21D_results_{time}.xlsx', engine='xlsxwriter') as writer:
+    filename = rf'C:\Users\rvand\PycharmProjects\ThesisEP2\Verficiation\data\SE21D_results_{time}.xlsx'
+    with pd.ExcelWriter(filename, engine='xlsxwriter') as writer:
         df.to_excel(writer, header=False, index=False)
         workbook = writer.book
         worksheet = writer.sheets['Sheet1']
@@ -205,9 +179,10 @@ def write_SE21D_data_to_excel(**kwargs):
         # worksheet.set_column(0, 8, None, format2)
         worksheet.set_column(4, 4, None, format1)
         worksheet.set_column(6, 6, None, format1)
+    os.system(f'start EXCEL.EXE {filename}')
 
 
 if __name__ == '__main__':
-    write_SE21D_data_to_excel(show_schematic=True, is_vacuum=False)
+    write_SE21D_data_to_excel(show_schematic=False, is_vacuum=False)
 
 
