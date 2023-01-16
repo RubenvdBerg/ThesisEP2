@@ -30,21 +30,21 @@ class KwakEngineCycle(EngineCycle):
 
     @property
     def oxidizer(self):
-        return KwakPropellant(initial_flow_state=self.oxidizer_initial_flow_state,
+        return KwakPropellant(main_flow_state=self.oxidizer_main_flow_state,
                               burn_time=self.burn_time,
                               margin_factor=self.propellant_margin_factor,
                               manual_propellant_density=self.manual_oxidizer_density)
 
     @property
     def fuel(self):
-        return KwakPropellant(initial_flow_state=self.fuel_initial_flow_state,
+        return KwakPropellant(main_flow_state=self.fuel_main_flow_state,
                               burn_time=self.burn_time,
                               margin_factor=self.propellant_margin_factor,
                               manual_propellant_density=self.manual_fuel_density)
 
     @property
     def oxidizer_tank(self):
-        return KwakTank(inlet_flow_state=self.oxidizer_initial_flow_state,
+        return KwakTank(inlet_flow_state=self.oxidizer_main_flow_state,
                         propellant_volume=self.oxidizer.volume,
                         max_acceleration=self.max_acceleration,
                         ullage_factor=self.ullage_volume_factor,
@@ -55,7 +55,7 @@ class KwakEngineCycle(EngineCycle):
 
     @property
     def fuel_tank(self):
-        return KwakTank(inlet_flow_state=self.fuel_initial_flow_state,
+        return KwakTank(inlet_flow_state=self.fuel_main_flow_state,
                         propellant_volume=self.fuel.volume,
                         max_acceleration=self.max_acceleration,
                         ullage_factor=self.ullage_volume_factor,
@@ -140,16 +140,20 @@ class KwakFixGasGeneratorCycle(GasGeneratorCycle, KwakEngineCycle):
 
 @dataclass
 class KwakFixElectricPumpCycle(ElectricPumpCycle, KwakEngineCycle):
+    battery_fix_on: bool = True
 
     @property
     def battery(self):
-        return KwakBattery(specific_power=self.battery_specific_power,
-                           specific_energy=self.battery_specific_energy,
-                           battery_packing_factor=self.battery_structural_factor,
-                           output_power=self.pumps_power_required,
-                           burn_time=self.burn_time,
-                           inverter_efficiency=self.inverter.electric_energy_efficiency,
-                           electric_motor_efficiency=self.electric_motor.electric_energy_efficiency)
+        if self.battery_fix_on:
+            return KwakBattery(specific_power=self.battery_specific_power,
+                               specific_energy=self.battery_specific_energy,
+                               battery_packing_factor=self.battery_structural_factor,
+                               output_power=self.pumps_power_required,
+                               burn_time=self.burn_time,
+                               inverter_efficiency=self.inverter.electric_energy_efficiency,
+                               electric_motor_efficiency=self.electric_motor.electric_energy_efficiency)
+        else:
+            return super().battery
 
     @property
     def fuel_pump(self):

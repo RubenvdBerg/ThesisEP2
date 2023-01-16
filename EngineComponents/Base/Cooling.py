@@ -5,7 +5,7 @@ from EngineComponents.Abstract.FlowComponent import FlowComponent
 
 @dataclass
 class CoolingChannelSection(FlowComponent):
-    total_heat_transfer: float = 0  # [W]
+    heat_flow_rate: float = 0  # [W]
     maximum_outlet_temperature: float = 0  # [K]
     pressure_drop: float = 0  # [Pa]
     _is_temp_calc_needed: bool = True
@@ -16,7 +16,7 @@ class CoolingChannelSection(FlowComponent):
 
     @property
     def increase_mass_specific_enthalpy(self):
-        return self.total_heat_transfer / self.inlet_flow_state.mass_flow
+        return self.heat_flow_rate / self.inlet_flow_state.mass_flow
 
     @property
     def outlet_mass_specific_enthalpy(self):
@@ -27,7 +27,7 @@ class CoolingChannelSection(FlowComponent):
         try:
             return CoolProp.PropsSI('T',
                                     'H', self.outlet_mass_specific_enthalpy,
-                                    'P', self.inlet_pressure,
+                                    'P', self.outlet_pressure,
                                     self.inlet_flow_state.coolprop_name)
         except ValueError:
             raise ValueError('The coolant reached an unacceptable state (see previous error in the stack)')

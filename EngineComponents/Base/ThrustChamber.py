@@ -99,6 +99,7 @@ class ThrustChamber:
 
         ax.plot(distances, values)
         ax.set_ylabel(ylabel)
+        ax.set_ylim((.14, .6))
         ax.set_xlabel(xlabel)
         if ytick_function is not None:
             ticks = ax.get_yticks().tolist()

@@ -32,9 +32,9 @@ class Battery(ElectricalComponent):
     def power_heat_loss(self):
         return self.input_power * (1 - self.eta_e)
 
-    @property
-    def coolant_flow_required(self):
-        return (1 - self.eta_e) * self.total_energy / (self.fuel_specific_heat * self.coolant_allowable_temperature_change * self.burn_time)
+    # @property
+    # def coolant_flow_required(self):
+    #     return (1 - self.eta_e) * self.total_energy / (self.fuel_specific_heat * self.coolant_allowable_temperature_change * self.burn_time)
 
     @property  # Overwrite ElectricComponent mass
     def mass(self):

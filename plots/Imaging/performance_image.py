@@ -1,5 +1,6 @@
 from EngineCycles.Abstract.EngineCycle import EngineCycle
-from EngineCycles.GasGeneratorCycle import GasGeneratorCycle, GasGeneratorCycle_DoubleTurbine, GasGeneratorCycle_DoubleTurbineSeries
+from EngineCycles.GasGeneratorCycle import GasGeneratorCycle, GasGeneratorCycle_DoubleTurbine, \
+    GasGeneratorCycle_DoubleTurbineSeries
 from EngineCycles.ElectricPumpCycle import ElectricPumpCycle
 from EngineCycles.OpenExpanderCycle import OpenExpanderCycle, OpenExpanderCycle_DoubleTurbine
 from EngineCycles.CoolantBleedCycle import CoolantBleedCycle
@@ -8,8 +9,9 @@ from EngineComponents.Base.Pump import Pump
 from EngineComponents.Other.Battery import Battery
 from EngineComponents.Abstract.ElectricalComponent import ElectricalComponent
 from EngineComponents.Other.Turbine import Turbine
+from EngineComponents.Other.GasGenerator import GasGenerator
 from numpy import isclose
-from typing import Optional
+from typing import Optional, Iterator
 from PIL import Image, ImageDraw, ImageFont
 from EngineFunctions.BaseFunctions import format_si
 
@@ -36,7 +38,6 @@ def make_performance_schematic(engine: EngineCycle):
     myfont = ImageFont.truetype(font_file, fontsize)
 
     image_path = rf'C:\Users\rvand\PycharmProjects\ThesisEP2\plots\Imaging\PerformanceSchematics\{name}_Cycle.png'
-
     # Format the components to output (groups of) string values
     strings = tuple(format_values(comps))
     # Write the string values on the image
@@ -80,7 +81,7 @@ def get_base_comps_coords(engine: EngineCycle, x_y1: tuple, x_y2: tuple):
                         pressure=engine.combustion_chamber_pressure,
                         mass_flow=engine.chamber_mass_flow,
                         type='combusted'),
-        (engine.chamber_thrust, engine.chamber_specific_impulse, engine.expansion_ratio),
+        (engine.chamber_thrust, engine.chamber_specific_impulse, engine.expansion_ratio, engine.mass_mixture_ratio),
         engine.oxidizer_name.split('_')[0],
         engine.fuel_name.split('_')[0],
         f"{ambient_string: >20}",
@@ -127,7 +128,7 @@ def get_ep_components_coordinates(engine: ElectricPumpCycle):
                         pressure=engine.combustion_chamber_pressure,
                         mass_flow=engine.chamber_mass_flow,
                         type='combusted'),
-        (engine.chamber_thrust, engine.chamber_specific_impulse, engine.expansion_ratio),
+        (engine.chamber_thrust, engine.chamber_specific_impulse, engine.expansion_ratio, engine.mass_mixture_ratio),
         f"{ambient_string: >20}",
         engine.oxidizer_name.split('_')[0],  # Oxidizer
         engine.fuel_name.split('_')[0],  # Fuel
@@ -183,6 +184,7 @@ def get_gg_components_coordinates(engine: GasGeneratorCycle):
                   engine.fuel_pump,
                   engine.fuel_pump.outlet_flow_state,
                   format_si(m_f_gg * 1e3, 'g/s'),
+                  engine.gas_generator,
                   engine.cooling_channel_section.outlet_flow_state,
                   engine,
                   engine.oxidizer_pump.inlet_flow_state,
@@ -196,7 +198,8 @@ def get_gg_components_coordinates(engine: GasGeneratorCycle):
                                   pressure=engine.combustion_chamber_pressure,
                                   mass_flow=engine.chamber_mass_flow,
                                   type='combusted'),
-                  (engine.chamber_thrust, engine.chamber_specific_impulse, engine.expansion_ratio),
+                  (engine.chamber_thrust, engine.chamber_specific_impulse, engine.expansion_ratio,
+                   engine.mass_mixture_ratio),
                   engine.oxidizer_name.split('_')[0],  # Oxidizer
                   engine.fuel_name.split('_')[0],  # Fuel
                   f"{ambient_string: >20}",
@@ -212,15 +215,16 @@ def get_gg_components_coordinates(engine: GasGeneratorCycle):
     dy2 = 144
     dy3 = 193
     x1, y1 = 320, 635
-    x2, y2 = 1540, 520
+    x2, y2 = 1535, 520
     x3, y3 = 725, -60
 
     coords = ((x1, y1),
               (x1, y1 + dy3),
               (x1, y1 + dy3 + dy2),
               (x1, y1 + dy3 * 2 + dy2 - 5),
-              (x1, y1 + dy3 * 2 + dy2 + dy1),
-              (x1, y1 + dy3 * 3 + dy2 + dy1),
+              (x1, y1 + dy3 * 2 + dy2 + dy1 - 5),
+              (x1, y1 + dy3 * 2 + dy2 + dy1 * 2),
+              (x1, y1 + dy3 * 3 + dy2 + dy1 * 2),
               (x2, y2),
               (x2, y2 + dy3),
               (x2, y2 + dy3 + dy2 + 3),
@@ -228,7 +232,7 @@ def get_gg_components_coordinates(engine: GasGeneratorCycle):
               (x2, y2 + dy3 * 2 + dy2 * 2),
               (x2, y2 + dy3 * 2 + dy2 * 2 + dy1),
               (x2, y2 + dy3 * 2 + dy2 * 2 + dy1 * 2 + 5),
-              (x2, y2 + dy3 * 3 + dy2 * 2 + dy1 * 2),
+              (x2, y2 + dy3 * 3 + dy2 * 2 + dy1 * 2 + 5),
               (1415, 200),
               (460, 200),
               (870, 1670),
@@ -238,90 +242,16 @@ def get_gg_components_coordinates(engine: GasGeneratorCycle):
               (x3, y3),
               (x3 + 465, y3),
               )
-    coords = tuple((x, y + 120) for x, y in coords)
+    coords = tuple((x, y + 160) for x, y in coords)
     return components, coords
 
 
 def get_gg2_components_coordinates(engine: GasGeneratorCycle_DoubleTurbine):
-    # Mass Flows after Splitters
-    m_f_gg = engine.post_fuel_pump_splitter.outlet_flow_states['gg'].mass_flow
-    m_o_gg = engine.post_oxidizer_pump_splitter.outlet_flow_states['gg'].mass_flow
-    m_o_ch = engine.post_oxidizer_pump_splitter.outlet_flow_states['main'].mass_flow
-
-    ambient_string = get_ambient_pressure_string(engine.ambient_pressure)
-
-    components = (
-        engine.fuel_pump.inlet_flow_state,
-        engine.fuel_pump,
-        engine.fuel_pump.outlet_flow_state,
-        format_si(m_f_gg * 1e3, 'g/s'),
-        engine.gas_generator.outlet_flow_state,
-        engine.cooling_channel_section.outlet_flow_state,
-        engine,
-        # Second Column
-        engine.oxidizer_pump.inlet_flow_state,
-        engine.oxidizer_pump,
-        engine.oxidizer_pump.outlet_flow_state,
-        format_si(m_o_gg * 1e3, 'g/s'),
-        format_si(m_o_ch * 1e3, 'g/s'),
-        ManualFlowState(propellant_name='CombustionGas',
-                        temperature=engine.combustion_temperature,
-                        pressure=engine.combustion_chamber_pressure,
-                        mass_flow=engine.chamber_mass_flow,
-                        type='combusted'),
-        (engine.chamber_thrust, engine.chamber_specific_impulse, engine.expansion_ratio),
-        # Others
-        (engine.fuel_secondary_exhaust.thrust, engine.fuel_secondary_exhaust.specific_impulse,
-         engine.fuel_secondary_exhaust.expansion_ratio),
-        engine.fuel_turbine.outlet_flow_state,
-        engine.fuel_turbine,
-        (engine.oxidizer_secondary_exhaust.thrust, engine.oxidizer_secondary_exhaust.specific_impulse,
-         engine.oxidizer_secondary_exhaust.expansion_ratio),
-        engine.oxidizer_turbine.outlet_flow_state,
-        engine.oxidizer_turbine,
-        engine.oxidizer_name.split('_')[0],  # Oxidizer
-        engine.fuel_name.split('_')[0],  # Fuel
-        f"{ambient_string: >20}",
-        format_si(engine.thrust, 'N'),
-        format_si(engine.overall_specific_impulse, 's'),
-    )
-
-    dy1 = 80
-    dy2 = 144
-    dy3 = 193
-    x1, y1 = 320, 740
-    x2, y2 = 1610, y1
-    x3, y3 = 785, -60
-    x4, y4 = 568, 105
-
-    coords = (
-        (x1, y1),
-        (x1, y1 + dy3),
-        (x1, y1 + dy3 + dy2),
-        (x1, y1 + dy3 * 2 + dy2 - 10),
-        (x1, y1 + dy3 * 2 + dy2 + dy1),
-        (x1, y1 + dy3 * 3 + dy2 + dy1),
-        (x1, y1 + dy3 * 4 + dy2 + dy1),
-        (x2, y2),
-        (x2, y2 + dy3),
-        (x2, y2 + dy3 + dy2 + 3),
-        (x2, y2 + dy3 * 2 + dy2),
-        (x2, y2 + dy3 * 2 + dy2 + dy1),
-        (x2, y2 + dy3 * 2 + dy2 + dy1 * 2 + 5),
-        (x2, y2 + dy3 * 3 + dy2 + dy1 * 2),
-        (x4, y4),  # Fuel Scnd Thrust
-        (x4, y4 + dy3),  # Fuel Turb Flow
-        (x4 - 120, y4 + dy3 * 2),  # Fuel Turbine
-        (x4 + 672, y4),  # Ox Scnd Thrust
-        (x4 + 672, y4 + dy3),  # Ox Turb Flow
-        (x4 + 802, y4 + dy3 * 2),  # Ox Turbine
-        (1765, 350),  # Ox Name
-        (190, 350),  # Fuel Name
-        (870, 1770),  # Ambient P
-        (x3, y3),  # Thrust Total
-        (x3 + 465, y3),  # Isp Total
-    )
-    coords = tuple((x, y + 120) for x, y in coords)
+    components, coords = get_gg3_components_coordinates(engine)
+    components.append((engine.fuel_secondary_exhaust.thrust,
+                       engine.fuel_secondary_exhaust.specific_impulse,
+                       engine.fuel_secondary_exhaust.expansion_ratio))
+    coords.append((568, 225))
     return components, coords
 
 
@@ -333,7 +263,7 @@ def get_gg3_components_coordinates(engine: GasGeneratorCycle_DoubleTurbineSeries
 
     ambient_string = get_ambient_pressure_string(engine.ambient_pressure)
 
-    components = (
+    components = [
         engine.fuel_pump.inlet_flow_state,
         engine.fuel_pump,
         engine.fuel_pump.outlet_flow_state,
@@ -346,13 +276,14 @@ def get_gg3_components_coordinates(engine: GasGeneratorCycle_DoubleTurbineSeries
         engine.oxidizer_pump,
         engine.oxidizer_pump.outlet_flow_state,
         format_si(m_o_gg * 1e3, 'g/s'),
+        engine.gas_generator,
         format_si(m_o_ch * 1e3, 'g/s'),
         ManualFlowState(propellant_name='CombustionGas',
                         temperature=engine.combustion_temperature,
                         pressure=engine.combustion_chamber_pressure,
                         mass_flow=engine.chamber_mass_flow,
                         type='combusted'),
-        (engine.chamber_thrust, engine.chamber_specific_impulse, engine.expansion_ratio),
+        (engine.chamber_thrust, engine.chamber_specific_impulse, engine.expansion_ratio, engine.mass_mixture_ratio),
         # Others
         engine.fuel_turbine.outlet_flow_state,
         engine.fuel_turbine,
@@ -365,7 +296,7 @@ def get_gg3_components_coordinates(engine: GasGeneratorCycle_DoubleTurbineSeries
         f"{ambient_string: >20}",
         format_si(engine.thrust, 'N'),
         format_si(engine.overall_specific_impulse, 's'),
-    )
+    ]
 
     dy1 = 80
     dy2 = 144
@@ -374,8 +305,8 @@ def get_gg3_components_coordinates(engine: GasGeneratorCycle_DoubleTurbineSeries
     x2, y2 = 1610, y1
     x3, y3 = 785, -60
     x4, y4 = 568, 105
-
-    coords = (
+    #
+    coords = [
         (x1, y1),
         (x1, y1 + dy3),
         (x1, y1 + dy3 + dy2),
@@ -388,8 +319,9 @@ def get_gg3_components_coordinates(engine: GasGeneratorCycle_DoubleTurbineSeries
         (x2, y2 + dy3 + dy2 + 3),
         (x2, y2 + dy3 * 2 + dy2),
         (x2, y2 + dy3 * 2 + dy2 + dy1),
-        (x2, y2 + dy3 * 2 + dy2 + dy1 * 2 + 5),
-        (x2, y2 + dy3 * 3 + dy2 + dy1 * 2),
+        (x2, y2 + dy3 * 2 + dy2 + dy1 * 2),
+        (x2, y2 + dy3 * 2 + dy2 + dy1 * 3 + 5),
+        (x2, y2 + dy3 * 3 + dy2 + dy1 * 3),
         (x4, y4 + dy3),  # Fuel Turb Flow
         (x4 - 120, y4 + dy3 * 2),  # Fuel Turbine
         (x4 + 672, y4),  # Ox Scnd Thrust
@@ -400,8 +332,8 @@ def get_gg3_components_coordinates(engine: GasGeneratorCycle_DoubleTurbineSeries
         (870, 1770),  # Ambient P
         (x3, y3),  # Thrust Total
         (x3 + 465, y3),  # Isp Total
-    )
-    coords = tuple((x, y + 120) for x, y in coords)
+    ]
+    coords = [(x, y + 120) for x, y in coords]
     return components, coords
 
 
@@ -526,7 +458,7 @@ def get_oe2_components_coordinates(engine: OpenExpanderCycle_DoubleTurbine):
                         pressure=engine.combustion_chamber_pressure,
                         mass_flow=engine.chamber_mass_flow,
                         type='combusted'),
-        (engine.chamber_thrust, engine.chamber_specific_impulse, engine.expansion_ratio),
+        (engine.chamber_thrust, engine.chamber_specific_impulse, engine.expansion_ratio, engine.mass_mixture_ratio),
         # Fuel Col 2
         format_si(m_ch2 * 1e3, 'g/s', 5),
         format_si(m_ch * 1e3, 'g/s', 5),
@@ -572,7 +504,7 @@ def get_oe2_components_coordinates(engine: OpenExpanderCycle_DoubleTurbine):
         # Fuel col 2
         (x3, y3),
         (x3, y3 + dy1),
-        (x3, y3 + dy1 * 2+10),
+        (x3, y3 + dy1 * 2 + 10),
         # Top cols
         (x4, y4),
         (x4, y4 + dy3),
@@ -591,12 +523,14 @@ def get_oe2_components_coordinates(engine: OpenExpanderCycle_DoubleTurbine):
     return components, coords
 
 
+eta_f = ' >15.2f'
+
+
 def format_power_comp(power: float, efficiency: float, **kwargs):
-    eta_f = ' >13.2f'
     return format_si(power, 'W', **kwargs), f'{efficiency:{eta_f}}'
 
 
-def format_values(components: tuple):
+def format_values(components: tuple) -> Iterator[tuple]:
     for component in components:
         if isinstance(component, FlowState):
             pressure = format_si(component.pressure, 'Pa')
@@ -608,7 +542,7 @@ def format_values(components: tuple):
                                                   component.efficiency)
             yield power, efficiency
         elif isinstance(component, EngineCycle):
-            power, efficiency = format_power_comp(component.total_heat_transfer,
+            power, efficiency = format_power_comp(component.heat_flow_rate,
                                                   component.expansion_ratio_end)
             yield power, efficiency
 
@@ -616,7 +550,12 @@ def format_values(components: tuple):
             thrust = format_si(component[0], 'N')
             isp = format_si(component[1], 's')
             eps = format_si(component[2], '')
-            yield thrust, isp, eps
+            try:
+                mmr = f'    {format_si(component[3], "", 3)}'
+                yield thrust, isp, eps, mmr
+            except IndexError:
+                yield thrust, isp, eps
+
         elif isinstance(component, ElectricalComponent):
             digits = 5 if isinstance(component, Battery) else 5
             power, efficiency = format_power_comp(component.output_power,
@@ -630,19 +569,22 @@ def format_values(components: tuple):
             yield power, efficiency
         elif isinstance(component, str):
             yield (component,)
+        elif isinstance(component, GasGenerator):
+            yield (f'{component.mass_mixture_ratio:{eta_f}}',)
         else:
             raise ValueError('Component type not in format list')
 
 
 if __name__ == '__main__':
     from EngineArguments import arguments as args
+    from Verficiation.Engines.VV_SE21D import se_21d_kwargs
 
     design_args = {'thrust': 1000e3,
                    'burn_time': 300,
                    'combustion_chamber_pressure': 10e6,
                    'is_frozen': True,
                    'ambient_pressure': None,
-                   'exit_pressure_forced': 50000, }
+                   'expansion_ratio':5 }
 
     j2_kwargs = {'fuel_name': 'LH2_NASA',
                  'thrust': 1023e3,
@@ -673,11 +615,11 @@ if __name__ == '__main__':
 
     cycle_list = (
         (ElectricPumpCycle, args.ep_arguments),
-        (GasGeneratorCycle, args.gg_arguments),
-        (CoolantBleedCycle, args.cb_arguments),
+        # (GasGeneratorCycle, args.gg_arguments),
+        # (CoolantBleedCycle, args.cb_arguments),
         (OpenExpanderCycle, args.oe_arguments),
-        # (OpenExpanderCycle_DoubleTurbine, se_21d_kwargs),
-        # (GasGeneratorCycle_DoubleTurbine, j2_total_kwargs),
+        (OpenExpanderCycle_DoubleTurbine, se_21d_kwargs),
+        (GasGeneratorCycle_DoubleTurbine, j2_total_kwargs),
     )
 
     for Cycle, extra_args in cycle_list:

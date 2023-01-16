@@ -98,7 +98,7 @@ def get_SE21D_data(is_pressure_exact: bool, is_vacuum: bool = False, show_schema
             ('Oxid. Pump Power Req.', '[MW]', engine.oxidizer_pump.power_required * 1e-6, 4.315),
             ('Total Pump Power Req.', '[MW]', engine.pumps_power_required * 1e-6, 20.768),
             # ('TC Length', '[m]', engine.thrust_chamber.length, 0),
-            ('Heat Transfer', '[MW]', engine.total_heat_transfer * 1e-6, 111.037),
+            ('Heat Transfer', '[MW]', engine.heat_flow_rate * 1e-6, 111.037),
             # ('Turb. In. Temp.', '[K]', engine.turbine_inlet_temperature, 506.452),
             ('Turb. Mass Flow', '[kg/s]', engine.turbine_mass_flow, 10.174),
             ('Cool. Mass Flow', '[kg/s]', engine.cooling_channel_section.inlet_mass_flow, 16.394),

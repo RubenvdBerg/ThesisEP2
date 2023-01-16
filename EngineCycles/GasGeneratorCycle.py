@@ -164,7 +164,7 @@ class GasGeneratorCycle_Mixin:
 
     @property
     def mass_kwak(self):
-        return super().mass + self.gas_generator.mass
+        return super().mass_kwak + self.gas_generator.mass
 
     @property
     def engine_dry_mass(self):

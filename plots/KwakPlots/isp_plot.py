@@ -7,6 +7,7 @@ from EngineCycles.CoolantBleedCycle import CoolantBleedCycle
 from KwakFix.KwakFixCycles import KwakFixElectricPumpCycle, KwakFixGasGeneratorCycle
 from typing import Optional, Tuple
 from EngineArguments import arguments as args
+from EngineArguments.default_arguments import get_default_kwargs
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from time import strftime
@@ -20,26 +21,23 @@ import scienceplots
 def get_engines(cycle_name: str, thrust: float = 100e3, burn_time: float = 300, p_cc_range: tuple = tuple(range(3, 11)),
                 is_frozen: bool = False, verbose: bool = False, kwak: bool = False, _p_cc_factor: float = 1e6,
                 **kwargs):
-    extra_args_selection = {'ep': args.ep_arguments,
-                            'gg': args.gg_arguments,
-                            'oe': args.oe_arguments,
-                            'cb': args.cb_arguments, }
     if kwak:
         cycle_selection = {'ep': KwakFixElectricPumpCycle,
                            'gg': KwakFixGasGeneratorCycle, }
-        base_args = args.common_arguments_kwak
+
     else:
         cycle_selection = {'ep': ElectricPumpCycle,
                            'gg': GasGeneratorCycle,
                            'oe': OpenExpanderCycle,
                            'cb': CoolantBleedCycle, }
-        base_args = args.base_arguments
+
     cycle = cycle_selection[cycle_name]
-    extra_args = extra_args_selection[cycle_name]
-    total_args = base_args | extra_args | kwargs | {'thrust': thrust,
-                                                    'burn_time': burn_time,
-                                                    'is_frozen': is_frozen,
-                                                    'verbose': verbose, }
+
+    default_args = get_default_kwargs(cycle)
+    total_args = default_args | kwargs | {'thrust': thrust,
+                                          'burn_time': burn_time,
+                                          'is_frozen': is_frozen,
+                                          'verbose': verbose, }
 
     def yield_engines():
         for p_cc in p_cc_range:
@@ -53,7 +51,8 @@ def get_engines(cycle_name: str, thrust: float = 100e3, burn_time: float = 300, 
     return tuple(yield_engines())
 
 
-def get_data_dict(attributes: tuple, thrusts: tuple, burn_times: tuple, names: tuple, **kwargs):
+def get_data_dict(attributes: tuple, thrusts: tuple, burn_times: tuple, names: tuple,
+                  p_cc_range: tuple = tuple(range(3, 11)), is_frozen: bool = False, kwak: bool = False, **kwargs):
     engine_data = {}
     for burn_time in burn_times:
         engine_data[burn_time] = {}
@@ -63,6 +62,9 @@ def get_data_dict(attributes: tuple, thrusts: tuple, burn_times: tuple, names: t
                 engine_data[burn_time][thrust][name] = get_engines(cycle_name=name.lower(),
                                                                    thrust=thrust,
                                                                    burn_time=burn_time,
+                                                                   p_cc_range=p_cc_range,
+                                                                   is_frozen=is_frozen,
+                                                                   kwak=kwak,
                                                                    **kwargs)
     data_dict = {}
     for attribute in attributes:
@@ -74,6 +76,9 @@ def get_data_dict(attributes: tuple, thrusts: tuple, burn_times: tuple, names: t
                 for thrust in thrusts:
                     data_dict[attribute][name][burn_time][thrust] = [getattr(engine, attribute) for engine in
                                                                      engine_data[burn_time][thrust][name]]
+
+    data_dict['info'] = kwargs | {'burn_times': burn_times, 'thrusts': thrusts, 'names': names, 'is_frozen': is_frozen,
+                                  'p_cc_range': p_cc_range, 'kwak': kwak}
 
     return data_dict
 
@@ -171,10 +176,10 @@ def value_plot(attribute_name: str, ylabel: str, variable_title: str, pngname: s
         ax.set_title(title + f'\n {mode} - {kwak_mode} - $t_b$:{burn_time}')
         if sub_legend_kwargs is None:
             sub_legend_kwargs = {}
-        vertical_header_legend(names, [f'{float(thrust) * 1e-3:.0f}' for thrust in thrusts], p,
-                               headerfunc=lambda x: x + '-cycle',
-                               dummy_pos=([p_cc_range[0]], [values[0]]),
-                               **sub_legend_kwargs)
+        # vertical_header_legend(names, [f'{float(thrust) * 1e-3:.0f}' for thrust in thrusts], p,
+        #                        headerfunc=lambda x: x + '-cycle',
+        #                        dummy_pos=([p_cc_range[0]], [values[0]]),
+        #                        **sub_legend_kwargs)
         if savefig:
             plt.savefig(dir_name + '/' + pngname + f'_{burn_time}', dpi=1200)
         plt.show()
@@ -208,7 +213,7 @@ def plot_dv_ratio(default_ylim=False, is_ratio: bool = True, **kwargs):
         ylabel = r'$I_{sp}*ln(MR^{-1})$'
         unit = 's'
     else:
-        plotter =value_plot
+        plotter = value_plot
         ylabel = r'$\Delta V$'
         unit = 'm/s'
     plotter(attribute_name='ideal_delta_v',
@@ -219,11 +224,24 @@ def plot_dv_ratio(default_ylim=False, is_ratio: bool = True, **kwargs):
             unit=unit,
             **kwargs)
 
+
 def plot_mr_ratio(default_ylim=False, is_ratio: bool = True, **kwargs):
     if default_ylim:
         kwargs['ylim'] = (1.2, 3.2)
     plotter = ratio_plot if is_ratio else value_plot
     plotter(attribute_name='mass_ratio',
+            ylabel=r'$MR$',
+            variable_title='Mass Ratio',
+            pngname='Mass_Ratio_Comparison',
+            sub_legend_kwargs={'loc': 2, 'fontsize': 6},
+            **kwargs)
+
+
+def plot_mr_kwak_ratio(default_ylim=False, is_ratio: bool = True, **kwargs):
+    if default_ylim:
+        kwargs['ylim'] = (1.2, 3.2)
+    plotter = ratio_plot if is_ratio else value_plot
+    plotter(attribute_name='mass_ratio_kwak',
             ylabel=r'$MR$',
             variable_title='Mass Ratio',
             pngname='Mass_Ratio_Comparison',
@@ -405,7 +423,6 @@ if __name__ == '__main__':
               '_ignore_cooling': True,
               'specific_impulse_quality_factor': 1,
               }
-
 
     plot_all_ratio_plots_data(default_ylim=True, savedata=True, savefig=True, names=('EP', 'GG'),
                               fuel_name='RP1_NASA', isp_single_figure=True, **kwargs)

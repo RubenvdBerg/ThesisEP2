@@ -16,7 +16,7 @@ if __name__ == '__main__':
         # 'RS-27': ('single', rs27_kwargs),
         # 'F-1': ('single', f1_kwargs),
         'HM60': ('double', hm60_kwargs),
-        'J-2': ('double_single', j2_kwargs),
+        # 'J-2': ('double_single', j2_kwargs),
     }
     engine_class_selector = {'single': GasGeneratorCycle,
                              'double': GasGeneratorCycle_DoubleTurbine,

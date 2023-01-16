@@ -25,7 +25,7 @@ from EngineFunctions.CEAFunctions import get_cea_dict, get_cea_chamber_dict
 from EngineFunctions.IRTFunctions import get_expansion_ratio_from_p_ratio, \
     get_pressure_ratio_fsolve, get_throat_area, get_thrust_coefficient_from_ideal
 from EngineFunctions.AssumeValueFunctions import get_characteristic_length, get_initial_propellant_temperature, \
-    get_prandtl_number_estimate, get_turbulent_recovery_factor, get_specific_impulse_quality_factor, get_propellant_mixture
+    get_prandtl_number_estimate, get_turbulent_recovery_factor, get_specific_impulse_quality_factor, get_propellant_mixture, get_mass_mixture_ratio
 from EngineFunctions.EmpiricalRelations import get_chamber_throat_area_ratio_estimate
 
 
@@ -111,7 +111,7 @@ class EngineCycle:
     iteration_accuracy: float = 0.0001
 
     # Values always calculated by program, but need to be saved as attributes, not properties
-    total_heat_transfer: float = field(init=False, repr=False, default=0)
+    heat_flow_rate: float = field(init=False, repr=False, default=0)
     minimum_required_coolant_mass_flow: float = field(init=False, repr=False, default=0)
     _fuel_pump_outlet_pressure: float = field(init=False, repr=False, default=None)
     _oxidizer_pump_outlet_pressure: float = field(init=False, repr=False, default=None)
@@ -201,8 +201,9 @@ class EngineCycle:
             self.injector_pressure_drop = self.combustion_chamber_pressure * self.injector_pressure_drop_factor
 
     def set_heat_transfer(self):
-        self.total_heat_transfer = self.heat_transfer_section.total_heat_transfer
-        self.heat_transfer_func = self.heat_transfer_section.init_heat_transfer()
+        heat_transfer = self.heat_transfer_section
+        self.heat_flow_rate = heat_transfer.total_heat_transfer
+        self.heat_flux_func = heat_transfer.heat_transfer_func
 
     def iterate_flow(self):
         raise NotImplementedError
@@ -375,7 +376,7 @@ class EngineCycle:
             return self.combustion_chamber_pressure * self._fuel_pump_pressure_factor_first_guess
 
     @property
-    def oxidizer_initial_flow_state(self):
+    def oxidizer_main_flow_state(self):
         return FlowState(propellant_name=self.oxidizer_name,
                          temperature=self.oxidizer_initial_temperature,
                          pressure=self.oxidizer_initial_pressure,
@@ -383,7 +384,7 @@ class EngineCycle:
                          type='oxidizer', )
 
     @property
-    def fuel_initial_flow_state(self):
+    def fuel_main_flow_state(self):
         return FlowState(propellant_name=self.fuel_name,
                          temperature=self.fuel_initial_temperature,
                          pressure=self.fuel_initial_pressure,
@@ -392,13 +393,13 @@ class EngineCycle:
 
     @property
     def oxidizer(self):
-        return Propellant(initial_flow_state=self.oxidizer_initial_flow_state,
+        return Propellant(main_flow_state=self.oxidizer_main_flow_state,
                           burn_time=self.burn_time,
                           margin_factor=self.propellant_margin_factor)
 
     @property
     def fuel(self):
-        return Propellant(initial_flow_state=self.fuel_initial_flow_state,
+        return Propellant(main_flow_state=self.fuel_main_flow_state,
                           burn_time=self.burn_time,
                           margin_factor=self.propellant_margin_factor)
 
@@ -417,7 +418,7 @@ class EngineCycle:
                           fuel_tank_initial_pressure=self.fuel_initial_pressure,
                           oxidizer_tank_initial_pressure=self.oxidizer_initial_pressure,
                           margin_factor=self.pressurant_margin_factor,
-                          initial_flow_state=self.pressurant_initial_state,
+                          initial_fluid_state=self.pressurant_initial_state,
                           final_pressure=self.pressurant_final_pressure,
                           propellant_tanks_ullage_factor=self.ullage_volume_factor)
 
@@ -429,7 +430,7 @@ class EngineCycle:
 
     @property
     def oxidizer_tank(self):
-        return Tank(inlet_flow_state=self.oxidizer_initial_flow_state,
+        return Tank(inlet_flow_state=self.oxidizer_main_flow_state,
                     propellant_volume=self.oxidizer.volume,
                     max_acceleration=self.max_acceleration,
                     ullage_factor=self.ullage_volume_factor,
@@ -439,7 +440,7 @@ class EngineCycle:
 
     @property
     def fuel_tank(self):
-        return Tank(inlet_flow_state=self.fuel_initial_flow_state,
+        return Tank(inlet_flow_state=self.fuel_main_flow_state,
                     propellant_volume=self.fuel.volume,
                     max_acceleration=self.max_acceleration,
                     ullage_factor=self.ullage_volume_factor,
@@ -586,7 +587,7 @@ class EngineCycle:
                                  ccs_flow_state.coolprop_name)
         h_in = ccs_flow_state.mass_specific_enthalpy
         delta_h_max = h_max - h_in
-        q_tot = self.total_heat_transfer
+        q_tot = self.heat_flow_rate
         self.minimum_required_coolant_mass_flow = q_tot / abs(delta_h_max)
 
         if self.minimum_required_coolant_mass_flow > self.main_fuel_flow:
@@ -600,7 +601,7 @@ class EngineCycle:
     @property
     def cooling_channel_section(self):
         return CoolingChannelSection(inlet_flow_state=self.cooling_inlet_flow_state,
-                                     total_heat_transfer=self.total_heat_transfer,
+                                     heat_flow_rate=self.heat_flow_rate,
                                      maximum_outlet_temperature=self.maximum_coolant_outlet_temperature,
                                      pressure_drop=self.cooling_section_pressure_drop,
                                      _is_temp_calc_needed=self._is_temp_calc_needed, )
@@ -641,6 +642,16 @@ class EngineCycle:
         return self.props_mass + self.tanks_mass + self.pumps_mass + self.pressurant.mass
 
     @property
+    def mass_ratio_kwak(self):
+        m0 = self.mass_kwak
+        mf = self.mass_kwak - self.props_mass
+        return mf/m0
+
+    @property
+    def ideal_delta_v_kwak(self):
+        return self.overall_specific_impulse * log(1 / self.mass_ratio_kwak) * constants.g
+
+    @property
     def total_thrust_chamber_mass(self):
         return self.thrust_chamber.mass + self.injector.mass + self.cooling_channel_section.mass
 
@@ -674,7 +685,7 @@ class EngineCycle:
 
     def get_payload(self, delta_v: float) -> float:
         e_dv = exp(delta_v / (self.overall_specific_impulse * constants.g))
-        m0 = self.mass
+        m0 = self.initial_mass
         mf = self.final_mass
         return (m0 - mf * e_dv) / (e_dv - 1)
 

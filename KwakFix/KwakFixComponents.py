@@ -6,6 +6,7 @@ from EngineComponents.Base.Tank import Tank
 from EngineComponents.Base.Pump import Pump
 from EngineComponents.Base.Propellant import Propellant
 
+
 @dataclass
 class KwakBattery(Battery):
     electric_motor_efficiency: float  # [-]
@@ -21,7 +22,8 @@ class KwakBattery(Battery):
 
     @property
     def mass(self):
-        return (self.battery_packing_factor * self.output_power / (self.electric_motor_efficiency * self.inverter_efficiency)
+        return (self.battery_packing_factor * self.output_power / (
+                    self.electric_motor_efficiency * self.inverter_efficiency)
                 * max(1 / self.specific_power, self.burn_time / (self.specific_energy * self.eta_e)))
 
 
@@ -33,6 +35,7 @@ class KwakTank(Tank):
     def propellant_density(self):
         return self.manual_propellant_density
 
+
 @dataclass
 class KwakPump(Pump):
     manual_propellant_density: float = 0
@@ -41,6 +44,7 @@ class KwakPump(Pump):
     def propellant_density(self):
         return self.manual_propellant_density
 
+
 @dataclass
 class KwakPropellant(Propellant):
     manual_propellant_density: float = 0
@@ -48,6 +52,3 @@ class KwakPropellant(Propellant):
     @property
     def density(self):
         return self.manual_propellant_density
-    
-    
-

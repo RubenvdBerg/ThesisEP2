@@ -63,15 +63,22 @@ def get_hot_gas_convective_heat_transfer_coefficient(
         s = (1 + m ** 2 * (y - 1) / 2) ** -.12 / (.5 + .5 * (tw / t0) * (1 + m ** 2 * (y - 1) / 2)) ** .68
         return (0.026 * dt ** -0.2 * mu ** 0.2 * cp * pr ** -0.6 * (p0 / cstar) ** 0.8
                 * (dt / rc) ** .1 * (dt / di) ** 1.8 * s)
-    elif mode == 'ModifiedBartz':
-        return 0.026 * 1.213 * mf ** .8 * di ** -1.8 * mu ** .2 * cp * pr ** -.6 * (t0 / tf) ** .68
-    elif mode == 'Cornelisse':
-        return 0.023 * 1.213 * mf ** .8 * di ** -1.8 * mu ** .2 * cp * pr ** float(-2 / 3)
-    elif mode == 'CornelisseNozzle':
-        return 0.026 * 1.213 * mf ** .8 * di ** -1.8 * mu ** .2 * cp * pr ** float(-2 / 3) * (t0 / tf) ** .68
     else:
-        raise ValueError('Select proper mode for estimation of the hot gas convective heat transfer coefficient')
-
+        if mode == 'ModifiedBartz':
+            factor = 0.026
+            prandtl_exp = 0.6
+            temp_exp = 0.68
+        elif mode == 'Cornelisse':
+            factor = 0.023
+            prandtl_exp = float(2/3)
+            temp_exp = 0
+        elif mode == 'CornelisseNozzle':
+            factor = 0.026
+            prandtl_exp = float(2/3)
+            temp_exp = 0.68
+        else:
+            raise ValueError('Select proper mode for estimation of the hot gas convective heat transfer coefficient')
+        return factor * 1.213 * mf ** .8 * di ** -1.8 * mu ** .2 * cp * pr ** -prandtl_exp * (t0 / tf) ** temp_exp
 
 def get_netto_average_wall_radiative_heat_flux(combustion_temperature: float, maximum_wall_temperature: float,
                                                thrust_chamber_wall_emissivity: float, hot_gas_emissivity: float

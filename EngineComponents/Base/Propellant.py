@@ -4,21 +4,21 @@ from EngineComponents.Abstract.FlowState import FlowState
 
 @dataclass
 class Propellant:
-    initial_flow_state: FlowState
+    main_flow_state: FlowState
     burn_time: float  # [s]
     margin_factor: float  # [-]
 
     @property
     def name(self):
-        return self.initial_flow_state.propellant_name
+        return self.main_flow_state.propellant_name
 
     @property
     def mass_flow(self):
-        return self.initial_flow_state.mass_flow
+        return self.main_flow_state.mass_flow
 
     @property
     def density(self):
-        return self.initial_flow_state.density
+        return self.main_flow_state.density
 
     @property
     def mass(self):

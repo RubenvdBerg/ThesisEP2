@@ -12,7 +12,7 @@ burn_times = (300, 390, 1200)
 
 
 def full_output(kwak_fix, design_args=args.desgin_arguments, common_args=args.common_arguments_kwak, ):
-    combined_args = design_args | common_args | {'exit_pressure_forced': 0.002E6}
+    combined_args = design_args | common_args
     if kwak_fix:
         combined_args = combined_args | {'_fuel_pump_pressure_factor_first_guess': 1.55,
                                          '_oxidizer_pump_pressure_factor_first_guess': 1.15,
@@ -209,7 +209,7 @@ def full_output(kwak_fix, design_args=args.desgin_arguments, common_args=args.co
         gg_cycle.oxidizer_tank.mass,
         gg_cycle.fuel_tank.mass,
         gg_cycle.pressurant_tank.mass,
-        gg_cycle.mass,
+        gg_cycle.mass_kwak,
         None,
         None,
         None
@@ -245,7 +245,7 @@ def full_output(kwak_fix, design_args=args.desgin_arguments, common_args=args.co
         ep_cycle.oxidizer_tank.mass,
         ep_cycle.fuel_tank.mass,
         ep_cycle.pressurant_tank.mass,
-        ep_cycle.mass
+        ep_cycle.mass_kwak
     ]
 
     gg_list = [
@@ -264,7 +264,7 @@ def full_output(kwak_fix, design_args=args.desgin_arguments, common_args=args.co
         gg_cycle.cc_propellant_mass,
         gg_cycle.gg_propellant_mass,
         0.0,
-        gg_cycle.mass
+        gg_cycle.mass_kwak
     ]
     ep_list = [
         ep_cycle.feed_system_mass,
@@ -282,18 +282,18 @@ def full_output(kwak_fix, design_args=args.desgin_arguments, common_args=args.co
         ep_cycle.props_mass,
         0.0,
         ep_cycle.battery.mass,
-        ep_cycle.mass
+        ep_cycle.mass_kwak
     ]
 
     gg_results = [
-        gg_cycle.mass,
+        gg_cycle.mass_kwak,
         gg_cycle.final_mass,
         gg_cycle.props_mass,
         gg_cycle.gg_propellant_mass,
         0.0,
         0.,
         gg_cycle.feed_system_mass / gg_cycle.props_mass,
-        gg_cycle.mass_ratio,
+        gg_cycle.mass_ratio_kwak,
         0.,
         gg_cycle.overall_specific_impulse,
         0.,
@@ -303,14 +303,14 @@ def full_output(kwak_fix, design_args=args.desgin_arguments, common_args=args.co
     ]
 
     ep_results = [
-        ep_cycle.mass,
+        ep_cycle.mass_kwak,
         ep_cycle.final_mass,
         ep_cycle.props_mass,
         0.,
         ep_cycle.battery.mass,
         0.,
         ep_cycle.feed_system_mass / ep_cycle.props_mass,
-        ep_cycle.mass_ratio,
+        ep_cycle.mass_ratio_kwak,
         0.,
         ep_cycle.overall_specific_impulse,
         0.,
@@ -372,6 +372,7 @@ def full_output(kwak_fix, design_args=args.desgin_arguments, common_args=args.co
     print(f'isp ep:{ep_cycle.overall_specific_impulse}, gg:{gg_cycle.overall_specific_impulse}')
     return results
 
+
 #
 # def get_outputs():
 #     full_outputs = {}
@@ -422,10 +423,10 @@ def full_output(kwak_fix, design_args=args.desgin_arguments, common_args=args.co
 
 if __name__ == '__main__':
     design_args = {
-        'thrust': 75e3,
-        'combustion_chamber_pressure': 7e6,
-        'burn_time': 500,
+        'thrust': 100e3,
+        'combustion_chamber_pressure': 10e6,
+        'burn_time': 300,
         'is_frozen': False
     }
-    for kwak_fix in [True, False]:
-        print(full_output(kwak_fix=kwak_fix, design_args=design_args))
+    for kwak_fix in [True]:
+       full_output(kwak_fix=kwak_fix, design_args=design_args)
