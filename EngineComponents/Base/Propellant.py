@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Optional
 from EngineComponents.Abstract.FlowState import FlowState
 
+
 @dataclass
 class Propellant:
     main_flow_state: FlowState
@@ -31,6 +32,3 @@ class Propellant:
     @property
     def volumetric_flow(self):
         return self.mass_flow / self.density
-
-
-

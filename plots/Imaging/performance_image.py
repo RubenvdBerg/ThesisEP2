@@ -14,6 +14,7 @@ from numpy import isclose
 from typing import Optional, Iterator
 from PIL import Image, ImageDraw, ImageFont
 from EngineFunctions.BaseFunctions import format_si
+from dataclasses import replace
 
 
 def make_performance_schematic(engine: EngineCycle):
@@ -61,6 +62,16 @@ def get_ambient_pressure_string(ambient_pressure: Optional[float]):
     else:
         p_a = format_si(ambient_pressure, 'Pa')
     return u'p\u2090' + f' = {p_a}'
+
+
+def get_exit_pressure_string(exit_pressure: float):
+    if isclose(exit_pressure, 0):
+        p_e = '0.0'
+    elif isclose(exit_pressure, 101325):
+        p_e = '1 atm'
+    else:
+        p_e = format_si(exit_pressure, 'Pa')
+    return u'p\u2091' + f' = {p_e}'
 
 
 def get_base_comps_coords(engine: EngineCycle, x_y1: tuple, x_y2: tuple):
@@ -111,13 +122,18 @@ def get_base_comps_coords(engine: EngineCycle, x_y1: tuple, x_y2: tuple):
 
 def get_ep_components_coordinates(engine: ElectricPumpCycle):
     ambient_string = get_ambient_pressure_string(engine.ambient_pressure)
+    exit_string = get_exit_pressure_string(engine.exit_pressure)
+    m_cool = engine.post_fuel_pump_splitter.outlet_flow_states['chamber'].mass_flow
+    m_batt = engine.post_fuel_pump_splitter.outlet_flow_states['battery'].mass_flow
 
     components = (
         engine.fuel_tank.outlet_flow_state,
         engine.fuel_pump,
         engine.battery_cooler.outlet_flow_state,
+        engine.fuel_pump.outlet_flow_state,
+        format_si(m_cool, 'kg/s'),
+        format_si(m_batt, 'kg/s'),
         engine.cooling_channel_section.outlet_flow_state,
-        engine.post_fuel_pump_splitter.outlet_flow_state_chamber,
         engine,
         engine.oxidizer_pump.inlet_flow_state,
         engine.oxidizer_pump,
@@ -129,6 +145,7 @@ def get_ep_components_coordinates(engine: ElectricPumpCycle):
                         mass_flow=engine.chamber_mass_flow,
                         type='combusted'),
         (engine.chamber_thrust, engine.chamber_specific_impulse, engine.expansion_ratio, engine.mass_mixture_ratio),
+        f"{exit_string: >20}",
         f"{ambient_string: >20}",
         engine.oxidizer_name.split('_')[0],  # Oxidizer
         engine.fuel_name.split('_')[0],  # Fuel
@@ -146,19 +163,22 @@ def get_ep_components_coordinates(engine: ElectricPumpCycle):
         (x1, y1),
         (x1, y1 + dy2),
         (x1, y1 + dy2 + dy3),
-        (x1, y1 + dy2 + dy3 * 2),
-        (x1, y1 + dy2 + dy3 * 3),
+        (x1, y1 + dy2 + dy3 * 2 - 10),
+        (x1, y1 + dy1 + dy2 + dy3 * 2 - 10),
+        (x1, y1 + dy1 * 2 + dy2 + dy3 * 2),
+        (x1, y1 + dy1 * 2 + dy2 + dy3 * 3),
         (x2, y2),
         (x2, y2 + dy3),
         (x2, y2 + dy2 + dy3),
         (x2, y2 + dy2 * 2 + dy3),
         (x2, y2 + dy2 * 2 + dy3 * 2),
         (x2, y2 + dy2 * 2 + dy3 * 3),
-        (x1 + 554, y1 + 948),  # Ambient
+        (x1 + 554, y1 + 948),  # Exit
+        (x1 + 554, y1 + 1028),  # Ambient
         (x1 + 1194, y1 - 580),  # Ox
         (x1 + 123, y1 - 580),  # Fu
-        (x1 + 389, y1 - 605),  # Em
-        (x1 + 804, y1 - 605),  # Inv
+        (x1 + 379, y1 - 605),  # Em
+        (x1 + 800, y1 - 605),  # Inv
         (x1 + 464, y1 - 780),
         (x1 + 929, y1 - 780)
     )
@@ -527,7 +547,10 @@ eta_f = ' >15.2f'
 
 
 def format_power_comp(power: float, efficiency: float, **kwargs):
-    return format_si(power, 'W', **kwargs), f'{efficiency:{eta_f}}'
+    try:
+        return format_si(power, 'W', **kwargs), f'{efficiency:{eta_f}}'
+    except:
+        return '0', '0'
 
 
 def format_values(components: tuple) -> Iterator[tuple]:
@@ -579,12 +602,15 @@ if __name__ == '__main__':
     from EngineArguments import arguments as args
     from Verficiation.Engines.VV_SE21D import se_21d_kwargs
 
-    design_args = {'thrust': 1000e3,
-                   'burn_time': 300,
+    design_args = {'thrust': 100e3,
+                   'burn_time': 390,
                    'combustion_chamber_pressure': 10e6,
                    'is_frozen': True,
                    'ambient_pressure': None,
-                   'expansion_ratio':5 }
+                   'exit_pressure_forced': 0.002e6,
+                   # 'shaft_mechanical_efficiency': 1.0,
+                   'specific_impulse_quality_factor': None,
+                   '_ignore_cooling': False}
 
     j2_kwargs = {'fuel_name': 'LH2_NASA',
                  'thrust': 1023e3,
@@ -625,4 +651,6 @@ if __name__ == '__main__':
     for Cycle, extra_args in cycle_list:
         complete_args = args.base_arguments | extra_args | design_args
         engine = Cycle(**complete_args)
+        engine: ElectricPumpCycle
+        print(engine.pre_fuel_pump_merger.outlet_flow_state)
         make_performance_schematic(engine)

@@ -1,3 +1,4 @@
+import warnings
 from dataclasses import dataclass, replace, field
 from typing import Optional
 from EngineCycles.Abstract.EngineCycle import EngineCycle
@@ -43,12 +44,27 @@ class ElectricPumpCycle(EngineCycle):
     def iterate_flow(self):
         while self.battery_flow_error_larger_than_accuracy():
             self._iterative_battery_cooler_outlet_flow_state = self.battery_cooler.outlet_flow_state
+            print(self.pre_fuel_pump_merger.outlet_flow_state.temperature)
             self.print_verbose_iteration_message()
+        self.set_battery_cooler_outlet_temp()
 
     def battery_flow_error_larger_than_accuracy(self):
         error = abs(self.actual_battery_coolant_flow - self.battery_cooler.coolant_flow_required)
         margin = self.battery_cooler.coolant_flow_required * self.iteration_accuracy
         return error > margin
+
+    def set_battery_cooler_outlet_temp(self):
+        """Set battery cooler outlet temperature according to limit instead of iteration."""
+        # Calculation of theoretical temperature difference between fuel tank outlet and fuel pump inlet
+        m_fp = self.fuel_pump.inlet_flow_state.mass_flow
+        m_bat_cl = self._iterative_battery_cooler_outlet_flow_state.mass_flow
+        a = m_bat_cl / m_fp
+        b = self.battery_coolant_temperature_change + self.fuel_pump.temperature_change
+        dt_expected = a * b / (1 - a)  # Mathematical limit
+        # Calculation of expected battery cooler outlet temperature
+        temp_ft = self.fuel_tank.outlet_flow_state.temperature
+        temp_bat_out_expected = dt_expected / a + temp_ft
+        self._iterative_battery_cooler_outlet_flow_state.temperature = temp_bat_out_expected
 
     @property
     def verbose_iteration_name(self):
@@ -64,7 +80,8 @@ class ElectricPumpCycle(EngineCycle):
 
     @property
     def pre_fuel_pump_merger(self):
-        return Merger(inlet_flow_states=(self.fuel_tank.outlet_flow_state, self._iterative_battery_cooler_outlet_flow_state))
+        return Merger(
+            inlet_flow_states=(self.fuel_tank.outlet_flow_state, self._iterative_battery_cooler_outlet_flow_state))
 
     @property
     def post_fuel_pump_splitter(self):
@@ -78,7 +95,7 @@ class ElectricPumpCycle(EngineCycle):
         return Pump(inlet_flow_state=self.pre_fuel_pump_merger.outlet_flow_state,
                     expected_outlet_pressure=self.fuel_pump_outlet_pressure,
                     efficiency=self.fuel_pump_efficiency,
-                    specific_power=self.fuel_pump_specific_power,)
+                    specific_power=self.fuel_pump_specific_power, )
 
     @property
     def electric_motor(self):
@@ -102,7 +119,7 @@ class ElectricPumpCycle(EngineCycle):
                        specific_energy=self.battery_specific_energy,
                        battery_packing_factor=self.battery_structural_factor,
                        output_power=self.inverter.input_power,
-                       burn_time=self.burn_time,)
+                       burn_time=self.burn_time, )
 
     @property
     def battery_cooler(self):
@@ -110,7 +127,7 @@ class ElectricPumpCycle(EngineCycle):
                              outlet_pressure_required=self.fuel_tank.outlet_pressure,
                              coolant_allowable_temperature_change=self.battery_coolant_temperature_change,
                              coolant_specific_heat_capacity=self.battery_coolant_specific_heat_capacity,
-                             power_heat_loss=self.battery.power_heat_loss,)
+                             power_heat_loss=self.battery.power_heat_loss, )
 
     @property
     def cooling_inlet_flow_state(self):
@@ -126,8 +143,8 @@ class ElectricPumpCycle(EngineCycle):
 
     @property
     def dry_mass(self):
-        return super().engine_dry_mass + self.battery.mass
+        return super().dry_mass + self.battery.mass
 
     @property
     def mass_kwak(self):
-        return super().mass_kwak + + self.battery.mass + self.inverter.mass + self.electric_motor.mass
+        return super().mass_kwak + self.battery.mass + self.inverter.mass + self.electric_motor.mass

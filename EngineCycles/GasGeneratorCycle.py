@@ -41,7 +41,7 @@ class GasGeneratorCycle_Mixin:
                 self.gg_mass_mixture_ratio = get_gas_generator_mmr_rp1(temperature_limit=self.turbine_maximum_temperature)
         if self.gg_base_flow_state is None:
             # If an empirical mixture ratio is used (only happens if it's a better approximation than CEA)
-            # this ratio is used in further calculation, EXCEPT for calculation of the gg_bas_flow_state below
+            # this ratio is used in further calculation, EXCEPT for calculation of the gg_base_flow_state below
             mixture_ratio = self.gg_mass_mixture_ratio if self._cea_gg_mmr is None else self._cea_gg_mmr
             cea_dict = get_cea_dict_gg(MR=mixture_ratio,
                                        frozen=1 if self.gg_is_frozen else 0,

@@ -37,7 +37,6 @@ class EngineCycle:
     oxidizer_name: str
     fuel_name: str
     max_acceleration: float  # [m/s]
-    mass_mixture_ratio: float  # [-]
     fuel_initial_pressure: float  # [Pa]
     fuel_pump_specific_power: float  # [W]
     fuel_pump_efficiency: float  # [-]
@@ -80,6 +79,7 @@ class EngineCycle:
     exit_pressure_forced: Optional[float] = None  # [Pa]
 
     # Values that can be estimated or are not necessarily required
+    mass_mixture_ratio: Optional[float] = None  # [-]
     specific_impulse_quality_factor: Optional[float] = None  # [-]
     oxidizer_initial_temperature: Optional[float] = None  # [k]
     fuel_initial_temperature: Optional[float] = None  # [K]
@@ -116,6 +116,8 @@ class EngineCycle:
     _fuel_pump_outlet_pressure: float = field(init=False, repr=False, default=None)
     _oxidizer_pump_outlet_pressure: float = field(init=False, repr=False, default=None)
     _expansion_ratio_end_cooling: float = field(init=False, repr=False, default=None)
+    _cea_frozen: float = field(init=False, repr=False, default=None)
+    _cea_frozenAtThroat: float = field(init=False, repr=False, default=None)
     verbose: bool = True
     iterate: bool = True
 
@@ -141,6 +143,10 @@ class EngineCycle:
     def initialize_cea(self):
         # Setting of internal variables
         self._cea_frozen, self._cea_frozenAtThroat = (1, 1) if self.is_frozen else (0, 0)
+        if self.mass_mixture_ratio is None:
+            self.mass_mixture_ratio = get_mass_mixture_ratio(
+                propellant_mix=self.propellant_mix
+            )
         self.resolve_expansion_choice()
         self.set_cea()
         if self.expansion_ratio is None:
@@ -149,12 +155,15 @@ class EngineCycle:
 
     def resolve_expansion_choice(self):
         if self.exit_pressure_forced is not None:
-            if self.verbose:
-                warnings.warn('Exit pressure is given, pressure- and expansion ratio are ignored if provided')
+            if self.pressure_ratio is not None or self.expansion_ratio is not None:
+                raise ValueError(
+                    'Please provide one and only one of exit_pressure_forced, expansion_ratio, pressure_ratio.'
+                )
             self.pressure_ratio = self.combustion_chamber_pressure / self.exit_pressure_forced
         elif not ((self.pressure_ratio is None) ^ (self.expansion_ratio is None)):
             raise ValueError(
-                'Neither or both the pressure_ratio and expansion_ratio are given. Provide one and only one')
+                'Neither or both the pressure_ratio and expansion_ratio are given. Provide one and only one.'
+            )
         elif self.pressure_ratio is None:
             self.cc_hot_gas_heat_capacity_ratio = self.get_heat_capacity_ratio()
             self.pressure_ratio = get_pressure_ratio_fsolve(self.expansion_ratio,
@@ -163,10 +172,6 @@ class EngineCycle:
     def set_initial_values(self):
         """Set missing input values."""
         # Order is important
-        if self.mass_mixture_ratio is None:
-            self.mass_mixture_ratio = get_mass_mixture_ratio(
-                propellant_mix=self.propellant_mix
-            )
         if self.specific_impulse_quality_factor is None:
             self.specific_impulse_quality_factor = get_specific_impulse_quality_factor(
                 propellant_mix=self.propellant_mix
@@ -312,8 +317,12 @@ class EngineCycle:
                                                  ambient_pressure=self.ambient_pressure, )
 
     @cached_property
+    def chamber_equivalent_velocity(self):
+        return self.thrust_coefficient * self.characteristic_velocity
+
+    @cached_property
     def chamber_specific_impulse(self):
-        return self.thrust_coefficient * self.characteristic_velocity * self.specific_impulse_quality_factor / constants.g
+        return self.specific_impulse_quality_factor * self.chamber_equivalent_velocity / constants.g
 
     @property
     def base_mass_flow(self):
@@ -643,13 +652,15 @@ class EngineCycle:
 
     @property
     def mass_ratio_kwak(self):
-        m0 = self.mass_kwak
-        mf = self.mass_kwak - self.props_mass
-        return mf/m0
+        return 1 / self.inverse_mass_ratio_kwak
+
+    @property
+    def inverse_mass_ratio_kwak(self):
+        return 1 - self.props_mass / self.mass_kwak
 
     @property
     def ideal_delta_v_kwak(self):
-        return self.overall_specific_impulse * log(1 / self.mass_ratio_kwak) * constants.g
+        return self.overall_specific_impulse * log(self.mass_ratio_kwak) * constants.g
 
     @property
     def total_thrust_chamber_mass(self):
@@ -680,8 +691,12 @@ class EngineCycle:
         return self.dry_mass + self.pressurant.mass
 
     @property
-    def mass_ratio(self):
+    def inverse_mass_ratio(self):
         return self.final_mass / self.initial_mass
+
+    @property
+    def mass_ratio(self):
+        return self.initial_mass / self.final_mass
 
     def get_payload(self, delta_v: float) -> float:
         e_dv = exp(delta_v / (self.overall_specific_impulse * constants.g))
@@ -691,7 +706,7 @@ class EngineCycle:
 
     @property
     def ideal_delta_v(self):
-        return self.overall_specific_impulse * log(1 / self.mass_ratio) * constants.g
+        return self.overall_specific_impulse * log(1 / self.inverse_mass_ratio) * constants.g
 
     def get_payload_delta_v(self, payload_mass):
         mass_ratio = (self.final_mass + payload_mass) / (self.initial_mass + payload_mass)

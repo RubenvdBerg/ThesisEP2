@@ -43,7 +43,7 @@ def get_mass_table_data(EngineClass: EngineCycle, design_kwargs: dict, burn_time
         ]
         if give_MR_Isp:
             column += [
-                engine.mass_ratio_kwak,
+                engine.inverse_mass_ratio_kwak,
                 engine.overall_specific_impulse,
             ]
         info.append(column)
@@ -98,8 +98,11 @@ def get_aggregate_mass_table_data(EngineClass: EngineCycle, design_kwargs: dict,
         ]
         if give_MR_Isp:
             column += [
-                engine.mass_ratio_kwak,
+                engine.inverse_mass_ratio_kwak,
                 engine.overall_specific_impulse,
+                engine.thrust_chamber.mass + engine.injector.mass,
+                engine.initial_mass,
+                engine.inverse_mass_ratio,
             ]
         info.append(column)
     indices = [
@@ -112,7 +115,10 @@ def get_aggregate_mass_table_data(EngineClass: EngineCycle, design_kwargs: dict,
     ]
     if give_MR_Isp:
         indices += ['Mass Ratio',
-                    'Overall Isp']
+                    'Overall Isp',
+                    'Thrust Chamber',
+                    'Total Real',
+                    'Mass Ratio Real',]
     data = list(zip(*info))
     columns = list(burn_times)
     info_df = pd.DataFrame(data=data, index=indices, columns=columns)
@@ -125,8 +131,9 @@ if __name__ == '__main__':
     design_args = {
         'thrust': 100e3,
         'combustion_chamber_pressure': 10e6,
+        'exit_pressure_forced': 0.002e6,
     }
-    # get_aggregate_mass_table_data(EngineClass=KwakFixElectricPumpCycle, design_kwargs=design_args, burn_times=[300, 390, 1200],
-    #                     give_MR_Isp=True, path='kwak_fix_ep_30-39-120_aggr.xlsx')
-    get_mass_table_data(EngineClass=KwakFixElectricPumpCycle, design_kwargs=design_args, burn_times=[300, 390, 1200],
-                        give_MR_Isp=True, path='kwak_fix_ep_30-39-120.xlsx')
+    get_aggregate_mass_table_data(EngineClass=ElectricPumpCycle, design_kwargs=design_args, burn_times=[300, 390, 1200],
+                        give_MR_Isp=True, path='fix_ep_30-39-120_aggr.xlsx')
+    # get_mass_table_data(EngineClass=ElectricPumpCycle, design_kwargs=design_args, burn_times=[300, 390, 1200],
+    #                     give_MR_Isp=True, path='ep_30-39-120.xlsx')

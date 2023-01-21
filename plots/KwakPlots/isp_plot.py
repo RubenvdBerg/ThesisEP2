@@ -41,12 +41,8 @@ def get_engines(cycle_name: str, thrust: float = 100e3, burn_time: float = 300, 
 
     def yield_engines():
         for p_cc in p_cc_range:
-            try:
-                # noinspection PyArgumentList
-                yield cycle(combustion_chamber_pressure=p_cc * _p_cc_factor, **total_args)
-            except ValueError:
-                # raise
-                return None
+            # noinspection PyArgumentList
+            yield cycle(combustion_chamber_pressure=p_cc * _p_cc_factor, **total_args)
 
     return tuple(yield_engines())
 

@@ -26,5 +26,9 @@ class BatteryCooler(FlowComponent):
         return self.outlet_pressure_required - self.inlet_pressure
 
     @property
+    def temperature_change(self):
+        return self.coolant_allowable_temperature_change
+
+    @property
     def coolant_flow_required(self):
         return self.power_heat_loss / (self.coolant_specific_heat_capacity * self.coolant_allowable_temperature_change)

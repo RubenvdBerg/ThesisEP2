@@ -84,6 +84,7 @@ class KwakEngineCycle(EngineCycle):
 @dataclass
 class KwakFixGasGeneratorCycle(GasGeneratorCycle, KwakEngineCycle):
     _iteration_done: bool = False
+    gas_generator_fix_on: bool = True
 
     def set_initial_values(self):
         super().set_initial_values()
@@ -91,17 +92,20 @@ class KwakFixGasGeneratorCycle(GasGeneratorCycle, KwakEngineCycle):
         self.gg_base_flow_state._density = self.gg_pressure / (r * self.turbine_maximum_temperature)
 
     def iterate_flow(self):
-        m_tu = self.turbine.mass_flow_required
-        m_gg_o = m_tu * self.gg_mass_mixture_ratio / (1 + self.gg_mass_mixture_ratio)
-        m_gg_f = m_tu * 1 / (1 + self.gg_mass_mixture_ratio)
-        self._iterative_turbine_mass_flow += m_gg_f + m_gg_o
-        m_tu = self.turbine.mass_flow_required
-        m_gg_o = m_tu * self.gg_mass_mixture_ratio / (1 + self.gg_mass_mixture_ratio)
-        m_gg_f = m_tu * 1 / (1 + self.gg_mass_mixture_ratio)
-        self.mo = self.main_oxidizer_flow - m_gg_o
-        self.mf = self.main_fuel_flow - m_gg_f
-        self._iterative_turbine_mass_flow = m_tu
-        self._iteration_done = True
+        if self.gas_generator_fix_on:
+            m_tu = self.turbine.mass_flow_required
+            m_gg_o = m_tu * self.gg_mass_mixture_ratio / (1 + self.gg_mass_mixture_ratio)
+            m_gg_f = m_tu * 1 / (1 + self.gg_mass_mixture_ratio)
+            self._iterative_turbine_mass_flow += m_gg_f + m_gg_o
+            m_tu = self.turbine.mass_flow_required
+            m_gg_o = m_tu * self.gg_mass_mixture_ratio / (1 + self.gg_mass_mixture_ratio)
+            m_gg_f = m_tu * 1 / (1 + self.gg_mass_mixture_ratio)
+            self.mo = self.main_oxidizer_flow - m_gg_o
+            self.mf = self.main_fuel_flow - m_gg_f
+            self._iterative_turbine_mass_flow = m_tu
+            self._iteration_done = True
+        else:
+            super().iterate_flow()
 
     @property
     def turbine_mass_flow_initial_guess(self):
@@ -109,8 +113,11 @@ class KwakFixGasGeneratorCycle(GasGeneratorCycle, KwakEngineCycle):
 
     @property
     def overall_specific_impulse(self):
-        """Calculate specific impulse without accounting for turbine exhaust thrust contribution."""
-        return self.chamber_mass_flow * self.ideal_thrust_coefficient * self.characteristic_velocity / self.total_mass_flow / constants.g
+        if self.gas_generator_fix_on:
+            """Calculate specific impulse without accounting for turbine exhaust thrust contribution."""
+            return self.chamber_mass_flow * self.chamber_equivalent_velocity / self.total_mass_flow / constants.g
+        else:
+            return super().overall_specific_impulse
 
     @property
     def chamber_mass_flow(self):
@@ -135,7 +142,10 @@ class KwakFixGasGeneratorCycle(GasGeneratorCycle, KwakEngineCycle):
 
     @property
     def gg_propellant_mass(self):
-        return self.gg_mass_flow * self.burn_time
+        if self.gas_generator_fix_on:
+            return self.gg_mass_flow * self.burn_time
+        else:
+            return super().gg_propellant_mass
 
 
 @dataclass

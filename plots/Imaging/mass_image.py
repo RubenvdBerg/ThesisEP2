@@ -93,7 +93,7 @@ def format_values(values: list[float, ...]) -> Iterator[str]:
         'Turbine',
         'Heat Exchanger',
         'Injector',
-        'Thrust Chamber',
+        'Chamber + Nozzle',
         'Splitter',
         'Turbine Exhaust',
         'Gas Generator',
@@ -115,18 +115,18 @@ def format_values(values: list[float, ...]) -> Iterator[str]:
 if __name__ == '__main__':
     from EngineArguments import arguments as args
 
-    design_args = {'thrust': 1000e3,
-                   'burn_time': 900,
+    design_args = {'thrust': 100e3,
+                   'burn_time': 390,
                    'combustion_chamber_pressure': 10e6,
                    'is_frozen': True,
                    'ambient_pressure': None,
-                   'exit_pressure_forced': 50000, }
+                   'exit_pressure_forced': .002e6, }
 
     cycle_list = (
         (ElectricPumpCycle, args.ep_arguments),
-        (GasGeneratorCycle, args.gg_arguments),
+        # (GasGeneratorCycle, args.gg_arguments),
         # (CoolantBleedCycle, args.cb_arguments),
-        (OpenExpanderCycle, args.oe_arguments),
+        # (OpenExpanderCycle, args.oe_arguments),
     )
 
     for Cycle, extra_args in cycle_list:
