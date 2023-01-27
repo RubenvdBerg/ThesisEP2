@@ -44,7 +44,6 @@ class ElectricPumpCycle(EngineCycle):
     def iterate_flow(self):
         while self.battery_flow_error_larger_than_accuracy():
             self._iterative_battery_cooler_outlet_flow_state = self.battery_cooler.outlet_flow_state
-            print(self.pre_fuel_pump_merger.outlet_flow_state.temperature)
             self.print_verbose_iteration_message()
         self.set_battery_cooler_outlet_temp()
 

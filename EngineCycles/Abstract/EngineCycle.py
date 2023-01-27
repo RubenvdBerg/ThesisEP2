@@ -25,7 +25,8 @@ from EngineFunctions.CEAFunctions import get_cea_dict, get_cea_chamber_dict
 from EngineFunctions.IRTFunctions import get_expansion_ratio_from_p_ratio, \
     get_pressure_ratio_fsolve, get_throat_area, get_thrust_coefficient_from_ideal
 from EngineFunctions.AssumeValueFunctions import get_characteristic_length, get_initial_propellant_temperature, \
-    get_prandtl_number_estimate, get_turbulent_recovery_factor, get_specific_impulse_quality_factor, get_propellant_mixture, get_mass_mixture_ratio
+    get_prandtl_number_estimate, get_turbulent_recovery_factor, get_specific_impulse_quality_factor, \
+    get_propellant_mixture, get_mass_mixture_ratio
 from EngineFunctions.EmpiricalRelations import get_chamber_throat_area_ratio_estimate
 
 
@@ -350,11 +351,11 @@ class EngineCycle:
 
     @property
     def chamber_fuel_flow(self):
-        return 1 / (self.mass_mixture_ratio + 1) * self.chamber_mass_flow
+        return self.chamber_mass_flow / (self.mass_mixture_ratio + 1)
 
     @property
     def chamber_oxidizer_flow(self):
-        return self.mass_mixture_ratio / (self.mass_mixture_ratio + 1) * self.chamber_mass_flow
+        return (self.mass_mixture_ratio * self.chamber_mass_flow) / (self.mass_mixture_ratio + 1)
 
     @property
     def main_fuel_flow(self):  # Default to chamber flow, overriden in child classes/cycles
@@ -482,7 +483,7 @@ class EngineCycle:
                         combustion_chamber_area=self.combustion_chamber.area,
                         structure_material=self.injector_material,
                         safety_factor=self.injector_safety_factor,
-                        pressure_drop=self.injector_pressure_drop,)
+                        pressure_drop=self.injector_pressure_drop, )
 
     @cached_property
     def nozzle(self):
@@ -746,6 +747,16 @@ class EngineCycle:
         payload = 10  # [kg]
         return self.overall_specific_impulse * log(
             self.mass + payload / (self.mass - self.props_mass + payload)) * constants.g
+
+    def adjusted_mass_ratio(self, payload=0, factor_0=1.1459, factor_f=1.9188, ):
+        m_0_adj = self.initial_mass * factor_0 + payload
+        m_f_adj = self.final_mass * factor_f + payload
+        return m_0_adj / m_f_adj
+
+    def adjusted_mass_ratio2(self, payload=0, factor_0=0.04316, factor_f=0.1027, ):
+        m_0_adj = self.initial_mass * factor_0
+        m_f_adj = self.initial_mass * factor_f
+        return (self.initial_mass + m_0_adj + m_f_adj + payload) / (self.final_mass + m_f_adj + payload)
 
     @property
     def payload_mass_ratio(self):

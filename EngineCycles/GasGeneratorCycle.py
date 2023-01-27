@@ -67,7 +67,7 @@ class GasGeneratorCycle_Mixin:
         return {'fuelName': self.fuel_name, 'oxName': self.oxidizer_name, 'Pc': self.gg_pressure, }
 
     @property
-    def ideal_gas_densty(self):
+    def ideal_gas_densty_in_gas_generator(self):
         r = constants.gas_constant / self.gg_base_flow_state.molar_mass
         return self.gg_pressure / (r * self.gg_base_flow_state.temperature)
 
@@ -149,14 +149,6 @@ class GasGeneratorCycle_Mixin:
         p1 = self.combustion_chamber_pressure - self.injector.pressure_change
         p2 = self.gg_pressure
         return max(p1, p2)
-
-    @property
-    def gg_propellant_mass(self):
-        return self.gg_mass_flow * self.burn_time * self.propellant_margin_factor
-
-    @property
-    def cc_propellant_mass(self):
-        return self.chamber_mass_flow * self.burn_time * self.propellant_margin_factor
 
     @property
     def feed_system_mass(self):

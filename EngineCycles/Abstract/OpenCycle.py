@@ -25,7 +25,7 @@ class OpenEngineCycle(EngineCycle):
     turbine_outlet_pressure_forced: Optional[float] = None  # [Pa]
 
     # Iteration attribute, not required at init
-    _iterative_turbine_mass_flow: float = field(init=False, repr=False, default=0.00001)  # [kg/s]
+    _iterative_turbine_mass_flow: float = field(init=False, repr=False, default=1e-20)  # [kg/s]
     _exhaust_thrust_contribution: float = field(init=False, repr=False, default=.01)  # [-]
 
     # Override from EngineCycle, are assigned later, not required at init

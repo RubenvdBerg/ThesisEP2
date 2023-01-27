@@ -13,6 +13,7 @@ class KwakEngineCycle(EngineCycle):
     pressurant_molar_mass: float = 0.00399733779,
     manual_oxidizer_density: float = 0
     manual_fuel_density: float = 0
+    replication_mode: bool = False
 
     def calc_pump_outlet_pressures(self):
         pass
@@ -84,7 +85,7 @@ class KwakEngineCycle(EngineCycle):
 @dataclass
 class KwakFixGasGeneratorCycle(GasGeneratorCycle, KwakEngineCycle):
     _iteration_done: bool = False
-    gas_generator_fix_on: bool = True
+    _exhaust_thrust_contribution: float = .01
 
     def set_initial_values(self):
         super().set_initial_values()
@@ -92,7 +93,7 @@ class KwakFixGasGeneratorCycle(GasGeneratorCycle, KwakEngineCycle):
         self.gg_base_flow_state._density = self.gg_pressure / (r * self.turbine_maximum_temperature)
 
     def iterate_flow(self):
-        if self.gas_generator_fix_on:
+        if not self.replication_mode:
             m_tu = self.turbine.mass_flow_required
             m_gg_o = m_tu * self.gg_mass_mixture_ratio / (1 + self.gg_mass_mixture_ratio)
             m_gg_f = m_tu * 1 / (1 + self.gg_mass_mixture_ratio)
@@ -104,8 +105,12 @@ class KwakFixGasGeneratorCycle(GasGeneratorCycle, KwakEngineCycle):
             self.mf = self.main_fuel_flow - m_gg_f
             self._iterative_turbine_mass_flow = m_tu
             self._iteration_done = True
+            print()
         else:
-            super().iterate_flow()
+            self._iterative_turbine_mass_flow = self.turbine_mass_flow_initial_guess
+            while self.turbine_flow_error_larger_than_accuracy():
+                self.print_verbose_iteration_message()
+                self._iterative_turbine_mass_flow = self.turbine.mass_flow_required
 
     @property
     def turbine_mass_flow_initial_guess(self):
@@ -113,7 +118,7 @@ class KwakFixGasGeneratorCycle(GasGeneratorCycle, KwakEngineCycle):
 
     @property
     def overall_specific_impulse(self):
-        if self.gas_generator_fix_on:
+        if not self.replication_mode:
             """Calculate specific impulse without accounting for turbine exhaust thrust contribution."""
             return self.chamber_mass_flow * self.chamber_equivalent_velocity / self.total_mass_flow / constants.g
         else:
@@ -121,10 +126,13 @@ class KwakFixGasGeneratorCycle(GasGeneratorCycle, KwakEngineCycle):
 
     @property
     def chamber_mass_flow(self):
-        if self._iteration_done:
-            return self.mf + self.mo
+        if not self.replication_mode:
+            if self._iteration_done:
+                return (self.mf + self.mo)
+            else:
+                return self.base_mass_flow
         else:
-            return self.base_mass_flow
+            return super().chamber_mass_flow
 
     @property
     def chamber_fuel_flow(self):
@@ -141,20 +149,34 @@ class KwakFixGasGeneratorCycle(GasGeneratorCycle, KwakEngineCycle):
             return super().chamber_oxidizer_flow
 
     @property
-    def gg_propellant_mass(self):
-        if self.gas_generator_fix_on:
-            return self.gg_mass_flow * self.burn_time
+    def turbine_propellant_mass(self):
+        if not self.replication_mode:
+            return self.turbine_mass_flow * self.burn_time
         else:
-            return super().gg_propellant_mass
+            return super().turbine_propellant_mass
+
+    @property
+    def chamber_propellant_mass(self):
+        if not self.replication_mode:
+            return self.props_mass - self.turbine_propellant_mass
+        else:
+            return super().chamber_propellant_mass
+
+    @property
+    def mass_kwak(self):
+        return super().mass_kwak - self.props_mass + self.turbine_propellant_mass + self.chamber_propellant_mass
+
+    @property
+    def mass_kwak_total(self):
+        return super().mass_kwak
 
 
 @dataclass
 class KwakFixElectricPumpCycle(ElectricPumpCycle, KwakEngineCycle):
-    battery_fix_on: bool = True
 
     @property
     def battery(self):
-        if self.battery_fix_on:
+        if not self.replication_mode:
             return KwakBattery(specific_power=self.battery_specific_power,
                                specific_energy=self.battery_specific_energy,
                                battery_packing_factor=self.battery_structural_factor,

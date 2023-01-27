@@ -260,9 +260,9 @@ def full_output(kwak_fix, design_args=args.desgin_arguments, common_args=args.co
         gg_cycle.fuel_tank.mass,
         gg_cycle.pressurant_tank.mass,
         gg_cycle.pressurant.mass,
-        gg_cycle.cc_propellant_mass + gg_cycle.gg_propellant_mass,
-        gg_cycle.cc_propellant_mass,
-        gg_cycle.gg_propellant_mass,
+        gg_cycle.props_mass,
+        gg_cycle.chamber_propellant_mass,
+        gg_cycle.turbine_propellant_mass,
         0.0,
         gg_cycle.mass_kwak
     ]
@@ -289,7 +289,7 @@ def full_output(kwak_fix, design_args=args.desgin_arguments, common_args=args.co
         gg_cycle.mass_kwak,
         gg_cycle.final_mass,
         gg_cycle.props_mass,
-        gg_cycle.gg_propellant_mass,
+        gg_cycle.turbine_propellant_mass,
         0.0,
         0.,
         gg_cycle.feed_system_mass / gg_cycle.props_mass,
@@ -423,9 +423,9 @@ def full_output(kwak_fix, design_args=args.desgin_arguments, common_args=args.co
 
 if __name__ == '__main__':
     design_args = {
-        'thrust': 100e3,
-        'combustion_chamber_pressure': 10e6,
-        'burn_time': 300,
+        'thrust': 75e3,
+        'combustion_chamber_pressure': 7e6,
+        'burn_time': 500,
         'is_frozen': False
     }
     for kwak_fix in [True]:
