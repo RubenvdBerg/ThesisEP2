@@ -2,7 +2,8 @@ from EngineCycles.Abstract.EngineCycle import EngineCycle
 from EngineCycles.GasGeneratorCycle import GasGeneratorCycle, GasGeneratorCycle_DoubleTurbine, \
     GasGeneratorCycle_DoubleTurbineSeries
 from EngineCycles.ElectricPumpCycle import ElectricPumpCycle
-from EngineCycles.OpenExpanderCycle import OpenExpanderCycle, OpenExpanderCycle_DoubleTurbine
+from EngineCycles.OpenExpanderCycle import OpenExpanderCycle, OpenExpanderCycle_DoublePump, \
+    OpenExpanderCycle_DoublePumpTurbine
 from EngineCycles.CoolantBleedCycle import CoolantBleedCycle
 from EngineComponents.Abstract.FlowState import FlowState, ManualFlowState
 from EngineComponents.Base.Pump import Pump
@@ -23,8 +24,9 @@ def make_performance_schematic(engine: EngineCycle):
         GasGeneratorCycle: (get_gg_components_coordinates, 'GG'),
         CoolantBleedCycle: (get_cb_components_coordinates, 'CB'),
         OpenExpanderCycle: (get_oe_components_coordinates, 'OE'),
+        OpenExpanderCycle_DoublePump: (get_oe1_components_coordinates, 'OE1'),
         GasGeneratorCycle_DoubleTurbine: (get_gg2_components_coordinates, 'GG2'),
-        OpenExpanderCycle_DoubleTurbine: (get_oe2_components_coordinates, 'OE2'),
+        OpenExpanderCycle_DoublePumpTurbine: (get_oe2_components_coordinates, 'OE2'),
         GasGeneratorCycle_DoubleTurbineSeries: (get_gg3_components_coordinates, 'GG3'),
     }
     # Get the name and component and coordinate function of the Cycle of which input engine is a subclass
@@ -236,7 +238,7 @@ def get_gg_components_coordinates(engine: GasGeneratorCycle):
     dy3 = 193
     x1, y1 = 320, 635
     x2, y2 = 1535, 520
-    x3, y3 = 725, -60
+    x3, y3 = 755, -65
 
     coords = ((x1, y1),
               (x1, y1 + dy3),
@@ -262,7 +264,7 @@ def get_gg_components_coordinates(engine: GasGeneratorCycle):
               (x3, y3),
               (x3 + 465, y3),
               )
-    coords = tuple((x, y + 160) for x, y in coords)
+    coords = tuple((x, y + 120) for x, y in coords)
     return components, coords
 
 
@@ -406,6 +408,62 @@ def get_oe_components_coordinates(engine: OpenExpanderCycle):
     base_components[i] = engine.turbine
     # Change fuel_tank coordinates
     i_rp1 = base_components.index(engine.fuel_name.split('_')[0])
+    base_coords[i_rp1] = (595, 190)
+    # Switchs positions of fuel pump and cooling outlet
+    ccs_out, fp_out = base_components[2], base_components[3]
+    base_components[3], base_components[2] = ccs_out, fp_out
+    # Insert outlet and add new coordinates (for next component)
+    base_components.insert(4, engine.pre_cooling_splitter.outlet_flow_states['coolant'])
+    old_x, old_y = base_coords[4]
+    base_coords.insert(5, (old_x, old_y + dy3))
+
+    m_tu = engine.post_cooling_splitter.outlet_flow_states['turbine'].mass_flow
+    m_ch = engine.post_cooling_splitter.outlet_flow_states['chamber'].mass_flow
+    tau = f'{m_ch / (m_tu + m_ch): >9.2%}'
+    m_ch2 = engine.pre_cooling_splitter.outlet_flow_states['chamber'].mass_flow
+    components = (*base_components,
+                  (engine.secondary_exhaust.thrust, engine.secondary_exhaust.specific_impulse,
+                   engine.secondary_exhaust.expansion_ratio),
+                  engine.turbine.outlet_flow_state,
+                  format_si(m_tu * 1e3, 'g/s', 4),
+                  tau,
+                  format_si(m_ch2 * 1e3, 'g/s', 5),
+                  format_si(m_ch * 1e3, 'g/s', 5),
+                  engine.pre_injection_merger.outlet_flow_state,
+                  format_si(engine.thrust, 'N'),
+                  format_si(engine.overall_specific_impulse, 's'),
+                  )
+    x1, y1 = 1140, 758
+    x2, y2 = x_y2[0] - 595, x_y2[1] - 593
+    x3, y3 = 670, 990
+    x4, y4 = 825, -70
+    first_col = tuple(((x+40, y-50) for (x, y) in base_coords[:6]))
+    coords = (*first_col,
+              *base_coords[6:],
+              (x2, y2),
+              (x2, y2 + dy3),
+              (x1, y1),
+              (x1, y1 + dy1),
+              (x3, y3),
+              (x3, y3 + dy1),
+              (x3, y3 + 240),
+              (x4, y4),
+              (x4 + 465, y4),
+              )
+    coords = tuple((x - 45, y + 130) for x, y in coords)
+    return components, coords
+
+
+def get_oe1_components_coordinates(engine: OpenExpanderCycle_DoublePump):
+    x_y2 = (1620, 635)
+    dy1 = 80
+    dy3 = 193
+    base_components, base_coords = get_base_comps_coords(engine, x_y1=(315, 635), x_y2=x_y2)
+    # Find and replace placeholder with battery component
+    i = base_components.index('placeholder')
+    base_components[i] = engine.turbine
+    # Change fuel_tank coordinates
+    i_rp1 = base_components.index(engine.fuel_name.split('_')[0])
     base_coords[i_rp1] = (435, 190)
     # Switchs positions of fuel pump and cooling outlet
     ccs_out, fp_out = base_components[2], base_components[3]
@@ -452,7 +510,7 @@ def get_oe_components_coordinates(engine: OpenExpanderCycle):
     return components, coords
 
 
-def get_oe2_components_coordinates(engine: OpenExpanderCycle_DoubleTurbine):
+def get_oe2_components_coordinates(engine: OpenExpanderCycle_DoublePumpTurbine):
     ambient_string = get_ambient_pressure_string(engine.ambient_pressure)
     m_tu = engine.post_cooling_splitter.outlet_flow_states['turbine'].mass_flow
     m_ch = engine.post_cooling_splitter.outlet_flow_states['chamber'].mass_flow
@@ -600,6 +658,7 @@ def format_values(components: tuple) -> Iterator[tuple]:
 
 if __name__ == '__main__':
     from EngineArguments import arguments as args
+    from EngineArguments.GasGeneratorEngines import hm60_kwargs, j2_kwargs
     from Verficiation.Engines.VV_SE21D import se_21d_kwargs
 
     design_args = {'thrust': 100e3,
@@ -607,50 +666,51 @@ if __name__ == '__main__':
                    'combustion_chamber_pressure': 10e6,
                    'is_frozen': True,
                    'ambient_pressure': None,
-                   'exit_pressure_forced': 0.002e6,
+                   'expansion_ratio': 10,
+                   # 'exit_pressure_forced': 0.002e6,
                    # 'shaft_mechanical_efficiency': 1.0,
                    'specific_impulse_quality_factor': None,
                    '_ignore_cooling': False}
 
-    j2_kwargs = {'fuel_name': 'LH2_NASA',
-                 'thrust': 1023e3,
-                 'combustion_chamber_pressure': 5.4e6,
-                 'expansion_ratio': 27.5,
-                 'mass_mixture_ratio': 5.5,
-                 'area_ratio_chamber_throat': 1.58,
-                 'chamber_characteristic_length': 0.62,
-                 'turbine_maximum_temperature': 922,
-                 'gg_pressure': 4.7e6,
-                 # 'fuel_pump_outlet_pressure': 8.62,
-                 # 'oxidizer_pump_outlet_pressure': 7.64,
-                 'fuel_pump_efficiency': 73e-2,
-                 'oxidizer_pump_efficiency': 80e-2,
-                 'fuel_turbine_pressure_ratio': 7.2,
-                 'oxidizer_turbine_pressure_ratio': 2.65,
-                 'fuel_turbine_efficiency': .6,
-                 'oxidizer_turbine_efficiency': .47,
-                 'burn_time': 475,
-                 }
-    j2_total_kwargs = args.base_arguments_o | j2_kwargs | {
-        'ambient_pressure': 0,
-        'fuel_exhaust_expansion_ratio': 4,
-        'oxidizer_exhaust_expansion_ratio': 4,
-        'convergent_throat_bend_ratio': 0.4,
-        'convergent_chamber_bend_ratio': 0.5,
-    }
+    # j2_kwargs = {'fuel_name': 'LH2_NASA',
+    #              'thrust': 1023e3,
+    #              'combustion_chamber_pressure': 5.4e6,
+    #              'expansion_ratio': 27.5,
+    #              'mass_mixture_ratio': 5.5,
+    #              'area_ratio_chamber_throat': 1.58,
+    #              'chamber_characteristic_length': 0.62,
+    #              'turbine_maximum_temperature': 922,
+    #              'gg_pressure': 4.7e6,
+    #              # 'fuel_pump_outlet_pressure': 8.62,
+    #              # 'oxidizer_pump_outlet_pressure': 7.64,
+    #              'fuel_pump_efficiency': 73e-2,
+    #              'oxidizer_pump_efficiency': 80e-2,
+    #              'fuel_turbine_pressure_ratio': 7.2,
+    #              'oxidizer_turbine_pressure_ratio': 2.65,
+    #              'fuel_turbine_efficiency': .6,
+    #              'oxidizer_turbine_efficiency': .47,
+    #              'burn_time': 475,
+    #              }
+    # j2_total_kwargs = args.base_arguments_o | j2_kwargs | {
+    #     'ambient_pressure': 0,
+    #     'fuel_exhaust_expansion_ratio': 4,
+    #     'oxidizer_exhaust_expansion_ratio': 4,
+    #     'convergent_throat_bend_ratio': 0.4,
+    #     'convergent_chamber_bend_ratio': 0.5,
+    # }
 
     cycle_list = (
-        (ElectricPumpCycle, args.ep_arguments),
-        # (GasGeneratorCycle, args.gg_arguments),
+        # (ElectricPumpCycle, args.ep_arguments),
+        (GasGeneratorCycle, args.gg_arguments),
         # (CoolantBleedCycle, args.cb_arguments),
-        (OpenExpanderCycle, args.oe_arguments),
-        (OpenExpanderCycle_DoubleTurbine, se_21d_kwargs),
-        (GasGeneratorCycle_DoubleTurbine, j2_total_kwargs),
+        # (OpenExpanderCycle, args.oe_arguments),
+        # (OpenExpanderCycle_DoublePump, args.oe1_arguments),
+        # (OpenExpanderCycle_DoublePumpTurbine, se_21d_kwargs),
+        # (GasGeneratorCycle_DoubleTurbine, hm60_kwargs),
+        # (GasGeneratorCycle_DoubleTurbineSeries, j2_kwargs)
     )
 
     for Cycle, extra_args in cycle_list:
         complete_args = args.base_arguments | extra_args | design_args
         engine = Cycle(**complete_args)
-        engine: ElectricPumpCycle
-        print(engine.pre_fuel_pump_merger.outlet_flow_state)
         make_performance_schematic(engine)

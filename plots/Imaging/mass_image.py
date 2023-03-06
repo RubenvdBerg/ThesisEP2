@@ -2,7 +2,7 @@ from EngineCycles.Abstract.EngineCycle import EngineCycle
 from EngineCycles.GasGeneratorCycle import GasGeneratorCycle, GasGeneratorCycle_DoubleTurbine, \
     GasGeneratorCycle_DoubleTurbineSeries
 from EngineCycles.ElectricPumpCycle import ElectricPumpCycle
-from EngineCycles.OpenExpanderCycle import OpenExpanderCycle, OpenExpanderCycle_DoubleTurbine
+from EngineCycles.OpenExpanderCycle import OpenExpanderCycle, OpenExpanderCycle_DoublePump, OpenExpanderCycle_DoublePumpTurbine
 from EngineCycles.CoolantBleedCycle import CoolantBleedCycle
 from EngineComponents.Abstract.FlowState import FlowState, ManualFlowState
 from EngineComponents.Base.Pump import Pump
@@ -19,19 +19,20 @@ from EngineFunctions.BaseFunctions import format_si
 
 def make_mass_schematic(engine: EngineCycle):
     name_switcher = {
-        ElectricPumpCycle: ('EP', (1100, 500), (5, 9, 10, 11, 12,)),
-        GasGeneratorCycle: ('GG', (1100, 500), (9, 12, 13, 14, 15, 16)),
-        CoolantBleedCycle: ('CB', (1100, 500), (9, 11, 12, 13, 14, 15, 16)),
-        OpenExpanderCycle: ('OE', (1250, 500), (9, 11, 13, 14, 15, 16)),
-        GasGeneratorCycle_DoubleTurbine: ('GG2', (0, 0), (9, 12, 13, 14, 15, 16)),
-        OpenExpanderCycle_DoubleTurbine: ('OE2', (0, 0), (9, 11, 13, 14, 15, 16)),
-        GasGeneratorCycle_DoubleTurbineSeries: ('GG3', (0, 0), (9, 12, 13, 14, 15, 16)),
+        ElectricPumpCycle: ('EP', (1100, 500), (5, 9, 10, 11, 20,)),
+        GasGeneratorCycle: ('GG', (1100, 500), (9, 20, 12, 13, 14, 15)),
+        CoolantBleedCycle: ('CB', (1100, 500), (9, 11, 20, 12, 13, 14, 15)),
+        OpenExpanderCycle: ('OE', (1100, 500), (9, 11, 20, 12, 13, 14, 15)),
+        OpenExpanderCycle_DoublePump: ('OE1', (1250, 500), (9, 11, 12, 13, 14, 15)),
+        GasGeneratorCycle_DoubleTurbine: ('GG2', (0, 0), (9, 20, 12, 13, 14, 15)),
+        OpenExpanderCycle_DoublePumpTurbine: ('OE2', (0, 0), (9, 11, 12, 13, 14, 15)),
+        GasGeneratorCycle_DoubleTurbineSeries: ('GG3', (0, 0), (9, 20, 12, 13, 14, 15)),
     }
     for base_class, info in name_switcher.items():
         if issubclass(type(engine), base_class):
             cycle_name, start_coord, pop_tuple = info
 
-    values = get_values(engine)
+    values = get_mass_values(engine)
     strings = list(format_values(values))
     strings = [string for (i, string) in enumerate(strings, start=1) if i not in pop_tuple]
     fontsize = 63
@@ -54,7 +55,7 @@ def make_mass_schematic(engine: EngineCycle):
         img.show()
 
 
-def get_values(engine: EngineCycle):
+def get_mass_values(engine: EngineCycle):
     mass_attributes = (
         'fuel_tank',
         'oxidizer_tank',
@@ -67,7 +68,6 @@ def get_values(engine: EngineCycle):
         'splitter',
         'secondary_exhaust',
         'gas_generator',
-        'secondary_fuel_pump',
         'electric_motor',
         'inverter',
         'battery',
@@ -76,6 +76,7 @@ def get_values(engine: EngineCycle):
         'pressurant',
         'fuel',
         'oxidizer',
+        'secondary_fuel_pump',
     )
 
     mass_components = [getattr(engine, attribute, None) for attribute in mass_attributes]
@@ -97,7 +98,6 @@ def format_values(values: list[float, ...]) -> Iterator[str]:
         'Splitter',
         'Turbine Exhaust',
         'Gas Generator',
-        '2nd Fuel Pump',
         'Electric Motor',
         'Inverter',
         'Battery',
@@ -106,9 +106,12 @@ def format_values(values: list[float, ...]) -> Iterator[str]:
         'Pressurant',
         'Fuel',
         'Oxidizer',
+        '2nd Fuel Pump',
     )
     for i, (value, name) in enumerate(zip(values,mass_names), start=1):
         # yield f'{i:>3}: {str(value)[:8]:>10} kg - {name}'
+        if name == '2nd Fuel Pump':
+            yield f'{"3.2":>3}: {value:>8.1f} kg - {name}'
         yield f'{i:>3}: {value:>8.1f} kg - {name}'
 
 
@@ -123,10 +126,11 @@ if __name__ == '__main__':
                    'exit_pressure_forced': .002e6, }
 
     cycle_list = (
-        (ElectricPumpCycle, args.ep_arguments),
+        # (ElectricPumpCycle, args.ep_arguments),
         # (GasGeneratorCycle, args.gg_arguments),
         # (CoolantBleedCycle, args.cb_arguments),
         # (OpenExpanderCycle, args.oe_arguments),
+        (OpenExpanderCycle_DoublePump, args.oe1_arguments),
     )
 
     for Cycle, extra_args in cycle_list:

@@ -1,8 +1,10 @@
 import os
 
+import numpy as np
+
 from EngineCycles.ElectricPumpCycle import ElectricPumpCycle
 from EngineCycles.GasGeneratorCycle import GasGeneratorCycle
-from EngineCycles.OpenExpanderCycle import OpenExpanderCycle
+from EngineCycles.OpenExpanderCycle import OpenExpanderCycle_DoublePump
 from EngineCycles.CoolantBleedCycle import CoolantBleedCycle
 from KwakFix.KwakFixCycles import KwakFixElectricPumpCycle, KwakFixGasGeneratorCycle
 from typing import Optional, Tuple
@@ -28,7 +30,7 @@ def get_engines(cycle_name: str, thrust: float = 100e3, burn_time: float = 300, 
     else:
         cycle_selection = {'ep': ElectricPumpCycle,
                            'gg': GasGeneratorCycle,
-                           'oe': OpenExpanderCycle,
+                           'oe': OpenExpanderCycle_DoublePump,
                            'cb': CoolantBleedCycle, }
 
     cycle = cycle_selection[cycle_name]
@@ -90,6 +92,8 @@ def ratio_plot(attribute_name: str, ylabel: str, variable_title: str, pngname: s
                unit: str = '-',
                ):
     linestyles = ('-', '--', '-.', ':')
+    markers = ('s', 'o', 'D', 'p')
+    markersize = {'s': 7, 'o': 7, 'D': 6, 'p': 8}
     colors = ('tab:red', 'tab:green', 'tab:orange', 'tab:blue', 'tab:purple')
 
     data = data_dict[attribute_name]
@@ -102,7 +106,7 @@ def ratio_plot(attribute_name: str, ylabel: str, variable_title: str, pngname: s
         fig, ax = plt.subplots()
         p = []
         for burn_time, color in zip(burn_times, colors):
-            for thrust, linestyle in zip(thrusts, linestyles):
+            for thrust, marker in zip(thrusts, markers):
                 label = f'$t_b${burn_time} $F_T${thrust}'
                 # Get the wanted attribute value for the current cycle
                 values = data[name][burn_time][thrust]
@@ -110,7 +114,12 @@ def ratio_plot(attribute_name: str, ylabel: str, variable_title: str, pngname: s
                 ep_values = data['EP'][burn_time][thrust]
                 ratios = [ep_val / val for ep_val, val in zip(ep_values, values)]
                 # Plot attribute ratio and store legend info
-                p_leg, = ax.plot(p_cc_range[:len(ratios)], ratios, label=label, color=color, linestyle=linestyle)
+                p_leg, = ax.plot(p_cc_range[:len(ratios)], ratios,
+                                 label=label,
+                                 color=color,
+                                 marker=marker,
+                                 markersize=markersize[marker],
+                                 markerfacecolor='#ffffff', )
                 p.append(p_leg)
         if ylim:
             ax.set_ylim(*ylim)
@@ -121,7 +130,20 @@ def ratio_plot(attribute_name: str, ylabel: str, variable_title: str, pngname: s
         mode = 'Frozen' if is_frozen else 'Shifting Equilibrium'
         title = 'Comparison of ' + variable_title + f' for EP-cycle and {name}-cycle'
         kwak_mode = 'KwakFix' if kwak else 'Own'
-        ax.set_title(title + f'\n {mode} - {kwak_mode}')
+        # ax.set_title(title + f'\n {mode} - {kwak_mode}')
+        if attribute_name == 'ideal_delta_v_kwak':
+            ticks = list(np.linspace(.72, .96, 7))
+            labels = [f'{tick:.2f}' for tick in ticks]
+            ax.set_yticks(ticks, labels)
+        if attribute_name == 'mass_kwak':
+            ticks = list(np.linspace(.98, 1.01, 4))
+            labels = [f'{tick:.2f}' for tick in ticks]
+            ax.set_yticks(ticks, labels)
+        if attribute_name == 'inverse_mass_ratio_kwak':
+            ticks = list(np.linspace(1.2, 3.2, 6))
+            labels = [f'{tick:.1f}' for tick in ticks]
+            ax.set_yticks(ticks, labels)
+
         if line_val is not None:
             ax.plot(p_cc_range, [line_val] * len(p_cc_range), color='black', linestyle='dotted')
         if sub_legend_kwargs is None:
@@ -233,18 +255,6 @@ def plot_mr_ratio(default_ylim=False, is_ratio: bool = True, **kwargs):
             **kwargs)
 
 
-def plot_mr_kwak_ratio(default_ylim=False, is_ratio: bool = True, **kwargs):
-    if default_ylim:
-        kwargs['ylim'] = (1.2, 3.2)
-    plotter = ratio_plot if is_ratio else value_plot
-    plotter(attribute_name='mass_ratio_kwak',
-            ylabel=r'$MR$',
-            variable_title='Mass Ratio',
-            pngname='Mass_Ratio_Comparison',
-            sub_legend_kwargs={'loc': 2, 'fontsize': 6},
-            **kwargs)
-
-
 def plot_m0_ratio(default_ylim=False, is_ratio: bool = True, **kwargs):
     if default_ylim:
         kwargs['ylim'] = (.98, 1.010)
@@ -255,6 +265,52 @@ def plot_m0_ratio(default_ylim=False, is_ratio: bool = True, **kwargs):
             pngname='Initial_Mass_Comparison',
             line_val=1,
             unit='kg',
+            **kwargs)
+
+
+def plot_dv_kwak_ratio(default_ylim=False, is_ratio: bool = True, **kwargs):
+    if default_ylim:
+        kwargs['ylim'] = (.72, .96)
+    if is_ratio:
+        plotter = ratio_plot
+        ylabel = r'$I_{sp}*ln(MR^{-1})$'
+        unit = 's'
+    else:
+        plotter = value_plot
+        ylabel = r'$\Delta V$'
+        unit = 'm/s'
+    plotter(attribute_name='ideal_delta_v_kwak',
+            ylabel=ylabel,
+            variable_title=r'Ideal $\Delta$V',
+            pngname='DeltaV_Comparison',
+            sub_legend_kwargs={'fontsize': 7},
+            unit=unit,
+            **kwargs)
+
+
+def plot_mr_kwak_ratio(default_ylim=False, is_ratio: bool = True, **kwargs):
+    if default_ylim:
+        kwargs['ylim'] = (1.2, 3.2)
+    plotter = ratio_plot if is_ratio else value_plot
+    plotter(attribute_name='inverse_mass_ratio_kwak',
+            ylabel=r'$MR$',
+            variable_title='Mass Ratio',
+            pngname='Mass_Ratio_Comparison',
+            sub_legend_kwargs={'loc': 2, 'fontsize': 7},
+            **kwargs)
+
+
+def plot_m0_kwak_ratio(default_ylim=False, is_ratio: bool = True, **kwargs):
+    if default_ylim:
+        kwargs['ylim'] = (.98, 1.010)
+    plotter = ratio_plot if is_ratio else value_plot
+    plotter(attribute_name='mass_kwak',
+            ylabel=r'm⁰',
+            variable_title='Initial Mass',
+            pngname='Initial_Mass_Comparison',
+            line_val=1,
+            unit='kg',
+            sub_legend_kwargs={'loc': 3, 'fontsize': 7},
             **kwargs)
 
 
@@ -299,18 +355,18 @@ def plot_isp_ratio(p_cc_range: tuple, is_frozen: bool, kwak: bool,
     fig, ax = plt.subplots()
     ax.set_xlabel(xlabel)
 
-    ax.set(title=title)
+    # ax.set(title=title)
     if single_figure:
         ax2 = ax.twinx()
     else:
         fig2, ax2 = plt.subplots()
         ax2.set_xlabel(xlabel)
-        ax2.set(title=title)
+        # ax2.set(title=title)
     ax.set_ylabel('$I_{sp}$ [s]')
-    ax2.set_ylabel('$I_{sp}$ Ratio (EP/XX)')
+    ax2.set_ylabel('$I_{sp}$ Ratio (EP/GG)')
 
     if default_ylim:
-        # ax.set_ylim(340, 380)
+        ax.set_ylim(340, 380)
         ax2.set_ylim(1.00, 1.08)
     elif ylim:
         ax.set_ylim(*ylim[0])
@@ -336,7 +392,7 @@ def plot_isp_ratio(p_cc_range: tuple, is_frozen: bool, kwak: bool,
         labels2 = [line.get_label() for line in lines2]
         ax2.legend(lines2, labels2)
     labels = [line.get_label() for line in lines]
-    ax.legend(lines, labels)
+    ax.legend(lines, labels, loc=2)
     if savefig:
         plt.savefig(dir_name + '/' + 'Specific_Impulse_Comparison', dpi=1200)
     plt.show()
@@ -408,28 +464,96 @@ def plot_all_ratio_from_data(data_dict: dict, savefig: bool = False, ylims: Opti
     plot_isp_ratio(**other_kwargs, **kwargs, ylim=ylim_isp, single_figure=isp_single_figure)
 
 
+def plot_all_ratio_plots_data_kwak(short: bool = False,
+                                   is_frozen: bool = False,
+                                   burn_times: tuple = (300, 600, 900, 1200),
+                                   thrusts: tuple = (25e3, 50e3, 75e3, 100e3),
+                                   names: tuple = ('EP', 'GG'),
+                                   p_cc_range: tuple = tuple(range(3, 11)),
+                                   savefig: bool = False,
+                                   default_ylim: bool = False,
+                                   savedata: bool = False,
+                                   kwak: bool = True,
+                                   ylims: Optional[dict] = None,
+                                   isp_single_figure: bool = True,
+                                   is_ratio: bool = True,
+                                   **kwargs):
+    if short:
+        thrusts = [max(thrusts)]
+
+    data_dict = get_data_dict(
+        attributes=('ideal_delta_v_kwak', 'inverse_mass_ratio_kwak', 'mass_kwak', 'overall_specific_impulse'),
+        thrusts=thrusts, burn_times=burn_times, names=names, kwak=kwak, is_frozen=is_frozen,
+        **kwargs)
+    data_dict['info'] = kwargs | {'burn_times': burn_times, 'thrusts': thrusts, 'names': names,
+                                  'is_frozen': is_frozen, 'p_cc_range': p_cc_range, 'kwak': kwak}
+    if savedata:
+        suffix = 'Fixed' if kwak else 'Normal'
+        file_name = strftime("%Y%m%d-%H%M%S") + '_' + suffix
+        with open(rf'all_plots_data\{file_name}', 'w') as f:
+            json.dump(data_dict, f, indent=4)
+
+    plot_all_ratio_from_data_kwak(data_dict=data_dict, savefig=savefig, default_ylim=default_ylim, ylims=ylims,
+                                  isp_single_figure=isp_single_figure, is_ratio=is_ratio)
+
+
+def plot_all_ratio_from_data_kwak(data_dict: dict, savefig: bool = False, ylims: Optional[dict] = None,
+                                  isp_single_figure: bool = False, is_ratio: bool = True, **kwargs):
+    if savefig:
+        dir_name = r"all_plots_plots/" + strftime("%Y%m%d-%H%M%S")
+        os.mkdir(dir_name)
+        with open(dir_name + '/Matching_Data', 'w') as file:
+            json.dump(data_dict, file)
+    else:
+        dir_name = ''
+
+    if ylims:
+        ylim_dv = ylims['dv']
+        ylim_mr = ylims['mr']
+        ylim_m0 = ylims['m0']
+        ylim_isp = ylims['isp']
+    else:
+        ylim_dv, ylim_mr, ylim_m0, ylim_isp = None, None, None, None
+
+    info = data_dict['info']
+    other_kwargs = {'is_frozen': info['is_frozen'],
+                    'p_cc_range': info['p_cc_range'],
+                    'kwak': info['kwak'],
+                    'savefig': savefig,
+                    'dir_name': dir_name,
+                    'data_dict': data_dict,
+                    'is_ratio': is_ratio}
+
+    plot_dv_kwak_ratio(**other_kwargs, **kwargs, ylim=ylim_dv)
+    plot_mr_kwak_ratio(**other_kwargs, **kwargs, ylim=ylim_mr)
+    plot_m0_kwak_ratio(**other_kwargs, **kwargs, ylim=ylim_m0)
+    other_kwargs.pop('is_ratio')
+    plot_isp_ratio(**other_kwargs, **kwargs, ylim=ylim_isp, single_figure=isp_single_figure)
+
+
 if __name__ == '__main__':
     kwargs = {'p_cc_range': tuple(range(3, 11)),
               'is_frozen': False,
               'verbose': True,
-              'kwak': False,
+              'kwak': True,
               'exit_pressure_forced': 0.002e6,
               'expansion_ratio_end_cooling': 20,
-              'thrusts': (100e3,),
+              'thrusts': (25e3, 50e3, 75e3, 100e3),
               '_ignore_cooling': True,
               'specific_impulse_quality_factor': 1,
               }
 
-    plot_all_ratio_plots_data(default_ylim=True, savedata=True, savefig=True, names=('EP', 'GG'),
-                              fuel_name='RP1_NASA', isp_single_figure=True, **kwargs)
+    plot_all_ratio_plots_data_kwak(default_ylim=True, savedata=True, savefig=True, names=('EP', 'GG'),
+                                   fuel_name='RP1_NASA', isp_single_figure=True, **kwargs)
+    #
     # def open_data_dict(filepath: str) -> dict:
     #     with open(filepath, 'r') as f:
     #         return json.load(f)
     #
     #
     # data_dict = open_data_dict(
-    #     r'C:\Users\rvand\PycharmProjects\ThesisEP2\plots\KwakPlots\all_plots_data\20230108-155954_Normal')
-    # plot_all_ratio_from_data(data_dict, savefig=False, isp_single_figure=False, is_ratio=False)
+    #     r'C:\Users\rvand\PycharmProjects\ThesisEP2\plots\KwakPlots\all_plots_data\20230214-101802_Fixed')
+    # plot_all_ratio_from_data(data_dict, savefig=False, isp_single_figure=True, is_ratio=True, default_ylim=True)
 
     # engine_data = get_engines('oe', **kwargs)
     # # print(engine_data[0].cooling_channel_section.outlet_temperature)

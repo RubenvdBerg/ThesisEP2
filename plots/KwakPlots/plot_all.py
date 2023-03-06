@@ -22,4 +22,4 @@ def plot_all(savefig: bool, kwak: bool, verbose:bool=True, default_vals:bool= Tr
 
 if __name__ == '__main__':
     plot_all(savefig=True, kwak=True)
-    plot_all(savefig=True, kwak=False)
+    # plot_all(savefig=True, kwak=False)

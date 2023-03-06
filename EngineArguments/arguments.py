@@ -78,7 +78,9 @@ gg_arguments = open_arguments | {
 
 cb_arguments = open_arguments | {}
 
-oe_arguments = open_arguments | {
+oe_arguments = open_arguments | {}
+
+oe1_arguments = oe_arguments | {
     '_secondary_fuel_pump_pressure_factor_first_guess': .4, 'secondary_fuel_pump_efficiency': None,
 }
 

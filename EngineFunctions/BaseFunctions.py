@@ -34,6 +34,8 @@ def format_si(value: float, unit: str, digits: int = 5, force_prefix: Optional[d
 
     si_prefixes = ('Y', 'Z', 'E', 'P', 'T', 'G', 'M', 'k', '', 'd', 'c', 'm', '\u03BC', 'n', 'p', 'f', 'a', 'z', 'y')
     si_index = 8
+    if value == 0:
+        return 0
     n_before_comma = log10(abs(value)) // 1 + 1
     if force_prefix is not None and unit in force_prefix:
         prefix = force_prefix[unit]

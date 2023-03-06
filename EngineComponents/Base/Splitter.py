@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field, replace
 from typing import Optional
 
+import numpy as np
+
 from EngineComponents.Abstract.FlowComponent import FlowComponent
 
 
@@ -37,9 +39,12 @@ class Splitter(FlowComponent):
         """Creates N+1 outlet mass flows, the value of the last outlet mass flow taken such that the total sum of outlet
          mass flows equals the inlet mass flow
         """
-        if sum(self.required_outlet_mass_flows) > self.inlet_flow_state.mass_flow:
-            raise ValueError('Sum of given mass flows must be less than the inlet mass flow')
-        final_mass_flow = self.inlet_mass_flow - sum(self.required_outlet_mass_flows)
+        if np.isclose(self.required_outlet_mass_flows, self.inlet_flow_state.mass_flow, rtol=1e-7):
+            final_mass_flow = 0
+        else:
+            if sum(self.required_outlet_mass_flows) > self.inlet_flow_state.mass_flow:
+                raise ValueError('Sum of given mass flows must be less than the inlet mass flow')
+            final_mass_flow = self.inlet_mass_flow - sum(self.required_outlet_mass_flows)
         self.resolved_mass_flows = self.required_outlet_mass_flows + (final_mass_flow,)
 
     def resolve_fractional_outlet_mass_flows(self):

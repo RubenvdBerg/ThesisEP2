@@ -3,11 +3,12 @@ from dataclasses import dataclass
 from EngineArguments import arguments as args
 from math import log10, radians
 import os
-from EngineCycles.OpenExpanderCycle import OpenExpanderCycle_DoubleTurbine
+from EngineCycles.OpenExpanderCycle import OpenExpanderCycle_DoublePumpTurbine
+from EngineComponents.Abstract.Material import NarloyZ
 
 
 @dataclass
-class SE21D_V3(OpenExpanderCycle_DoubleTurbine):
+class SE21D_V3(OpenExpanderCycle_DoublePumpTurbine):
     """See 'Sippel et al. 2003 - Studies on Expander Bleed Cycle Engines for Launchers' for this rocket's configuration.
         """
     @property
@@ -36,7 +37,7 @@ class SE21D_Exact_V3(SE21D_V3):
         return math.pi * .286 ** 2
 
     def set_heat_transfer(self):
-        self.total_heat_transfer = 111.037e6
+        self.heat_flow_rate = 111.037e6
 
 
 se_21d_kwargs = args.base_arguments_o | {
@@ -70,6 +71,7 @@ se_21d_kwargs = args.base_arguments_o | {
     'fuel_turbine_outlet_pressure_forced': .3e6,
     'oxidizer_secondary_specific_impulse_quality_factor': .98,
     'fuel_secondary_specific_impulse_quality_factor': .98,
+    'exhaust_material': NarloyZ,
 }
 
 se_21d_vac_kwargs = se_21d_kwargs | {'thrust': 2196.682e3, 'ambient_pressure': 0}
@@ -82,6 +84,7 @@ def get_SE21D_data(is_pressure_exact: bool, is_vacuum: bool = False, show_schema
 
     if show_schematic:
         from plots.Imaging.performance_image import make_performance_schematic
+        engine.engine_dry_mass
         make_performance_schematic(engine)
 
     name = '2nd Estimate' if is_pressure_exact else 'Estimate'
@@ -119,7 +122,7 @@ def print_SE21_data(data: tuple):
 
 def format_to_n_digits(number: float, n: int = 5):
     try:
-        n_before_comma = int(log10(abs(number)) // 1 + 1)
+        n_before_comma = int(log10(abs(number)) // 1 + 1) if number != 0 else 0
         decimals = n - n_before_comma
         return f'{number:.{decimals}f}'.lstrip('0')
     except TypeError:
@@ -183,6 +186,6 @@ def write_SE21D_data_to_excel(**kwargs):
 
 
 if __name__ == '__main__':
-    write_SE21D_data_to_excel(show_schematic=False, is_vacuum=False)
+    write_SE21D_data_to_excel(show_schematic=True, is_vacuum=False)
 
 

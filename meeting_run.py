@@ -1,7 +1,7 @@
 from plots.single_engine_comparison import plot_mass_pie_chart_comparison
 from EngineCycles.ElectricPumpCycle import ElectricPumpCycle
 from EngineCycles.GasGeneratorCycle import GasGeneratorCycle
-from EngineCycles.OpenExpanderCycle import OpenExpanderCycle
+from EngineCycles.OpenExpanderCycle import OpenExpanderCycle_DoublePump
 import EngineArguments.arguments as args
 from plots.Imaging.mass_image import make_mass_schematic
 from plots.Imaging.performance_image import make_performance_schematic
@@ -17,7 +17,7 @@ design_args = {'thrust': 1000e3,
 extra_args_switch = {
     # ElectricPumpCycle: args.ep_arguments,
     GasGeneratorCycle: args.gg_arguments,
-    OpenExpanderCycle: args.oe_arguments,
+    OpenExpanderCycle_DoublePump: args.oe_arguments,
 }
 
 for CycleClass, unique_args in extra_args_switch.items():

@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Optional
 import warnings
 from scipy import constants
@@ -58,8 +58,7 @@ class GasGeneratorCycle_Mixin:
                                                       _density=cea_dict['rho_cc'])
         else:
             if self.gg_base_flow_state.pressure is None:
-                self.gg_base_flow_state.pressure = self.gg_pressure
-
+                self.gg_base_flow_state = replace(self.gg_base_flow_state, pressure=self.gg_pressure)
         self.check_gg_temp_and_pressure()
 
     @property

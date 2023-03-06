@@ -1,6 +1,6 @@
 from EngineCycles.ElectricPumpCycle import ElectricPumpCycle
 from EngineCycles.GasGeneratorCycle import GasGeneratorCycle
-from EngineCycles.OpenExpanderCycle import OpenExpanderCycle
+from EngineCycles.OpenExpanderCycle import OpenExpanderCycle_DoublePump
 from EngineCycles.Abstract.EngineCycle import EngineCycle
 from EngineCycles.Abstract.OpenCycle import OpenEngineCycle
 import EngineArguments.arguments as args
@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 extra_args_switch = {
     ElectricPumpCycle: args.ep_arguments,
     GasGeneratorCycle: args.gg_arguments,
-    OpenExpanderCycle: args.oe_arguments,
+    OpenExpanderCycle_DoublePump: args.oe_arguments,
 }
 
 
@@ -25,12 +25,12 @@ def get_aggregate_mass_dict(engine: EngineCycle) -> dict:
     else:
         raise NotImplementedError
 
-    return {'Tanks':         engine.tanks_mass} | extra_dict | {
-'Pressurant':         engine.pressurant.mass,
-'Feed System':         engine.feed_system_mass,
-'Thrust Chamber':         engine.total_thrust_chamber_mass,
-'Chamber Prop.':         engine.chamber_propellant_mass,
-}
+    return {'Tanks': engine.tanks_mass} | extra_dict | {
+        'Pressurant': engine.pressurant.mass,
+        'Feed System': engine.feed_system_mass,
+        'Thrust Chamber': engine.total_thrust_chamber_mass,
+        'Chamber Prop.': engine.chamber_propellant_mass,
+    }
 
 
 def plot_mass_pie_chart(mass_dict: dict, title_name: str):
@@ -41,19 +41,18 @@ def plot_mass_pie_chart(mass_dict: dict, title_name: str):
     ax.set_title(f'Mass Distribution - {title_name}')
     plt.show()
 
+
 def plot_mass_pie_chart_comparison(design_args: dict, exclude_cc_prop: bool = True):
     extra_args_switch = {
         ElectricPumpCycle: args.ep_arguments,
         GasGeneratorCycle: args.gg_arguments,
-        OpenExpanderCycle: args.oe_arguments,
+        OpenExpanderCycle_DoublePump: args.oe_arguments,
     }
     name_switch = {
         ElectricPumpCycle: 'EP',
         GasGeneratorCycle: 'GG',
-        OpenExpanderCycle: 'OE',
+        OpenExpanderCycle_DoublePump: 'OE',
     }
-
-
 
     mass_dicts = {}
     for CycleClass, unique_args in extra_args_switch.items():
@@ -67,7 +66,7 @@ def plot_mass_pie_chart_comparison(design_args: dict, exclude_cc_prop: bool = Tr
         cc_vals = [mass_dict['Chamber Prop.'] for mass_dict in mass_dicts.values()]
         min_cc_val = min(cc_vals)
 
-    fig, axs = plt.subplots(1, 3, figsize=(20,7.5))
+    fig, axs = plt.subplots(1, 3, figsize=(20, 7.5))
     plt.rcParams['font.size'] = '16'
     for i, (CycleClass, mass_dict) in enumerate(mass_dicts.items()):
         if exclude_cc_prop:
@@ -77,7 +76,8 @@ def plot_mass_pie_chart_comparison(design_args: dict, exclude_cc_prop: bool = Tr
             mass_dict.pop('Chamber Prop.')
         names, values = zip(*mass_dict.items())
         exploded = [.1 for i in range(len(values))]
-        wedges, texts, autotexts = axs[i].pie(values, explode=exploded, autopct='%1.2f%%', pctdistance=1.3, counterclock=False)
+        wedges, texts, autotexts = axs[i].pie(values, explode=exploded, autopct='%1.2f%%', pctdistance=1.3,
+                                              counterclock=False)
 
         axs[i].set_title(name_switch[CycleClass], pad=40, fontsize=20)
     new_names = []
@@ -88,8 +88,3 @@ def plot_mass_pie_chart_comparison(design_args: dict, exclude_cc_prop: bool = Tr
 
     fig.legend(wedges, new_names, ncol=3, loc='lower center')
     plt.show()
-    
-
-
-
-
