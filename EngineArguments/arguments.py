@@ -184,35 +184,6 @@ tcd1_kwargs = base_arguments_o | {
     'maximum_wall_temperature': 850,
 }
 
-le5a_kwargs = base_arguments_o | {
-    'thrust': 121.3e3,
-    'combustion_chamber_pressure': 40e5,
-    'expansion_ratio': 130,
-    'mass_mixture_ratio': 5,
-    'fuel_name': 'LH2_NASA',
-    'burn_time': 609,
-    'exit_pressure_forced': None,
-    'expansion_ratio_end_cooling': 30
-}
-
-le5_kwargs = {'fuel_name': 'LH2_NASA',
-              'thrust': 103e3,
-              'combustion_chamber_pressure': 3.65e6,
-              'expansion_ratio': 140,
-              'mass_mixture_ratio': 5.5,
-              'area_ratio_chamber_throat': 3.11,
-              'chamber_characteristic_length': 0.84,
-              'turbine_maximum_temperature': 837,
-              'gg_pressure': 2.63e6,
-              'fuel_pump_outlet_pressure': 6.04,
-              'oxidizer_pump_outlet_pressure': 5.19,
-              'fuel_pump_efficiency': 61.2e-2,
-              'oxidizer_pump_efficiency': 65.3e-2,
-              'burn_time': 0,
-              'turbine_pressure_ratio': 0,
-              'turbine_efficiency': 0,
-              }
-
 lrb_kwargs = base_arguments_o | {
     'thrust': 2118.14e3,
     'combustion_chamber_pressure': 65e5,

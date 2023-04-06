@@ -11,7 +11,6 @@ from EngineComponents.Base.Merger import Merger
 from EngineComponents.Base.Splitter import Splitter
 from EngineComponents.Abstract.FlowState import FlowState, DefaultFlowState
 
-
 @dataclass
 class ElectricPumpCycle(EngineCycle):
     # TODO: dataclass inheritance is dumb, so all inherited classes can only have default variables if baseclass has any

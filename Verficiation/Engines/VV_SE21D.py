@@ -1,10 +1,10 @@
 import math
 from dataclasses import dataclass
-from EngineArguments import arguments as args
-from math import log10, radians
+from math import log10
 import os
+
+from EngineArguments.ExpanderEngines import se_21d_kwargs, se_21d_vac_kwargs
 from EngineCycles.OpenExpanderCycle import OpenExpanderCycle_DoublePumpTurbine
-from EngineComponents.Abstract.Material import NarloyZ
 
 
 @dataclass
@@ -38,43 +38,6 @@ class SE21D_Exact_V3(SE21D_V3):
 
     def set_heat_transfer(self):
         self.heat_flow_rate = 111.037e6
-
-
-se_21d_kwargs = args.base_arguments_o | {
-    'thrust': 1947.03e3,
-    'combustion_chamber_pressure': 6.649e6,
-    'fuel_initial_temperature': 21,
-    'oxidizer_initial_temperature': 90,
-    'expansion_ratio': 12.52,
-    'mass_mixture_ratio': 5.5,
-    'fuel_name': 'LH2_NASA',
-    'burn_time': 100,
-    'expansion_ratio_end_cooling': 5,
-    'chamber_characteristic_length': 4.0,
-    'fuel_pump_efficiency': .7,
-    'secondary_fuel_pump_efficiency': .75,
-    'oxidizer_pump_efficiency': .76,
-    'fuel_initial_pressure': .3e6,
-    'oxidizer_initial_pressure': .5e6,
-    'turbine_maximum_temperature': 506.452,
-    'turbopump_specific_power': 13.5E3,
-    'area_ratio_chamber_throat': (.985 / 2) ** 2 / .286 ** 2,
-    'ambient_pressure': 101325,
-    'divergent_throat_half_angle': radians(15),
-    'specific_impulse_quality_factor': .99,
-    'oxidizer_turbine_efficiency': .45,
-    'fuel_turbine_efficiency': .45,
-    'shaft_mechanical_efficiency': .99,
-    'oxidizer_exhaust_exit_pressure_forced': .04e6,
-    'fuel_exhaust_exit_pressure_forced': .04e6,
-    'oxidizer_turbine_outlet_pressure_forced': .3e6,
-    'fuel_turbine_outlet_pressure_forced': .3e6,
-    'oxidizer_secondary_specific_impulse_quality_factor': .98,
-    'fuel_secondary_specific_impulse_quality_factor': .98,
-    'exhaust_material': NarloyZ,
-}
-
-se_21d_vac_kwargs = se_21d_kwargs | {'thrust': 2196.682e3, 'ambient_pressure': 0}
 
 
 def get_SE21D_data(is_pressure_exact: bool, is_vacuum: bool = False, show_schematic: bool = False):

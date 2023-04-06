@@ -133,8 +133,8 @@ def get_ep_components_coordinates(engine: ElectricPumpCycle):
         engine.fuel_pump,
         engine.battery_cooler.outlet_flow_state,
         engine.fuel_pump.outlet_flow_state,
-        format_si(m_cool, 'kg/s'),
-        format_si(m_batt, 'kg/s'),
+        format_si(m_cool*1e3, 'g/s'),
+        format_si(m_batt*1e3, 'g/s'),
         engine.cooling_channel_section.outlet_flow_state,
         engine,
         engine.oxidizer_pump.inlet_flow_state,
@@ -659,7 +659,7 @@ def format_values(components: tuple) -> Iterator[tuple]:
 if __name__ == '__main__':
     from EngineArguments import arguments as args
     from EngineArguments.GasGeneratorEngines import hm60_kwargs, j2_kwargs
-    from Verficiation.Engines.VV_SE21D import se_21d_kwargs
+    from EngineArguments.ExpanderEngines import se_21d_kwargs
 
     design_args = {'thrust': 100e3,
                    'burn_time': 390,

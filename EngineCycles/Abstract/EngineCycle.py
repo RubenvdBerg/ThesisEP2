@@ -94,6 +94,8 @@ class EngineCycle:
     cooling_section_pressure_drop: Optional[float] = None  # [Pa]
     injector_pressure_drop: Optional[float] = None  # [Pa]
     ambient_pressure: Optional[float] = None  # [Pa]
+    fuel_pump_outlet_pressure_forced: Optional[float] = None  # [Pa]
+    oxidizer_pump_outlet_pressure_forced: Optional[float] = None  # [Pa]
 
     # Values that can be estimated by CEA
     characteristic_velocity: Optional[float] = None  # [m/s]
@@ -126,7 +128,7 @@ class EngineCycle:
         self.initialize_cea()
         self.set_initial_values()
         if self._ignore_cooling:
-            self._is_temp_calc_needed = False
+            # self._is_temp_calc_needed = False
             warnings.warn('!!_ignore_cooling flag has been set to True!!')
             self.set_pump_outlet_pressures()
         else:
@@ -135,7 +137,7 @@ class EngineCycle:
             self.calc_minimum_required_coolant_mass_flow()
         if self.iterate:
             self.print_verbose_start_iteration_message()
-            self.print_verbose_iteration_message()
+            # self.print_verbose_iteration_message()
 
             self.iterate_flow()
 
@@ -295,8 +297,8 @@ class EngineCycle:
         Merger._warn_pressure = True
 
     def calc_pump_outlet_pressures(self):
-        self._fuel_pump_outlet_pressure = self.fuel_pump_expected_pressure
-        self._oxidizer_pump_outlet_pressure = self.oxidizer_pump_expected_pressure
+        self._fuel_pump_outlet_pressure = self.fuel_pump_expected_pressure if self.fuel_pump_outlet_pressure_forced is None else self.fuel_pump_outlet_pressure_forced
+        self._oxidizer_pump_outlet_pressure = self.oxidizer_pump_expected_pressure if self.oxidizer_pump_outlet_pressure_forced is None else self.oxidizer_pump_outlet_pressure_forced
 
     @property
     def fuel_pump_expected_pressure(self):

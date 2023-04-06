@@ -4,6 +4,9 @@ from dataclasses import dataclass
 from EngineComponents.Abstract.ElectricalComponent import ElectricalComponent
 from EngineComponents.Abstract.FlowState import FlowState
 
+@dataclass
+class SimpleElectricMotor(ElectricalComponent):
+    pass
 
 @dataclass
 class ElectricMotor(ElectricalComponent):

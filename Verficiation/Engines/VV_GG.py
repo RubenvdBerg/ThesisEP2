@@ -11,12 +11,12 @@ if __name__ == '__main__':
         hm60_kwargs
 
     engine_dict = {
-        'HM7-B': ('single', hm7b_kwargs),
+        # 'HM7-B': ('single', hm7b_kwargs),
         'H-1': ('single', h1_kwargs),
         'RS-27': ('single', rs27_kwargs),
         'F-1': ('single', f1_kwargs),
-        'HM60': ('double', hm60_kwargs),
-        'J-2': ('double_single', j2_kwargs),
+        # 'HM60': ('double', hm60_kwargs),
+        # 'J-2': ('double_single', j2_kwargs),
     }
     engine_class_selector = {'single': GasGeneratorCycle,
                              'double': GasGeneratorCycle_DoubleTurbine,
@@ -49,7 +49,7 @@ if __name__ == '__main__':
         total_data = [*main_data, *extra_data, engine.overall_specific_impulse]
         data[engine_name] = total_data
 
-        # make_performance_schematic(engine)
+        make_performance_schematic(engine)
     index = [
         'Thrust Chamber Length [m]',
         'Exit Diameter [m]',

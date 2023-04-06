@@ -152,6 +152,58 @@ class OpenExpanderCycle_DoubleTurbine(OpenExpanderCycle_Mixin, OpenEngineCycle_D
         return .01 * self.base_mass_flow
 
 
+@dataclass
+class OpenExpanderCycle_DoubleTurbineSeries(OpenExpanderCycle_DoubleTurbine):
+    """GasGeneratorCycle_DoubleTurbine assumes the turbines are in parallel and have separate exhausts. This
+    configuration has turbines in series and a single exhaust. The fuel secondary exhaust and associated variables are
+    removed."""
+
+    # Variables no longer needed
+    fuel_secondary_specific_impulse_quality_factor: float = field(init=False, repr=False)
+    fuel_exhaust_expansion_ratio: Optional[float] = field(init=False, repr=False)
+    fuel_exhaust_exit_pressure_forced: Optional[float] = field(init=False, repr=False)
+
+    # Properties no longer needed
+    @property
+    def turbine_splitter(self):
+        raise NotImplementedError
+
+    @property
+    def fuel_secondary_exhaust(self):
+        raise NotImplementedError
+
+    # Adjust iteration
+    def turbine_flow_error_larger_than_accuracy(self):
+        required = max(self.oxidizer_turbine.mass_flow_required, self.fuel_turbine.mass_flow_required)
+        error = abs(required - self.turbine_mass_flow)
+        margin = required * self.iteration_accuracy
+        return error > margin
+
+    @property
+    def turbine_mass_flow(self):
+        return max(self._iterative_oxidizer_turbine_mass_flow, self._iterative_fuel_turbine_mass_flow)
+
+    @property
+    def verbose_iteration_required(self):
+        return max(self.fuel_turbine.mass_flow_required,self.oxidizer_turbine.mass_flow_required)
+
+    # Adjusted inlet flows
+    @property
+    def fuel_turbine_inlet_flow_state(self):
+        return self.post_cooling_splitter.outlet_flow_states['turbine']
+
+    @property
+    def oxidizer_turbine_inlet_flow_state(self):
+        return self.fuel_turbine.outlet_flow_state
+
+    # Adjusted exhaust thrust
+    @property
+    def exhaust_total_thrust(self):
+        return self.oxidizer_secondary_exhaust.thrust
+
+    @property
+    def engine_dry_mass(self):
+        return self.feed_system_mass + self.thrust_chamber.mass + self.oxidizer_secondary_exhaust.mass
 
 
 

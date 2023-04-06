@@ -10,6 +10,7 @@ from EngineComponents.Abstract.FlowState import FlowState, DefaultFlowState, Man
 from EngineFunctions.CEAFunctions import get_gas_generator_mmr, get_cea_dict_gg
 from EngineFunctions.EmpiricalRelations import get_gas_generator_mmr_rp1
 
+
 # Baseclass that can either inherit from single or double turbine OpenCycle (see next classes)
 @dataclass
 class GasGeneratorCycle_Mixin:
@@ -38,7 +39,8 @@ class GasGeneratorCycle_Mixin:
             if self.gg_mass_mixture_ratio < 0.5 and 'RP' in self.fuel_name:
                 self._cea_gg_mmr = self.gg_mass_mixture_ratio
                 # CEA for fuel-rich RP1/LOX combustion is quite a ways off, this empirical relation is better
-                self.gg_mass_mixture_ratio = get_gas_generator_mmr_rp1(temperature_limit=self.turbine_maximum_temperature)
+                self.gg_mass_mixture_ratio = get_gas_generator_mmr_rp1(
+                    temperature_limit=self.turbine_maximum_temperature)
         if self.gg_base_flow_state is None:
             # If an empirical mixture ratio is used (only happens if it's a better approximation than CEA)
             # this ratio is used in further calculation, EXCEPT for calculation of the gg_base_flow_state below
@@ -202,6 +204,17 @@ class GasGeneratorCycle_DoubleTurbineSeries(GasGeneratorCycle_DoubleTurbine):
     @property
     def fuel_secondary_exhaust(self):
         raise NotImplementedError
+
+    # Adjust iteration
+    def turbine_flow_error_larger_than_accuracy(self):
+        required = max(self.oxidizer_turbine.mass_flow_required, self.fuel_turbine.mass_flow_required)
+        error = abs(required - self.turbine_mass_flow)
+        margin = required * self.iteration_accuracy
+        return error > margin
+
+    @property
+    def turbine_mass_flow(self):
+        return max(self._iterative_oxidizer_turbine_mass_flow, self._iterative_fuel_turbine_mass_flow)
 
     # Adjusted inlet flows
     @property
