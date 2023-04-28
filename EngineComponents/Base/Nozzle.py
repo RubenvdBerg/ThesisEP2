@@ -1,3 +1,4 @@
+import warnings
 from dataclasses import dataclass
 from functools import cached_property
 from math import pi, sqrt, cos, sin, tan, asin
@@ -177,7 +178,11 @@ class Nozzle(StructuralComponent):
 
     @cached_property
     def wall_thickness(self):
-        return self.chamber_pressure * self.chamber_radius / self.structure_material.yield_strength
+        calculated_thickness = self.chamber_pressure * self.chamber_radius / self.structure_material.yield_strength
+        if calculated_thickness < self.structure_material.minimal_thickness:
+            warnings.warn('Calculated thickness of the nozzle is smaller than minimal required thickness of material')
+            return self.structure_material.minimal_thickness
+        return calculated_thickness
 
     @cached_property
     def mass(self):

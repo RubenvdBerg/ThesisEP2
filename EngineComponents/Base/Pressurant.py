@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from EngineComponents.Abstract.PressureComponent import PressureComponent
+from dataclasses import dataclass, field
+from EngineComponents.Abstract.PressureComponent import NewPressureComponent
 from EngineComponents.Abstract.FlowState import FlowState
 
 
@@ -36,8 +36,9 @@ class Pressurant:
 
 
 @dataclass
-class PressurantTank(PressureComponent):
+class PressurantTank(NewPressureComponent):
     pressurant: Pressurant
+    geometry: str = field(init=False, default='sphere')
 
     @property
     def volume(self):

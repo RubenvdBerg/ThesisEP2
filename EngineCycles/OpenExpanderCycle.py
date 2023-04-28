@@ -105,6 +105,13 @@ class OpenExpanderCycle_DoublePump_Mixin(OpenExpanderCycle_Mixin):
     def pumps_mass(self):
         return super().pumps_mass + self.secondary_fuel_pump.mass
 
+    @property
+    def components_list(self):
+        return super().components_list + [
+            'Secondary Fuel Pump',
+        ]
+
+
 
 @dataclass
 class OpenExpanderCycle_DoublePump(OpenExpanderCycle_DoublePump_Mixin, OpenEngineCycle):
@@ -205,5 +212,9 @@ class OpenExpanderCycle_DoubleTurbineSeries(OpenExpanderCycle_DoubleTurbine):
     def engine_dry_mass(self):
         return self.feed_system_mass + self.thrust_chamber.mass + self.oxidizer_secondary_exhaust.mass
 
-
+    @property
+    def components_list(self):
+        components_list: list = super().components_list
+        components_list.remove('Fuel Secondary Exhaust')
+        return components_list
 

@@ -37,6 +37,13 @@ if __name__ == '__main__':
     # dh = Q/m
     # dh2 = h2 - h1
     # print()
+    a = [1,2,3]
+    b = a + [
+        4,
+        5,
+        6,
+    ]
+    print(b)
     temp, pressure = 922, 4.7e6
     h2 = PropsSI('CPMOLAR',
                 'T', temp,

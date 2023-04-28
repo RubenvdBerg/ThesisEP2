@@ -120,7 +120,11 @@ class SecondaryExhaust(FlowComponent, StructuralComponent):
 
     @cached_property
     def wall_thickness(self):
-        return self.inlet_pressure * self.exit_radius / self.structure_material.yield_strength
+        calculated_thickness = self.inlet_pressure * self.exit_radius / self.structure_material.yield_strength
+        if calculated_thickness < self.structure_material.minimal_thickness:
+            warnings.warn('Calculated thickness of secondary exhaust is lower than minimum thickness of material. The latter is used.')
+            return self.structure_material.minimal_thickness
+        return calculated_thickness
 
     @cached_property
     def mass(self):

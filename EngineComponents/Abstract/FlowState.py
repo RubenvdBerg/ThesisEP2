@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from CoolProp.CoolProp import PropsSI
+from CoolProp.CoolProp import PropsSI, PhaseSI
 from functools import cached_property
 from typing import Literal, Optional
 from scipy import constants
@@ -96,6 +96,10 @@ class FlowState:
     @property
     def speed_of_sound(self):
         return PropsSI('A', *self.state_inputs)
+
+    @property
+    def phase(self):
+        return PhaseSI(*self.state_inputs)
 
     @property
     def maximum_temperature(self):

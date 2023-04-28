@@ -26,6 +26,7 @@ class ElectricPumpCycle(EngineCycle):
     electric_motor_heat_loss_factor: float = 0
     electric_motor_magnet_temp_limit: float = 0
     electric_motor_ox_leak_factor: float = 0
+    max_pump_inlet_temp_increase: float = 40
     battery_coolant_specific_heat_capacity: Optional[float] = None  # J/(kg*K)
 
     # Iteration attribute not required at init
@@ -43,6 +44,8 @@ class ElectricPumpCycle(EngineCycle):
     def iterate_flow(self):
         while self.battery_flow_error_larger_than_accuracy():
             self._iterative_battery_cooler_outlet_flow_state = self.battery_cooler.outlet_flow_state
+            if self.pre_fuel_pump_merger.outlet_temperature > self.fuel_tank.outlet_temperature + self.max_pump_inlet_temp_increase:
+                raise ValueError('Battery Coolant too hot, will negatively affect pumps')
             self.print_verbose_iteration_message()
         self.set_battery_cooler_outlet_temp()
 
@@ -140,9 +143,26 @@ class ElectricPumpCycle(EngineCycle):
         return super().feed_system_mass + self.electric_motor.mass + self.inverter.mass
 
     @property
+    def energy_source_mass(self):
+        return self.battery.mass
+
+    @property
+    def power_mass(self):
+        return super().power_mass + self.battery.mass
+
+    @property
     def dry_mass(self):
         return super().dry_mass + self.battery.mass
 
     @property
     def mass_kwak(self):
         return super().mass_kwak + self.battery.mass + self.inverter.mass + self.electric_motor.mass
+
+    @property
+    def components_list(self):
+        return super().components_list + [
+            'Electric Motor',
+            'Inverter',
+            'Battery',
+            'Battery Cooler',
+        ]

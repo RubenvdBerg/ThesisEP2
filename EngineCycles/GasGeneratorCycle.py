@@ -163,6 +163,12 @@ class GasGeneratorCycle_Mixin:
     def engine_dry_mass(self):
         return super().engine_dry_mass + self.gas_generator.mass
 
+    @property
+    def components_list(self):
+        return super().components_list + [
+            'Gas Generator',
+        ]
+
 
 @dataclass
 class GasGeneratorCycle(GasGeneratorCycle_Mixin, OpenEngineCycle):
@@ -234,6 +240,11 @@ class GasGeneratorCycle_DoubleTurbineSeries(GasGeneratorCycle_DoubleTurbine):
     def engine_dry_mass(self):
         return self.feed_system_mass + self.thrust_chamber.mass + self.oxidizer_secondary_exhaust.mass
 
+    @property
+    def components_list(self):
+        components_list: list = super().components_list
+        components_list.remove('Fuel Secondary Exhaust')
+        return components_list
 
 if __name__ == '__main__':
     from EngineArguments import arguments as args

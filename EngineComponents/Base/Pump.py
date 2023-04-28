@@ -10,6 +10,10 @@ class Pump(FlowComponent):
     efficiency: float = 0  # [-]
     specific_power: float = 0  # [W/kg]
 
+    def __post_init__(self):
+        if self.inlet_flow_state.phase != 'liquid':
+            raise ValueError('Pump inlet flow is not liquid')
+
     @property
     def propellant_density(self):
         return self.inlet_flow_state.density

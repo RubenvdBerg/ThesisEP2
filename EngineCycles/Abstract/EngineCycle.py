@@ -21,6 +21,7 @@ from EngineComponents.Base.Pump import Pump
 from EngineComponents.Base.Merger import Merger
 from EngineComponents.Abstract.FlowState import FlowState, ManualFlowState
 from EngineComponents.Abstract.Material import Material
+from EngineFunctions.BaseFunctions import format_fancy_name
 from EngineFunctions.CEAFunctions import get_cea_dict, get_cea_chamber_dict
 from EngineFunctions.IRTFunctions import get_expansion_ratio_from_p_ratio, \
     get_pressure_ratio_fsolve, get_throat_area, get_thrust_coefficient_from_ideal
@@ -678,8 +679,44 @@ class EngineCycle:
         return self.pumps_mass
 
     @property
+    def cc_prop_group_mass(self):
+        return self.chamber_propellant_mass + self.tanks_mass + self.pressurant.mass
+
+    @property
+    def energy_source_mass(self):
+        raise NotImplementedError
+
+    @property
+    def power_mass(self):
+        return self.feed_system_mass
+
+    @property
+    def anti_power_mass(self):
+        return self.chamber_propellant_related_mass + self.chamber_propellant_mass
+
+    @property
+    def combo(self):
+        return self.power_mass + self.anti_power_mass
+
+    @property
+    def power_ratio(self):
+        return self.power_mass / self.burn_time
+
+    @property
+    def anti_power_ratio(self):
+        return self.anti_power_mass / self.burn_time
+
+    @property
+    def initial_mass_ratio(self):
+        return self.initial_mass / self.burn_time
+
+    @property
+    def chamber_propellant_related_mass(self):
+        return self.tanks_mass + self.pressurant.mass + self.total_thrust_chamber_mass
+
+    @property
     def engine_dry_mass(self):
-        return self.feed_system_mass + self.thrust_chamber.mass
+        return self.feed_system_mass + self.total_thrust_chamber_mass
 
     @property
     def dry_mass(self):
@@ -708,8 +745,16 @@ class EngineCycle:
         return (m0 - mf * e_dv) / (e_dv - 1)
 
     @property
+    def perct(self):
+        return (self.total_thrust_chamber_mass + self.feed_system_mass) / self.initial_mass
+
+    @property
     def ideal_delta_v(self):
         return self.overall_specific_impulse * log(1 / self.inverse_mass_ratio) * constants.g
+
+    @property
+    def change_in_velocity(self):
+        return self.ideal_delta_v
 
     def get_payload_delta_v(self, payload_mass):
         mass_ratio = (self.final_mass + payload_mass) / (self.initial_mass + payload_mass)
@@ -770,3 +815,60 @@ class EngineCycle:
     def chamber_thrust(self):
         """For consistency in naming with OpenCycles"""
         return self.thrust
+
+    @property
+    def components_list(self):
+        return [
+            'Fuel',
+            'Oxidizer',
+            'Pressurant',
+            'Fuel Tank',
+            'Oxidizer Tank',
+            'Pressurant Tank',
+            'Fuel Pump',
+            'Oxidizer Pump',
+            'Injector',
+            'Combustion Chamber',
+            'Nozzle',
+            'Cooling Channel Section',
+        ]
+
+    @property
+    def aggregate_masses(self):
+        return {
+            'Initial': self.initial_mass,
+            'Final': self.final_mass,
+            'Feed System': self.feed_system_mass,
+            'Propellant': self.props_mass,
+            'Chamber Propellant': self.chamber_propellant_mass,
+            'Tanks': self.tanks_mass,
+            'Pumps': self.pumps_mass,
+            'Thrust Chamber': self.total_thrust_chamber_mass,
+            'Engine Dry': self.engine_dry_mass,
+            'Dry': self.dry_mass,
+            'Power': self.power_mass,
+
+        }
+
+    @property
+    def components_masses(self):
+        return {
+            name: getattr(self, format_fancy_name(name)).mass
+            for name in self.components_list
+        }
+
+    @property
+    def combined_info(self):
+        return self.components_masses | self.aggregate_masses | {
+            'Specific Impulse [s]': self.overall_specific_impulse,
+            'Mass Ratio [-]': self.mass_ratio,
+            'Velocity Change [m/s]': self.change_in_velocity,
+        }
+
+    def print_masses(self, decimals: int = 2):
+        print('\nComponent Masses [kg]:')
+        for key, value in self.components_masses.items():
+            print(f'{key:<25}: {value:>10.{decimals}f}')
+        print('\nAggregation Masses [kg]:')
+        for key, value in self.aggregate_masses.items():
+            print(f'{key:<25}: {value:>10.{decimals}f}')

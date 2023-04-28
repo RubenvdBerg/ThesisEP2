@@ -109,6 +109,14 @@ class OpenEngineCycle(EngineCycle):
         return super().feed_system_mass + self.turbine.mass
 
     @property
+    def energy_source_mass(self):
+        return self.turbine_propellant_mass
+
+    @property
+    def power_mass(self):
+        return super().power_mass + self.turbine_propellant_mass
+
+    @property
     def engine_dry_mass(self):
         return super().engine_dry_mass + self.secondary_exhaust.mass
 
@@ -116,6 +124,22 @@ class OpenEngineCycle(EngineCycle):
     def turbine_propellant_mass(self):
         return self.turbine_mass_flow * self.burn_time * self.propellant_margin_factor
 
+    @property
+    def turbine_effectivity(self):
+        return self.turbine.mass_flow_required / self.turbine.power_required
+
+    @property
+    def components_list(self):
+        return super().components_list + [
+            'Turbine',
+            'Secondary Exhaust',
+        ]
+
+    @property
+    def aggregate_masses(self):
+        return super().aggregate_masses | {
+            'Turbine Propellant': self.turbine_propellant_mass
+        }
 
 @dataclass
 class OpenEngineCycle_DoubleTurbine(EngineCycle):
@@ -268,3 +292,18 @@ class OpenEngineCycle_DoubleTurbine(EngineCycle):
     @property
     def turbine_propellant_mass(self):
         return self.turbine_mass_flow * self.burn_time * self.propellant_margin_factor
+
+    @property
+    def components_list(self):
+        return super().components_list + [
+            'Fuel Turbine',
+            'Oxidizer Turbine',
+            'Fuel Secondary Exhaust',
+            'Oxidizer Secondary Exhaust',
+        ]
+
+    @property
+    def aggregate_masses(self):
+        return super().aggregate_masses | {
+            'Turbine Propellant': self.turbine_propellant_mass
+        }

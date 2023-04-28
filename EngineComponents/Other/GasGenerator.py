@@ -1,11 +1,11 @@
-from EngineComponents.Abstract.PressureComponent import PressureComponent
+from EngineComponents.Abstract.PressureComponent import PressureComponent, NewPressureComponent
 from EngineComponents.Abstract.FlowState import ManualFlowState, DefaultFlowState, FlowState
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, replace, field
 from typing import Optional
 
 
 @dataclass
-class GasGenerator(PressureComponent):
+class GasGenerator(NewPressureComponent):
     """Handles mass estimation of the Gas Generator and merging of inlet flows.
 
     The outlet temperature is forced and possibly NOT equal to base_flow_state.temperature!
@@ -16,6 +16,7 @@ class GasGenerator(PressureComponent):
     oxidizer_inlet_flow_state: FlowState = DefaultFlowState()
     fuel_inlet_flow_state: FlowState = DefaultFlowState()
     mass_mixture_ratio: float = 0  # [-]
+    geometry: str = field(init=False, default='sphere')
 
     @property
     def outlet_mass_flow(self) -> float:
