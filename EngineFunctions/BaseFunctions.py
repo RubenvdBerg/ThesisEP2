@@ -65,6 +65,8 @@ def format_attr_name(attr_name: str) -> str:
 
 def get_unit(attribute_name: str):
     unit_dict = {
+        'energy_source_ratio': 'kg/s',
+        'cc_prop_group_ratio': 'kg/s',
         '_mass': 'kg',
         '.mass': 'kg',
         'specific_impulse': 's',

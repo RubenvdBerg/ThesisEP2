@@ -22,6 +22,9 @@ def make_axis_string(attribute_name: str, si_prefix: str):
         'initial_mass_ratio': r'$\frac{\mathrm{Initial\ Mass}}{\mathrm{Burn\ Time}}$',
         'turbine.inlet_flow_state.specific_heat_capacity': r'Turbine Specific Heat Capacity',
         'turbine.inlet_flow_state.heat_capacity_ratio': r'Turbine Heat Capacity Ratio',
+        'energy_source_ratio': r'$\frac{\mathrm{Energy\ Source\ Mass}}{\mathrm{Burn\ Time}}$',
+        'cc_prop_group_ratio': r'$\frac{\mathrm{CC\ Prop.\ Group\ Mass}}{\mathrm{Burn\ Time}}$',
+        'tanks_plus_propellant': r'Tanks + Propellant Mass',
     }
     name = format_switcher[attribute_name] if attribute_name in format_switcher else format_attr_name(attribute_name)
     unit = get_unit(attribute_name)
@@ -55,6 +58,7 @@ def format_attr_name_for_legend(attribute: str):
     switcher = {
         'turbine.inlet_flow_state.specific_heat_capacity': r'Turbine $c_p$',
         'turbine.inlet_flow_state.heat_capacity_ratio': r'Turbine $\gamma$',
+        'tanks_plus_pressurant': r'Tanks + Pressurant',
     }
     if attribute in switcher:
         return switcher[attribute]

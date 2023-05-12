@@ -687,12 +687,20 @@ class EngineCycle:
         raise NotImplementedError
 
     @property
+    def energy_source_ratio(self):
+        return self.energy_source_mass / self.burn_time
+
+    @property
+    def cc_prop_group_ratio(self):
+        return self.cc_prop_group_mass / self.burn_time
+
+    @property
     def power_mass(self):
         return self.feed_system_mass
 
     @property
     def anti_power_mass(self):
-        return self.chamber_propellant_related_mass + self.chamber_propellant_mass
+        return self.tanks_plus_pressurant + self.chamber_propellant_mass
 
     @property
     def combo(self):
@@ -711,8 +719,8 @@ class EngineCycle:
         return self.initial_mass / self.burn_time
 
     @property
-    def chamber_propellant_related_mass(self):
-        return self.tanks_mass + self.pressurant.mass + self.total_thrust_chamber_mass
+    def tanks_plus_pressurant(self):
+        return self.tanks_mass + self.pressurant.mass
 
     @property
     def engine_dry_mass(self):

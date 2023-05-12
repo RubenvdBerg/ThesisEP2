@@ -18,7 +18,7 @@ class Battery(ElectricalComponent):
 
     @property
     def eta_e(self):
-        return 0.093 * log(self.burn_time) + 0.3301
+        return min(0.093 * log(self.burn_time) + 0.3301, .99)
 
     @property
     def total_energy(self):

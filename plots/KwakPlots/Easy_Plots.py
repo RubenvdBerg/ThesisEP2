@@ -61,7 +61,7 @@ def easy_plot(output_attribute: str,
               input_attribute: str = 'combustion_chamber_pressure',
               input_range: tuple[float] = (3e6, 10e6),
               engine_classes: Iterable[EngineCycle] = (ElectricPumpCycle, GasGeneratorCycle, OpenExpanderCycle),
-              num: int = 5, input_prefix: str = '', output_prefix: str = '',
+              num: int = 8, input_prefix: str = '', output_prefix: str = '',
               linestyle: str = '-',
               scale: bool = False,
               **engine_kwargs):
@@ -190,6 +190,7 @@ def double_output_plot(engine_classes: Iterable[EngineCycle],
                        legend_kwargs: Optional[dict] = None,
                        ylims: tuple = (None, None),
                        savefig: Optional[str] = None,
+                       scale_to_first: bool = False,
                        **engine_kwargs):
     x_label = make_axis_string(input_attribute, input_prefix)
     y1_label = make_axis_string(output1_attribute, output1_prefix)
@@ -209,16 +210,19 @@ def double_output_plot(engine_classes: Iterable[EngineCycle],
 
     output_attributes = [output1_attribute, output2_attribute]
     output_prefixes = [output1_prefix, output2_prefix]
-
+    super_list = []
     for EngineClass in engine_classes:
         inputs, *outputs_list = get_attribute_range(
             EngineClass, input_attribute, input_range, output_attributes, num, **engine_kwargs
         )
+        super_list.append(outputs_list)
         input_vals = adjust_values_to_prefix(inputs, input_prefix)
         for axis, outputs, output_prefix, linestyle in zip(axes, outputs_list, output_prefixes, linestyles):
             class_acronym = get_class_acronym(EngineClass)
             label = f'{class_acronym}-cycle'
             color, marker = get_class_color_marker(EngineClass)
+            if scale_to_first:
+                outputs = [output/output_0 for output, output_0 in zip(outputs, super_list[0][1])]
             output_vals = adjust_values_to_prefix(outputs, output_prefix)
             axis.plot(input_vals, output_vals,
                       color=color,
@@ -241,7 +245,7 @@ def double_output_plot(engine_classes: Iterable[EngineCycle],
     if legend_kwargs is None:
         legend_kwargs = {}
     ax.legend(custom_lines, custom_labels, **legend_kwargs)
-
+    plt.tight_layout()
     if savefig:
         fig.savefig(savefig, dpi=1200)
     plt.show()
@@ -300,7 +304,7 @@ if __name__ == '__main__':
             # ylims=((3.6e3, 4.6e3), None),
             **engine_kwargs
         )
-    turbine_explain()
+    # turbine_explain()
     # turbine_explain2()
 
 
@@ -335,6 +339,71 @@ if __name__ == '__main__':
             ylims=((9600, 10300), (0, 700)),
             **engine_kwargs
         )
+
+    def feed_system_burn_time(savefig: bool = False):
+        double_output_plot(
+            [ElectricPumpCycle, GasGeneratorCycle, OpenExpanderCycle],
+            'burn_time',
+            (300, 1200),
+            'total_thrust_chamber_mass',
+            'feed_system_mass',
+            input_prefix='',
+            legend_kwargs={'loc': 'best', 'ncol': 2},
+            savefig=r'Final_Plots\FS_TC_vs_BurnTime' if savefig else None,
+            num=8,
+            # ylims=((40,50), None),
+            twinx=False,
+            **engine_kwargs
+        )
+
+    def energy_source_burn_time(savefig: bool = False, is_ratio:bool = True):
+        ylims = ((1.,2.), (32, 33)) if is_ratio else (None,None)
+        double_output_plot(
+            [ElectricPumpCycle, GasGeneratorCycle, OpenExpanderCycle],
+            'burn_time',
+            (300, 2000),
+            f'energy_source_{"ratio" if is_ratio else "mass"}',
+            f'cc_prop_group_{"ratio" if is_ratio else "mass"}',
+            input_prefix='',
+            legend_kwargs={'loc': (0.03,.74), 'ncols': 2},
+            savefig=r'Final_Plots\ES_CCProp_vs_BurnTime' if savefig else None,
+            num=8,
+            ylims=ylims,
+            # twinx=False,
+            **engine_kwargs
+        )
+
+    def split_burn_time_graphs(savefig: bool = False):
+        double_output_plot(
+            [ElectricPumpCycle, GasGeneratorCycle, OpenExpanderCycle],
+            'burn_time',
+            (300, 2000),
+            'energy_source_ratio',
+            'energy_source_mass',
+            input_prefix='',
+            legend_kwargs={'loc': (0.03,.73), 'ncols': 2},
+            num=8,
+            # ylims=((1, 2), None),
+            savefig=r'Final_Plots\ES_vs_BurnTime' if savefig else None,
+            **engine_kwargs
+        )
+        double_output_plot(
+            [ElectricPumpCycle, GasGeneratorCycle, OpenExpanderCycle],
+            'burn_time',
+            (300, 2000),
+            'cc_prop_group_ratio',
+            'cc_prop_group_mass',
+            input_prefix='',
+            legend_kwargs={'loc': 'upper left', 'ncols': 2},
+            num=8,
+            # ylims=((32, 33),None),
+            savefig=r'Final_Plots\CCProp_vs_BurnTime' if savefig else None,
+            scale_to_first=True,
+            **engine_kwargs
+        )
+    split_burn_time_graphs(savefig=True)
+    # energy_source_burn_time(savefig=False, is_ratio=True)
+    # feed_system_burn_time(savefig=False)
 
 
     def power_vs_anti_power_pressure():

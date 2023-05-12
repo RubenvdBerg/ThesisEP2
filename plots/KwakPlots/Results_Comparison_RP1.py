@@ -1,5 +1,5 @@
-from isp_plot import plot_all_ratio_plots_data, get_engines, plot_all_ratio_from_data, open_data_dict
-from Easy_Plots import easy_plot, double_input_plot
+# from isp_plot import plot_all_ratio_plots_data, get_engines, plot_all_ratio_from_data, open_data_dict
+# from Easy_Plots import easy_plot, double_input_plot
 # plot_all_ratio_plots_data(short=False,
 #                           is_frozen=True,
 #                           names=('EP', 'GG','OE'),
