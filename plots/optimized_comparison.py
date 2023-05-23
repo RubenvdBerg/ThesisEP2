@@ -7,7 +7,7 @@ from EngineCycles.ElectricPumpCycle import ElectricPumpCycle
 from EngineCycles.GasGeneratorCycle import GasGeneratorCycle
 from EngineCycles.OpenExpanderCycle import OpenExpanderCycle
 from EngineArguments.default_arguments import get_default_kwargs
-from typing import Container
+from typing import Container, Optional
 from EngineFunctions.PlottingFunctions import make_axis_string, get_class_color_marker, adjust_values_to_prefix
 from EngineFunctions.BaseFunctions import get_symbol
 
@@ -18,6 +18,7 @@ def attribute_optimized_comparison(input_attribute: str,
                                    engine_classes: tuple = (ElectricPumpCycle, GasGeneratorCycle, OpenExpanderCycle),
                                    input_prefix: str = '',
                                    opt_prefix: str = '',
+                                   savefig: Optional[str] = None,
                                    **engine_kwargs,
                                    ):
     acronym_switcher = {ElectricPumpCycle: 'EP', GasGeneratorCycle: 'GG', OpenExpanderCycle: 'OE'}
@@ -70,6 +71,8 @@ def attribute_optimized_comparison(input_attribute: str,
     custom_legend['lines'].append(plt.Line2D([0], [0], color='black', linestyle='-'))
     custom_legend['labels'].append(output_symbol)
     plt.legend(handles=custom_legend['lines'], labels=custom_legend['labels'])
+    if savefig:
+        plt.savefig(f'{opt_attr}_opt_vs_{input_attribute}_{savefig}', dpi=1000)
     plt.show()
 
 
@@ -81,5 +84,6 @@ if __name__ == '__main__':
                                    input_prefix='k',
                                    opt_prefix='k',
                                    engine_classes=[ElectricPumpCycle, GasGeneratorCycle, OpenExpanderCycle],
+                                   savefig=None,
                                    **engine_kwargs,
                                    )
