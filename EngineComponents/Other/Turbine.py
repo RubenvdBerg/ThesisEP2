@@ -22,8 +22,7 @@ class Turbine(FlowComponent):
 
     @property
     def mass_flow_required(self):
-        cp = self.inlet_flow_state.specific_heat_capacity
-        y = self.inlet_flow_state.heat_capacity_ratio
+        cp, y = self.inlet_flow_state.specific_heat_capacity, self.inlet_flow_state.heat_capacity_ratio
         return (self.power_required / (self.efficiency * cp * self.inlet_temperature
                                        * (1 - self.pressure_ratio ** ((1 - y) / y))))
 

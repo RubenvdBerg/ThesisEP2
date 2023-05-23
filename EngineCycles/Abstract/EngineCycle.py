@@ -631,6 +631,10 @@ class EngineCycle:
         return self.fuel_pump.power_required / self.shaft_mechanical_efficiency
 
     @property
+    def fuel_pump_power_efficiency(self):
+        return self.fuel_pumps_power_required / self.fuel_pump.mass_flow
+
+    @property
     def oxidizer_pumps_power_required(self):
         return self.oxidizer_pump.power_required / self.shaft_mechanical_efficiency
 
@@ -719,6 +723,10 @@ class EngineCycle:
         return self.initial_mass / self.burn_time
 
     @property
+    def feed_system_ratio(self):
+        return self.feed_system_mass / self.burn_time
+
+    @property
     def tanks_plus_pressurant(self):
         return self.tanks_mass + self.pressurant.mass
 
@@ -763,6 +771,10 @@ class EngineCycle:
     @property
     def change_in_velocity(self):
         return self.ideal_delta_v
+
+    @property
+    def change_in_velocity_km(self):
+        return self.change_in_velocity * 1e-3
 
     def get_payload_delta_v(self, payload_mass):
         mass_ratio = (self.final_mass + payload_mass) / (self.initial_mass + payload_mass)

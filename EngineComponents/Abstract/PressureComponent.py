@@ -64,7 +64,7 @@ class NewPressureComponent(StructuralComponent):
 
     @property
     def geometry_factor(self):
-        return 2 if self.geometry == 'cylinder' else 1
+        return .5 if self.geometry == 'sphere' else 1
 
     @property
     def thickness(self):

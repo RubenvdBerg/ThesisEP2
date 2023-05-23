@@ -1,5 +1,5 @@
-# from isp_plot import plot_all_ratio_plots_data, get_engines, plot_all_ratio_from_data, open_data_dict
-# from Easy_Plots import easy_plot, double_input_plot
+from plots.KwakPlots.isp_plot import plot_all_ratio_plots_data, get_engines, plot_all_ratio_from_data, open_data_dict
+from plots.KwakPlots.Easy_Plots import easy_plot, double_input_plot
 # plot_all_ratio_plots_data(short=False,
 #                           is_frozen=True,
 #                           names=('EP', 'GG','OE'),
@@ -43,10 +43,11 @@ engine_kwargs = {
     'thrust': 100e3,
     'burn_time': 300,
     'exit_pressure_forced': 0.002e6,
-    'expansion_ratio_end_cooling': 10,
+    'expansion_ratio_end_cooling': 5,
     'combustion_chamber_pressure': 10e6,
     'maximum_wall_temperature': 900,
 }
+
 
 # easy_plot(
 #     engine_classes=[ElectricPumpCycle],
@@ -58,15 +59,14 @@ engine_kwargs = {
 #     **engine_kwargs
 # )
 
-def make_rp1_graphs(savefig:bool=False):
-
+def make_rp1_graphs(savefig: bool = False):
     for tb in [300, 750, 1200]:
         savefig_path = f'Final_Plots/V2_RP1_m0_{tb}s' if savefig else None
         double_input_plot(engine_classes=[ElectricPumpCycle, GasGeneratorCycle, OpenExpanderCycle],
                           input1_attribute='combustion_chamber_pressure',
                           input2_attribute='burn_time',
-                          input1_range=(3e6,10e6),
-                          input2_range=(tb,tb),
+                          input1_range=(3e6, 10e6),
+                          input2_range=(tb, tb),
                           output_attribute='initial_mass',
                           num1=8,
                           num2=1,
@@ -80,7 +80,7 @@ def make_rp1_graphs(savefig:bool=False):
         double_input_plot(engine_classes=[ElectricPumpCycle, GasGeneratorCycle, OpenExpanderCycle],
                           input1_attribute='combustion_chamber_pressure',
                           input2_attribute='burn_time',
-                          input1_range=(3e6, 10e6),
+                          input1_range=(3e6, 20e6),
                           input2_range=(1200, 300),
                           output_attribute=attribute,
                           num1=8,
@@ -107,3 +107,27 @@ def make_rp1_graphs(savefig:bool=False):
 
 if __name__ == '__main__':
     make_rp1_graphs(savefig=False)
+    # for pressure in [3e6, 10e6]:
+    #     print(f'For chamber pressure = {pressure/1e6:.0f} MPa')
+    #     data = double_input_plot(engine_classes=[ElectricPumpCycle, GasGeneratorCycle, OpenExpanderCycle],
+    #                       input1_attribute='combustion_chamber_pressure',
+    #                       input2_attribute='burn_time',
+    #                       input1_range=(pressure, pressure),
+    #                       input2_range=(1200, 300),
+    #                       output_attribute='change_in_velocity',
+    #                       num1=1,
+    #                       num2=3,
+    #                       input1_prefix='M',
+    #                       input2_prefix='',
+    #                       output_prefix='',
+    #                       savefig=None,
+    #                       return_data=True,
+    #                     verbose=False,
+    #                       **engine_kwargs)
+    #
+    #     for tb, tb_dict in data.items():
+    #         print(f'For burn time = {tb} s')
+    #         for engine_class, (input, output) in tb_dict.items():
+    #             print(f'{engine_class.__name__}-ratio={(1-tb_dict[ElectricPumpCycle][1][0]/output[0])*100:.2f}')
+    #     print('-------------------------------------------------------\n\n')
+

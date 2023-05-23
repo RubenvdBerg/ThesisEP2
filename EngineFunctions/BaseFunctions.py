@@ -76,11 +76,14 @@ def get_unit(attribute_name: str):
         'heat_capacity_ratio': '-',
         'specific_heat_capacity': 'J/kg/K',
         'molar_mass': 'kg/mol',
-        'power': 'kg/s',
+        'power_ratio': 'kg/s',
         'time': 's',
         'ratio': '-',
         'velocity': 'm/s',
         'delta_v': 'm/s',
+        'density': r'kg/m$^3$',
+        'power': 'W',
+        'thrust': 'N',
     }
     for key, value in unit_dict.items():
         if key in attribute_name:

@@ -119,6 +119,8 @@ def double_input_plot(engine_classes: Iterable[EngineCycle],
                       y_log: bool = False,
                       savefig: Optional[str] = None,
                       scale: bool = False,
+                      return_data: bool = False,
+                      legend_kwargs: Optional[dict] = None,
                       **engine_kwargs):
     # Get Data
     data_dict = double_input_data_range(input1_attribute=input1_attribute,
@@ -130,7 +132,8 @@ def double_input_plot(engine_classes: Iterable[EngineCycle],
                                         engine_classes=engine_classes,
                                         output_attributes=[output_attribute],
                                         **engine_kwargs)
-
+    if return_data:
+        return data_dict
     # Set-up plot and plot lines
     fig, ax = plt.subplots()
     x_label = make_axis_string(input1_attribute, input1_prefix)
@@ -147,7 +150,7 @@ def double_input_plot(engine_classes: Iterable[EngineCycle],
         for EngineClass, data in subdata_dict.items():
             color, marker = get_class_color_marker(EngineClass)
             inputs, outputs = data
-
+            color = 'black' if len(engine_classes) == 1 else color
             inputs = adjust_values_to_prefix(inputs, input1_prefix)
             outputs = adjust_values_to_prefix(outputs, output_prefix)
             if scale:
@@ -158,17 +161,20 @@ def double_input_plot(engine_classes: Iterable[EngineCycle],
     # Fix Custom Legend
     custom_lines = []
     custom_labels = []
-    for EngineClass in engine_classes:
-        color, marker = get_class_color_marker(EngineClass)
-        acronym = get_class_acronym(EngineClass)
-        custom_lines.append(plt.Line2D([0], [0], color=color, marker=marker, linestyle="None"))
-        custom_labels.append(f'{acronym}-cycle')
+    if len(engine_classes) > 1:
+        for EngineClass in engine_classes:
+            color, marker = get_class_color_marker(EngineClass)
+            acronym = get_class_acronym(EngineClass)
+            custom_lines.append(plt.Line2D([0], [0], color=color, marker=marker, linestyle="None"))
+            custom_labels.append(f'{acronym}-cycle')
     if num2 > 1:
         for input2_val, linestyle in zip(data_dict, line_styles):
             label = format_secondary_attribute_label_double_input(input2_attribute, input2_val, input2_prefix)
             custom_lines.append(plt.Line2D([0], [0], linestyle=linestyle, color='black'))
             custom_labels.append(label)
-    ax.legend(custom_lines, custom_labels)
+    if legend_kwargs is None:
+        legend_kwargs = {}
+    ax.legend(custom_lines, custom_labels, **legend_kwargs)
 
     if savefig:
         fig.savefig(savefig, dpi=1200)
@@ -222,7 +228,7 @@ def double_output_plot(engine_classes: Iterable[EngineCycle],
             label = f'{class_acronym}-cycle'
             color, marker = get_class_color_marker(EngineClass)
             if scale_to_first:
-                outputs = [output/output_0 for output, output_0 in zip(outputs, super_list[0][1])]
+                outputs = [output / output_0 for output, output_0 in zip(outputs, super_list[0][1])]
             output_vals = adjust_values_to_prefix(outputs, output_prefix)
             axis.plot(input_vals, output_vals,
                       color=color,
@@ -276,6 +282,79 @@ if __name__ == '__main__':
     from Results_Comparison_RP1 import engine_kwargs
 
 
+    def isp_vs_pcc_and_of(savefig: bool = False):
+        double_input_plot(
+            engine_classes=[ElectricPumpCycle],
+            input2_attribute='combustion_chamber_pressure',
+            input2_range=(1e6, 20e6),
+            input1_attribute='mass_mixture_ratio',
+            input1_range=(1.5, 4.0),
+            num2=4,
+            output_attribute='chamber_specific_impulse',
+            input2_prefix='M',
+            num1=20,
+            savefig=r'Isp_vs_MMR' if savefig else None,
+            legend_kwargs={'ncol':2},
+            **engine_kwargs,
+        )
+
+
+    def mass_ratio_vs_burntime(savefig: bool = False):
+        # double_input_plot(
+        #     engine_classes=[ElectricPumpCycle, GasGeneratorCycle],
+        #     input2_attribute='combustion_chamber_pressure',
+        #     input2_range=(1e6, 10e6),
+        #     input1_attribute='burn_time',
+        #     input1_range=(300, 1200),
+        #     num2=3,
+        #     output_attribute='mass_ratio',
+        #     input2_prefix='M',
+        #     num1=20,
+        #     **engine_kwargs,
+        # )
+        double_input_plot(
+            engine_classes=[GasGeneratorCycle],
+            input1_attribute='combustion_chamber_pressure',
+            input1_range=(1e6, 10e6),
+            input2_attribute='burn_time',
+            input2_range=(300, 1200),
+            num2=3,
+            output_attribute='mass_ratio',
+            input1_prefix='M',
+            num1=20,
+            **engine_kwargs,
+        )
+
+        for tb in [300, 1200]:
+            engine_kwargs['burn_time'] = tb
+            double_output_plot(
+                engine_classes=[ElectricPumpCycle, GasGeneratorCycle],
+                input_attribute='combustion_chamber_pressure',
+                input_range=(.5e6, 10e6),
+                output1_attribute='mass_ratio',
+                output2_attribute='energy_source_mass',
+                input_prefix='M',
+                num=20,
+                **engine_kwargs,
+            )
+
+
+    def ep_cycle_with_of_ratio(savefig: bool = False):
+        engine_kwargs['combustion_chamber_pressure'] = 10e6
+        double_output_plot(
+            [ElectricPumpCycle, GasGeneratorCycle],
+            'mass_mixture_ratio',
+            (1.5, 3.5),
+            'mass_ratio',
+            'overall_specific_impulse',
+            savefig=r'Final_Plots\EP_OF_Explain' if savefig else None,
+            num=20,
+            # output2_prefix='k',
+            # twinx=False,
+            **engine_kwargs,
+        )
+
+
     def turbine_explain(savefig: bool = False):
         double_output_plot(
             [GasGeneratorCycle, OpenExpanderCycle],
@@ -290,6 +369,8 @@ if __name__ == '__main__':
             ylims=((3.6e3, 4.6e3), None),
             **engine_kwargs
         )
+
+
     def turbine_explain2(savefig: bool = False):
         double_output_plot(
             [GasGeneratorCycle, OpenExpanderCycle],
@@ -304,9 +385,10 @@ if __name__ == '__main__':
             # ylims=((3.6e3, 4.6e3), None),
             **engine_kwargs
         )
+
+
     # turbine_explain()
     # turbine_explain2()
-
 
     def feed_system_pressure(savefig: bool = False):
         double_output_plot(
@@ -340,6 +422,7 @@ if __name__ == '__main__':
             **engine_kwargs
         )
 
+
     def feed_system_burn_time(savefig: bool = False):
         double_output_plot(
             [ElectricPumpCycle, GasGeneratorCycle, OpenExpanderCycle],
@@ -356,8 +439,9 @@ if __name__ == '__main__':
             **engine_kwargs
         )
 
-    def energy_source_burn_time(savefig: bool = False, is_ratio:bool = True):
-        ylims = ((1.,2.), (32, 33)) if is_ratio else (None,None)
+
+    def energy_source_burn_time(savefig: bool = False, is_ratio: bool = True):
+        ylims = ((1., 2.), (32, 33)) if is_ratio else (None, None)
         double_output_plot(
             [ElectricPumpCycle, GasGeneratorCycle, OpenExpanderCycle],
             'burn_time',
@@ -365,13 +449,14 @@ if __name__ == '__main__':
             f'energy_source_{"ratio" if is_ratio else "mass"}',
             f'cc_prop_group_{"ratio" if is_ratio else "mass"}',
             input_prefix='',
-            legend_kwargs={'loc': (0.03,.74), 'ncols': 2},
+            legend_kwargs={'loc': (0.03, .74), 'ncols': 2},
             savefig=r'Final_Plots\ES_CCProp_vs_BurnTime' if savefig else None,
             num=8,
             ylims=ylims,
             # twinx=False,
             **engine_kwargs
         )
+
 
     def split_burn_time_graphs(savefig: bool = False):
         double_output_plot(
@@ -381,7 +466,7 @@ if __name__ == '__main__':
             'energy_source_ratio',
             'energy_source_mass',
             input_prefix='',
-            legend_kwargs={'loc': (0.03,.73), 'ncols': 2},
+            legend_kwargs={'loc': (0.03, .73), 'ncols': 2},
             num=8,
             # ylims=((1, 2), None),
             savefig=r'Final_Plots\ES_vs_BurnTime' if savefig else None,
@@ -401,10 +486,11 @@ if __name__ == '__main__':
             scale_to_first=True,
             **engine_kwargs
         )
-    split_burn_time_graphs(savefig=True)
+
+
+    # split_burn_time_graphs(savefig=True)
     # energy_source_burn_time(savefig=False, is_ratio=True)
     # feed_system_burn_time(savefig=False)
-
 
     def power_vs_anti_power_pressure():
         double_output_plot(
@@ -523,6 +609,7 @@ if __name__ == '__main__':
                           **engine_kwargs
                           )
 
+
     # double_input_plot([ElectricPumpCycle, GasGeneratorCycle, OpenExpanderCycle],
     #                   input2_attribute='burn_time',
     #                   input2_range=(300, 1200),
@@ -536,3 +623,6 @@ if __name__ == '__main__':
     #                   output_prefix='',
     #                   **engine_kwargs
     #                   )
+    isp_vs_pcc_and_of(savefig=False)
+    # mass_ratio_vs_burntime()
+    # ep_cycle_with_of_ratio()

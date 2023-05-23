@@ -19,6 +19,7 @@ class SecondaryExhaust(FlowComponent, StructuralComponent):
     ambient_pressure: Optional[float] = None  # [Pa]
     pressure_ratio: Optional[float] = field(init=False, repr=False)  # [-]
     flow_heat_capacity_ratio: Optional[float] = field(init=False, repr=False)  # [-]
+    flow_molar_mass: Optional[float] = field(init=False, repr=False) # [kg/mol]
     _divergence_angle: float = radians(15)
 
     def __post_init__(self):
@@ -28,6 +29,7 @@ class SecondaryExhaust(FlowComponent, StructuralComponent):
 
     def set_flow_properties(self):
         """Give the assumed replacement of RP1, i.e. Dodecane, similar temperature limits as RP1."""
+        self.flow_molar_mass = self.inlet_flow_state.molar_mass
         try:
             self.flow_heat_capacity_ratio = self.inlet_flow_state.heat_capacity_ratio
         except ValueError:
@@ -57,7 +59,7 @@ class SecondaryExhaust(FlowComponent, StructuralComponent):
 
     @property
     def characteristic_velocity(self):
-        return get_characteristic_velocity(molar_mass=self.inlet_flow_state.molar_mass,
+        return get_characteristic_velocity(molar_mass=self.flow_molar_mass,
                                            chamber_temperature=self.inlet_temperature,
                                            heat_capacity_ratio=self.flow_heat_capacity_ratio)
 
@@ -91,7 +93,7 @@ class SecondaryExhaust(FlowComponent, StructuralComponent):
 
     @property
     def throat_area(self):
-        return get_throat_area(molar_mass=self.inlet_flow_state.molar_mass,
+        return get_throat_area(molar_mass=self.flow_molar_mass,
                                heat_capacity_ratio=self.flow_heat_capacity_ratio,
                                chamber_temperature=self.inlet_temperature,
                                mass_flow=self.mass_flow,
@@ -122,7 +124,8 @@ class SecondaryExhaust(FlowComponent, StructuralComponent):
     def wall_thickness(self):
         calculated_thickness = self.inlet_pressure * self.exit_radius / self.structure_material.yield_strength
         if calculated_thickness < self.structure_material.minimal_thickness:
-            warnings.warn('Calculated thickness of secondary exhaust is lower than minimum thickness of material. The latter is used.')
+            warnings.warn(
+                'Calculated thickness of secondary exhaust is lower than minimum thickness of material. The latter is used.')
             return self.structure_material.minimal_thickness
         return calculated_thickness
 

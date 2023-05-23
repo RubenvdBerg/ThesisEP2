@@ -33,7 +33,7 @@ class Battery(ElectricalComponent):
         return self.input_power * (1 - self.eta_e)
 
     @property
-    def optimal_time(self):
+    def optimal_discharge_time(self):
         return self.specific_energy / self.specific_power
 
     @property

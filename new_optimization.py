@@ -18,9 +18,9 @@ class EngineCycleOptimization:
 
     def get_bounds(self):
         if 'LH2' in self.kwargs['fuel_name']:
-            return [4.5, 5E5], [8, 3E7]
+            return [4.5, 1E5], [8, 2E7]
         elif 'RP' in self.kwargs['fuel_name']:
-            return [1.5, 5E5], [4.5, 3E7]
+            return [2, 1E5], [2.6, 1E7]
 
 
 class DeltaVOpt(EngineCycleOptimization):
@@ -59,12 +59,12 @@ def optimal_cycle_variables(cycle: type(EngineCycle) = ElectricPumpCycle,
 
 
 if __name__ == '__main__':
+    from plots.KwakPlots.Results_Comparison_RP1 import engine_kwargs
     design_variables = {
         'thrust': 100e3,
-        'burn_time': 400,
+        'burn_time': 1200,
         'verbose': True,
-        'expansion_ratio': 100,
-        'fuel_name': 'RP1_NASA',
-        'ambient_pressure': 0,
     }
-    print(optimal_cycle_variables(cycle=ElectricPumpCycle, **design_variables, library='scipy'))
+    engine_kwargs.pop('combustion_chamber_pressure')
+    total_kwargs = engine_kwargs | design_variables
+    print(optimal_cycle_variables(cycle=ElectricPumpCycle, **total_kwargs, library='scipy'))
