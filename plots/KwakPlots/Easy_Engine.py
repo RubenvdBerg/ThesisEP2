@@ -31,4 +31,4 @@ if __name__ == '__main__':
     gg = get_engine(GasGeneratorCycle, **kwargs)
     oe = get_engine(OpenExpanderCycle, **kwargs)
     compare_engine_masses(ep, gg, oe)
-    print()
+

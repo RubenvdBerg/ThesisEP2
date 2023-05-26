@@ -1,0 +1,42 @@
+{
+      "300": {
+            "ElectricPumpCycle": [
+                  9298.956267136244,
+                  9780.938825047995
+            ],
+            "GasGeneratorCycle": [
+                  10444.209483478237,
+                  10444.209483478237
+            ],
+            "OpenExpanderCycle": [
+                  10296.105697860994,
+                  10296.105697860994
+            ]
+      },
+      "500": {
+            "ElectricPumpCycle": [
+                  9576.728006072937,
+                  10211.242926981953
+            ],
+            "GasGeneratorCycle": [
+                  10713.53405052099,
+                  10713.53405052099
+            ],
+            "OpenExpanderCycle": [
+                  10551.698659252397,
+                  10551.698659252397
+            ]
+      },
+      "info": {
+            "input_attribute": "battery_specific_energy",
+            "input_vals": [
+                  540000.0,
+                  5400000.0
+            ],
+            "opt_attr": "change_in_velocity",
+            "burn_times": [
+                  300,
+                  500
+            ],
+            "engine_classes": [
+                  

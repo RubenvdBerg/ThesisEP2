@@ -1,0 +1,160 @@
+{
+      "1350": {
+            "ElectricPumpCycle": {
+                  "chamber_pressure": [
+                        1.1724049261400111,
+                        5.90033897845861
+                  ],
+                  "mixture_ratio": [
+                        2.240422924652525,
+                        2.3683052590713536
+                  ],
+                  "change_in_velocity": [
+                        9824.560650301915,
+                        10750.149047318437
+                  ]
+            },
+            "GasGeneratorCycle": {
+                  "chamber_pressure": [
+                        9.518590886890912,
+                        9.518590886890912
+                  ],
+                  "mixture_ratio": [
+                        2.416344320923097,
+                        2.416344320923097
+                  ],
+                  "change_in_velocity": [
+                        10977.661041605705,
+                        10977.661041605705
+                  ]
+            },
+            "OpenExpanderCycle": {
+                  "chamber_pressure": [
+                        6.5862205598550725,
+                        6.5862205598550725
+                  ],
+                  "mixture_ratio": [
+                        2.3880699957248774,
+                        2.3880699957248774
+                  ],
+                  "change_in_velocity": [
+                        10769.666841969518,
+                        10769.666841969518
+                  ]
+            }
+      },
+      "500": {
+            "ElectricPumpCycle": {
+                  "chamber_pressure": [
+                        1.1625129857094785,
+                        3.277407967569528
+                  ],
+                  "mixture_ratio": [
+                        2.2262291728880985,
+                        2.301295353220194
+                  ],
+                  "change_in_velocity": [
+                        9576.728006072937,
+                        10211.242926981953
+                  ]
+            },
+            "GasGeneratorCycle": {
+                  "chamber_pressure": [
+                        6.129431881640637,
+                        6.129431881640637
+                  ],
+                  "mixture_ratio": [
+                        2.363302462260184,
+                        2.363302462260184
+                  ],
+                  "change_in_velocity": [
+                        10713.53405052099,
+                        10713.53405052099
+                  ]
+            },
+            "OpenExpanderCycle": {
+                  "chamber_pressure": [
+                        5.416918169462596,
+                        5.416918169462596
+                  ],
+                  "mixture_ratio": [
+                        2.354290510530121,
+                        2.354290510530121
+                  ],
+                  "change_in_velocity": [
+                        10551.698659252397,
+                        10551.698659252397
+                  ]
+            }
+      },
+      "300": {
+            "ElectricPumpCycle": {
+                  "chamber_pressure": [
+                        1.1920601626392493,
+                        2.429583218693731
+                  ],
+                  "mixture_ratio": [
+                        2.227884829617109,
+                        2.2640401124954206
+                  ],
+                  "change_in_velocity": [
+                        9298.956267136244,
+                        9780.938825047995
+                  ]
+            },
+            "GasGeneratorCycle": {
+                  "chamber_pressure": [
+                        5.005981507500367,
+                        5.005981507500367
+                  ],
+                  "mixture_ratio": [
+                        2.3272163341015952,
+                        2.3272163341015952
+                  ],
+                  "change_in_velocity": [
+                        10444.209483478237,
+                        10444.209483478237
+                  ]
+            },
+            "OpenExpanderCycle": {
+                  "chamber_pressure": [
+                        4.937003514986384,
+                        4.937003514986384
+                  ],
+                  "mixture_ratio": [
+                        2.3214328139213274,
+                        2.3214328139213274
+                  ],
+                  "change_in_velocity": [
+                        10296.105697860994,
+                        10296.105697860994
+                  ]
+            }
+      },
+      "info": {
+            "input_attribute": "battery_specific_energy",
+            "input_vals": [
+                  540000.0,
+                  10800000.0
+            ],
+            "opt_attr": "change_in_velocity",
+            "burn_times": [
+                  1350,
+                  500,
+                  300
+            ],
+            "engine_classes": [
+                  "ElectricPumpCycle",
+                  "GasGeneratorCycle",
+                  "OpenExpanderCycle"
+            ],
+            "engine_inputs": {
+                  "thrust": 100000.0,
+                  "burn_time": 300,
+                  "exit_pressure_forced": 2000.0,
+                  "expansion_ratio_end_cooling": 5,
+                  "combustion_chamber_pressure": 10000000.0,
+                  "maximum_wall_temperature": 900
+            }
+      }
+}

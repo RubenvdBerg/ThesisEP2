@@ -77,6 +77,7 @@ def get_unit(attribute_name: str):
         'specific_heat_capacity': 'J/kg/K',
         'molar_mass': 'kg/mol',
         'power_ratio': 'kg/s',
+        'specific_power': 'W/kg',
         'time': 's',
         'ratio': '-',
         'velocity': 'm/s',
@@ -84,6 +85,7 @@ def get_unit(attribute_name: str):
         'density': r'kg/m$^3$',
         'power': 'W',
         'thrust': 'N',
+        'specific_energy': 'J/kg',
     }
     for key, value in unit_dict.items():
         if key in attribute_name:
@@ -100,5 +102,6 @@ def get_symbol(attribute_name: str):
         'burn_time': r'$t_b$',
         'change_in_velocity': r'$\Delta V$',
         'ideal_delta_v': r'$\Delta V$',
+        'battery_specific_power': r'$\delta_{P}$',
     }
     return attr_switcher[attribute_name]

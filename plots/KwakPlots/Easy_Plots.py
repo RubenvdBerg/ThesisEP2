@@ -1,3 +1,4 @@
+import warnings
 from typing import Iterable, Optional, Literal
 from operator import attrgetter
 import matplotlib.pyplot as plt
@@ -5,12 +6,110 @@ from numpy import linspace
 
 from EngineArguments.default_arguments import get_default_kwargs
 from EngineCycles.Abstract.EngineCycle import EngineCycle
+from EngineCycles.Abstract.OpenCycle import OpenEngineCycle
 from EngineFunctions.BaseFunctions import get_unit, get_symbol, format_attr_name
 from EngineFunctions.PlottingFunctions import make_axis_string, get_class_acronym, \
     get_class_color_marker, adjust_values_to_prefix, format_attr_name_for_legend, format_attr_name_for_axis_label
 from EngineCycles.OpenExpanderCycle import OpenExpanderCycle
 from EngineCycles.GasGeneratorCycle import GasGeneratorCycle
 from EngineCycles.ElectricPumpCycle import ElectricPumpCycle
+
+cycle_input_dict = {
+    ElectricPumpCycle: (
+        'fuel_pump_specific_power',
+        'oxidizer_pump_specific_power',
+        'electric_motor_specific_power',
+        'inverter_specific_power',
+        'battery_specific_power',
+        'battery_specific_energy',
+        'electric_motor_efficiency',
+        'inverter_efficiency',
+        'battery_structural_factor',
+        'battery_coolant_temperature_change',
+        'electric_motor_heat_loss_factor',
+        'electric_motor_magnet_temp_limit',
+        'electric_motor_ox_leak_factor',
+    ),
+    GasGeneratorCycle: (
+        'gg_stay_time',
+        'gg_structural_factor',
+        'gg_material',
+    ),
+    OpenExpanderCycle: (
+    ),
+    OpenEngineCycle: (
+        'turbine_pressure_ratio',
+        'turbine_efficiency',
+        'turbine_maximum_temperature',
+        'turbopump_specific_power',
+        'exhaust_expansion_ratio',
+        'exhaust_material',
+        'exhaust_safety_factor',
+    ),
+    EngineCycle: (
+        'thrust',
+        'burn_time',
+        'combustion_chamber_pressure',
+        'exit_pressure_forced',
+        'expansion_ratio_end_cooling',
+        'oxidizer_name',
+        'fuel_name',
+        'max_acceleration',
+        'mass_mixture_ratio',
+        'oxidizer_initial_pressure',
+        'fuel_initial_pressure',
+        'oxidizer_pump_efficiency',
+        'fuel_pump_efficiency',
+        'pressurant_name',
+        'pressurant_initial_pressure',
+        'pressurant_final_pressure',
+        'pressurant_initial_temperature',
+        'pressurant_margin_factor',
+        'pressurant_tank_safety_factor',
+        'propellant_margin_factor',
+        'tanks_structural_factor',
+        'ullage_volume_factor',
+        'fuel_tank_material',
+        'oxidizer_tank_material',
+        'pressurant_tank_material',
+        'is_frozen',
+        'oxidizer_initial_temperature',
+        'combustion_chamber_material',
+        'injector_material',
+        'nozzle_material',
+        'combustion_chamber_safety_factor',
+        'injector_safety_factor',
+        'nozzle_safety_factor',
+        'injector_pressure_drop_factor',
+        'convergent_half_angle',
+        'convergent_throat_bend_ratio',
+        'convergent_chamber_bend_ratio',
+        'divergent_throat_half_angle',
+        'maximum_wall_temperature',
+        'thrust_chamber_wall_emissivity',
+        'hot_gas_emissivity',
+        'cooling_pressure_drop_factor',
+        'specific_impulse_quality_factor',
+        'shaft_mechanical_efficiency',
+    )
+}
+
+
+def is_cycle_input(EngineClass: EngineCycle, input_attribute: str):
+    for cycle_type, input_list in cycle_input_dict.items():
+        if issubclass(EngineClass, cycle_type):
+            if input_attribute in input_list:
+                return True
+    return False
+
+
+def sanitize_inputs(EngineClass: EngineCycle, inputs: dict):
+    new_inputs = inputs.copy()
+    for attribute in inputs:
+        if not is_cycle_input(EngineClass, attribute):
+            warnings.warn(f'Input "{attribute}" is not acceptable for {EngineClass.__name__} and has been removed')
+            del new_inputs[attribute]
+    return new_inputs
 
 
 def get_attribute_range(EngineClass: EngineCycle, input_attribute: str, input_range: tuple[float, float],
@@ -19,9 +118,9 @@ def get_attribute_range(EngineClass: EngineCycle, input_attribute: str, input_ra
     total_kwargs = default_kwargs | kwargs
     input_values = linspace(*input_range, num)
     results = [input_values] + [tuple() for _ in range(len(output_attributes))]
-
     for input_value in input_values:
         total_kwargs = total_kwargs | {input_attribute: input_value}
+        total_kwargs = sanitize_inputs(EngineClass, total_kwargs)
         engine = EngineClass(**total_kwargs)
         for i, output_attribute in enumerate(output_attributes):
             results[i + 1] += attrgetter(output_attribute)(engine),
@@ -282,6 +381,26 @@ if __name__ == '__main__':
     from Results_Comparison_RP1 import engine_kwargs
 
 
+    def future_ep(savefig: bool = False):
+        engine_kwargs['combustion_chamber_pressure'] = 5e6
+        engine_kwargs['burn_time'] = 300
+        double_input_plot(
+            engine_classes=(ElectricPumpCycle, GasGeneratorCycle, OpenExpanderCycle),
+            input1_attribute='battery_specific_energy',
+            input1_range=(150 * 3600, 1500 * 3600),
+            input2_attribute='battery_specific_power',
+            input2_range=(5E3, 15E3),
+            output_attribute='change_in_velocity',
+            input1_prefix='M',
+            input2_prefix='k',
+            output_prefix='k',
+            num1=10,
+            savefig='Future_EP_Direct' if savefig else None,
+            legend_kwargs = {'ncol':2},
+            **engine_kwargs
+        )
+
+
     def isp_vs_pcc_and_of(savefig: bool = False):
         double_input_plot(
             engine_classes=[ElectricPumpCycle],
@@ -294,7 +413,7 @@ if __name__ == '__main__':
             input2_prefix='M',
             num1=20,
             savefig=r'Isp_vs_MMR' if savefig else None,
-            legend_kwargs={'ncol':2},
+            legend_kwargs={'ncol': 2},
             **engine_kwargs,
         )
 
@@ -623,6 +742,7 @@ if __name__ == '__main__':
     #                   output_prefix='',
     #                   **engine_kwargs
     #                   )
-    isp_vs_pcc_and_of(savefig=False)
+    # isp_vs_pcc_and_of(savefig=False)
     # mass_ratio_vs_burntime()
+    future_ep()
     # ep_cycle_with_of_ratio()

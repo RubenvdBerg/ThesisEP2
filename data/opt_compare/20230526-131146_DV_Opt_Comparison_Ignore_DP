@@ -1,0 +1,56 @@
+{
+      "300": {
+            "ElectricPumpCycle": {
+                  "chamber_pressure": [
+                        1.0,
+                        3.724024173617364
+                  ],
+                  "mixture_ratio": [
+                        2.3675474286079132,
+                        2.3070995378494272
+                  ],
+                  "change_in_velocity": [
+                        6688.104269438558,
+                        10045.992591421718
+                  ]
+            },
+            "OpenExpanderCycle": {
+                  "chamber_pressure": [
+                        4.937003514986384,
+                        4.937003514986384
+                  ],
+                  "mixture_ratio": [
+                        2.3214328139213274,
+                        2.3214328139213274
+                  ],
+                  "change_in_velocity": [
+                        10296.105697860994,
+                        10296.105697860994
+                  ]
+            }
+      },
+      "info": {
+            "input_attribute": "battery_specific_energy",
+            "input_vals": [
+                  35999.99999999996,
+                  30000000.00000001
+            ],
+            "opt_attr": "change_in_velocity",
+            "burn_times": [
+                  300
+            ],
+            "engine_classes": [
+                  "ElectricPumpCycle",
+                  "OpenExpanderCycle"
+            ],
+            "engine_inputs": {
+                  "thrust": 100000.0,
+                  "burn_time": 300,
+                  "exit_pressure_forced": 2000.0,
+                  "expansion_ratio_end_cooling": 5,
+                  "combustion_chamber_pressure": 10000000.0,
+                  "maximum_wall_temperature": 900
+            },
+            "log": true
+      }
+}

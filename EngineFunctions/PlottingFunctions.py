@@ -48,10 +48,18 @@ def get_class_color_marker(EngineClass: EngineCycle):
     }
     return color_dict[EngineClass]
 
+def get_class_from_name(engine_class_name: str) -> EngineCycle:
+    cycles = [ElectricPumpCycle, GasGeneratorCycle, OpenExpanderCycle]
+    class_dict = {EngineClass.__name__: EngineClass for EngineClass in cycles}
+    return class_dict[engine_class_name]
 
 def adjust_values_to_prefix(values: list, si_prefix: str):
     power = get_si_prefix_power(si_prefix)
     return [val * 10 ** power for val in values]
+
+
+def adjust_joule_to_watt_hour(values: list):
+    return [val /3600 for val in values]
 
 
 def format_attr_name_for_legend(attribute: str):

@@ -12,13 +12,17 @@ import os
 
 default_classes = (ElectricPumpCycle, GasGeneratorCycle, OpenExpanderCycle)
 
+def get_engine(EngineClass: EngineCycle, engine_kwargs: dict) -> EngineCycle:
+    default_kwargs = get_default_kwargs(EngineClass)
+    total_kwargs = default_kwargs | engine_kwargs
+    return EngineClass(**total_kwargs)
+
+def get_engine_data(engine: EngineCycle) -> pd.DataFrame:
+    return pd.DataFrame.from_dict(data=engine.combined_info, orient='index', columns=[type(engine).__name__])
 
 def get_engines(engine_classes: Iterable[EngineCycle] = default_classes, **engine_kwargs):
     for EngineClass in engine_classes:
-        default_kwargs = get_default_kwargs(EngineClass)
-        total_kwargs = default_kwargs | engine_kwargs
-        yield EngineClass(**total_kwargs)
-
+        yield get_engine(EngineClass, engine_kwargs)
 
 def get_engines_mass_data(*engines: EngineCycle):
     for engine in engines:
@@ -53,6 +57,17 @@ def get_comparison_excel(path: str, input_attribute: str, input_range: Iterable[
             worksheet.set_column(1, 3, None, format1)
     os.system(f'start EXCEL.EXE {path}')
 
+def get_individual_comparison_excel(engines: tuple[EngineCycle], path: str):
+    data_frames = (get_engine_data(engine) for engine in engines)
+    combined_df = pd.concat(data_frames,axis=1)
+    with pd.ExcelWriter(path, engine='xlsxwriter') as writer:
+        combined_df.to_excel(writer)
+        workbook = writer.book
+        worksheet = writer.sheets["Sheet1"]
+        format1 = workbook.add_format({'num_format': '0.0'})
+        worksheet.set_column(1, 3, None, format1)
+    os.system(f'start EXCEL.EXE {path}')
+
 
 
 if __name__ == '__main__':
@@ -65,4 +80,4 @@ if __name__ == '__main__':
         'expansion_ratio_end_cooling': 10,
         'maximum_wall_temperature': 900,
     }
-    get_comparison_excel('test_excel.xlsx',input_attribute='combustion_chamber_pressure', input_range=(3e6, 10e6), input_nums=5, input_prefix='M',**kwargs1)
+    get_comparison_excel('test_excel.xlsx',input_attribute='combustion_chamber_pressure', input_range=(3e6, 10e6), input_nums=1, input_prefix='M',**kwargs1)
