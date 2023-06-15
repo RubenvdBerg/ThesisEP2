@@ -1,0 +1,75 @@
+{
+      "300": {
+            "ElectricPumpCycle": {
+                  "chamber_pressure": [
+                        4.876376871485254,
+                        4.876167375011574
+                  ],
+                  "mixture_ratio": [
+                        2.326568804215643,
+                        2.321537193192194
+                  ],
+                  "change_in_velocity": [
+                        10274.484201946916,
+                        10444.367554870516
+                  ]
+            }
+      },
+      "500": {
+            "ElectricPumpCycle": {
+                  "chamber_pressure": [
+                        4.885714355926762,
+                        6.638443967018982
+                  ],
+                  "mixture_ratio": [
+                        2.339428005328375,
+                        2.352488956024177
+                  ],
+                  "change_in_velocity": [
+                        10537.234920925035,
+                        10726.06438699723
+                  ]
+            }
+      },
+      "1200": {
+            "ElectricPumpCycle": {
+                  "chamber_pressure": [
+                        5.90033897845861,
+                        10.0
+                  ],
+                  "mixture_ratio": [
+                        2.3683052590713536,
+                        2.4114148700237394
+                  ],
+                  "change_in_velocity": [
+                        10752.756838745585,
+                        11020.008615223265
+                  ]
+            }
+      },
+      "info": {
+            "input_attribute": "years",
+            "input_vals": [
+                  2067.0,
+                  2098.1250627455556
+            ],
+            "opt_attr": "change_in_velocity",
+            "burn_times": [
+                  300,
+                  500,
+                  1200
+            ],
+            "engine_classes": [
+                  "ElectricPumpCycle"
+            ],
+            "engine_inputs": {
+                  "thrust": 100000.0,
+                  "burn_time": 1200,
+                  "exit_pressure_forced": 2000.0,
+                  "expansion_ratio_end_cooling": 5,
+                  "combustion_chamber_pressure": 10000000.0,
+                  "maximum_wall_temperature": 900
+            },
+            "log": false
+      }
+}

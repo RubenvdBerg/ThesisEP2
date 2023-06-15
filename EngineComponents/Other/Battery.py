@@ -37,6 +37,10 @@ class Battery(ElectricalComponent):
         return self.specific_energy / self.specific_power
 
     @property
+    def specific_power_required(self):
+        return self.battery_packing_factor * self.output_power / self.energy_mass
+
+    @property
     def power_mass(self):
         return self.battery_packing_factor * self.output_power / self.specific_power
 

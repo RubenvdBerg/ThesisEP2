@@ -180,9 +180,11 @@ def plot_adj_attr_opt_compare_data(data_dict: dict,
     fig, ax = plt.subplots()
     if log:
         ax.set_xscale('log')
-    ax.set_xlabel(make_axis_string(input_attr, input_prefix))
-    # ax.set_ylabel(make_axis_string(output_attr, output_prefix))
-    ax.set_ylabel('Optimal Chamber Pressure [MPa]')
+    xlabel = 'Year' if 'year' in input_attr else make_axis_string(input_attr, input_prefix)
+    ylabel = make_axis_string(output_attr, output_prefix)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    # ax.set_ylabel('Optimal Chamber Pressure [MPa]')
     ax.set_title(rf'Optimized $\Delta V$ - $F_T$: {info["engine_inputs"]["thrust"] * 1e-3:.0f} kN')
     linestyles = ('dotted', 'dashed', 'solid', 'dashdot')
 
