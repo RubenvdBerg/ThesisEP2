@@ -81,12 +81,12 @@ def get_ideal_thrust_coefficient(pressure_ratio: float, heat_capacity_ratio: flo
 
 def get_thrust_coefficient_from_ideal(ideal_thrust_coefficient: float, chamber_pressure: float, exit_pressure: float,
                                       expansion_ratio: float, ambient_pressure: Optional[float],
-                                      __summerfield_criterion: float = .35):
+                                      summerfield_criterion: bool = False, __summerfield_criterion: float = .35):
     if ambient_pressure is None:
         return ideal_thrust_coefficient
     elif ambient_pressure == 0:
         pass
-    elif exit_pressure / ambient_pressure < __summerfield_criterion:
+    elif summerfield_criterion and exit_pressure / ambient_pressure < __summerfield_criterion:
         # Summerfield Criterion
         raise ValueError('The ratio between the exit pressure and ambient pressure is lower than the Summerfield '
                          f'criterion of {__summerfield_criterion}. Please adjust either pressure to pass this criterion.')
@@ -95,13 +95,14 @@ def get_thrust_coefficient_from_ideal(ideal_thrust_coefficient: float, chamber_p
 
 
 def get_thrust_coefficient(pressure_ratio: float, heat_capacity_ratio: float, expansion_ratio: float,
-                           chamber_pressure: float, ambient_pressure: Optional[float] = None) -> float:
+                           chamber_pressure: float, ambient_pressure: Optional[float] = None, summerfield_criterion =False) -> float:
     cf0 = get_ideal_thrust_coefficient(pressure_ratio=pressure_ratio, heat_capacity_ratio=heat_capacity_ratio)
     return get_thrust_coefficient_from_ideal(ideal_thrust_coefficient=cf0,
                                              chamber_pressure=chamber_pressure,
                                              exit_pressure=chamber_pressure / pressure_ratio,
                                              expansion_ratio=expansion_ratio,
-                                             ambient_pressure=ambient_pressure)
+                                             ambient_pressure=ambient_pressure,
+                                             summerfield_criterion=summerfield_criterion)
 
 
 def get_specific_impulse(thrust_coefficient: float, characteristic_velocity: float) -> float:

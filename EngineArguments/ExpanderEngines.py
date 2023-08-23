@@ -103,3 +103,18 @@ se_21d_kwargs = args.base_arguments_o | {
     'exhaust_material': NarloyZ,
 }
 se_21d_vac_kwargs = se_21d_kwargs | {'thrust': 2196.682e3, 'ambient_pressure': 0}
+
+if __name__ == '__main__':
+    from EngineArguments.default_arguments import get_default_kwargs
+    from EngineCycles.OpenExpanderCycle import OpenExpanderCycle
+    base_kwargs = get_default_kwargs(OpenExpanderCycle)
+    kwargss = [le5b_kwargs]
+    names = ['le5b']
+    for name, kwargs in zip(names, kwargss):
+        print('\n',name)
+        for key, val in kwargs.items():
+            if key in base_kwargs:
+                if val != base_kwargs[key]:
+                    print(key, val)
+            else:
+                print(key, val)

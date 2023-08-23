@@ -23,3 +23,10 @@ def get_default_kwargs(EngineClass: EngineCycle, mass_mixture_ratio: bool = True
             return default_args | args.oe_arguments
         elif issubclass(EngineClass, OpenExpanderCycle_DoublePump):
             return default_args | args.oe1_arguments
+
+if __name__ == '__main__':
+    ep_kwargs = get_default_kwargs(ElectricPumpCycle)
+    gg_kwargs = get_default_kwargs(GasGeneratorCycle)
+    for key, val in get_default_kwargs(OpenExpanderCycle).items():
+        if key not in ep_kwargs and key not in gg_kwargs:
+            print(f"{key.replace('_',' ')},",val)

@@ -69,7 +69,8 @@ class SecondaryExhaust(FlowComponent, StructuralComponent):
                                       heat_capacity_ratio=self.flow_heat_capacity_ratio,
                                       expansion_ratio=self.expansion_ratio,
                                       chamber_pressure=self.inlet_pressure,
-                                      ambient_pressure=self.ambient_pressure, )
+                                      ambient_pressure=self.ambient_pressure,
+                                      summerfield_criterion=False)
 
     @property
     def temperature_ratio(self):

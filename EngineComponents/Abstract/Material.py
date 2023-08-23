@@ -22,3 +22,4 @@ Al6061T6 = Material(yield_strength=276e6, density=2700, poisson_ratio=.33, therm
 KwakPropellantTankMaterial = Material(yield_strength=250e6, density=2850, minimal_thickness=0)
 KwakPressurantTankMaterial = Material(yield_strength=1100e6, density=4430, minimal_thickness=0)
 KwakGasGeneratorMaterial = Material(yield_strength=550e6, density=8220, minimal_thickness=0)
+

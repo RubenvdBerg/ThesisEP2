@@ -1,11 +1,8 @@
 from EngineCycles.Abstract.EngineCycle import EngineCycle
-import matplotlib.pyplot as plt
 from EngineCycles.ElectricPumpCycle import ElectricPumpCycle
 from EngineCycles.GasGeneratorCycle import GasGeneratorCycle
 from EngineCycles.OpenExpanderCycle import OpenExpanderCycle
 from EngineCycles.CoolantBleedCycle import CoolantBleedCycle
-from optimization import fast_optimize
-from EngineArguments import arguments as args
 from EngineArguments.default_arguments import get_default_kwargs
 import matplotlib.pyplot as plt
 import numpy as np

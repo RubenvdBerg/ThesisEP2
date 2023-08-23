@@ -1,7 +1,5 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from EngineComponents.Other.Battery import Battery
-from EngineComponents.Other.GasGenerator import GasGenerator
-from EngineComponents.Abstract.PressureComponent import PressureComponent
 from EngineComponents.Base.Tank import Tank
 from EngineComponents.Base.Pump import Pump
 from EngineComponents.Base.Propellant import Propellant

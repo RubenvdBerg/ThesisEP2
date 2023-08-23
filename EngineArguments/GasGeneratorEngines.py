@@ -40,7 +40,6 @@ hm60_kwargs = gg_base_kwargs | {
     'burn_time': 605,
     'fuel_exhaust_expansion_ratio': exhaust_expansion_ratio,
     'oxidizer_exhaust_expansion_ratio': exhaust_expansion_ratio,
-
 }
 
 j2_kwargs = gg_base_kwargs | {
@@ -128,7 +127,7 @@ rs27_kwargs = gg_base_kwargs | {
     # 'oxidizer_pump_outlet_pressure': 7.25,
     'fuel_pump_efficiency': 71.8e-2,
     'oxidizer_pump_efficiency': 77.9e-2,
-    'turbine_pressure_ratio': 221,
+    'turbine_pressure_ratio': 22.0,
     'turbine_efficiency': .589,
     'burn_time': 274,
     'exhaust_expansion_ratio': exhaust_expansion_ratio,
@@ -174,3 +173,4 @@ s4_kwarg = gg_base_kwargs | {
     'turbine_efficiency': None,
     'exhaust_expansion_ratio': exhaust_expansion_ratio,
 }
+
