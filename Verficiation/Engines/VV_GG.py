@@ -9,7 +9,7 @@ if __name__ == '__main__':
     import os
     from EngineArguments.GasGeneratorEngines import hm7b_kwargs, h1_kwargs, rs27_kwargs, f1_kwargs, j2_kwargs, \
         hm60_kwargs
-    hm60_kwargs['ambient_pressure'] = None
+
     engine_dict = {
         'HM7-B': ('single', hm7b_kwargs),
         'H-1': ('single', h1_kwargs),
@@ -49,7 +49,7 @@ if __name__ == '__main__':
         total_data = [*main_data, *extra_data, engine.overall_specific_impulse]
         data[engine_name] = total_data
 
-        # make_performance_schematic(engine)
+        make_performance_schematic(engine, savefig=fr'GG_Schematics/{engine_name}.png')
     index = [
         'Thrust Chamber Length [m]',
         'Exit Diameter [m]',
@@ -71,7 +71,9 @@ if __name__ == '__main__':
         df1 = pd.read_csv(file, index_col=0, header=0, usecols=list(range(0, len(engine_dict) + 1)))
     df2 = pd.DataFrame(data, index=index)
     df3 = df2.div(df1).apply(lambda x: abs(x - 1) * 100)
+    df3['Abs.Avg.'] = df3.mean(axis=1)
     df3 = df3.replace(np.nan, '-')
+
     time = strftime("%Y%m%d_%H%M%S")
     filename = rf'C:\Users\rvand\PycharmProjects\ThesisEP2\Verficiation\data\VV_GG_results_{time}.xlsx'
 

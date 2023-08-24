@@ -158,6 +158,9 @@ def fast_optimize(cycle_type: str, thrust: float, burn_time: float, is_frozen: b
     base_args = args.base_arguments_o
     cycle, extra_arguments, attribute_function = set_attribute_cycle(attribute, cycle_type)
 
+    base_args.pop('is_frozen')
+    base_args['expansion_ratio'] = 50
+    base_args['expansion_ratio_end_cooling'] = 5
     def optimize_function(x):
         engine_cycle = cycle(
             combustion_chamber_pressure=x[0] * 1e5,
