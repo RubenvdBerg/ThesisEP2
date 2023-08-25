@@ -4,7 +4,7 @@ from optimization import fast_optimize
 from EngineArguments import arguments as args
 import matplotlib.pyplot as plt
 import numpy as np
-from typing import Tuple
+from typing import Tuple, Optional
 
 base_args = args.base_arguments_o
 plot_defaults = {'pressure_range': (5E5, 20E6), 'mixture_range': (1.5, 3.5), 'detail_number': 50}
@@ -49,34 +49,68 @@ def set_attribute_cycle(attribute: str, cycle_type: str, compare: bool = False):
         return cycle, extra_arguments, title, attribute_function, z_label
 
 
-def threed_plot_cycle(thrust: float, burn_time: float, is_frozen: bool = False, verbose: bool = False,
+def threed_plot_cycle(thrust: float, burn_time: float, engine_kwargs: Optional[dict] = None,
                       pressure_range: Tuple[float, float] = plot_defaults['pressure_range'], log: bool = True,
                       mixture_range: Tuple[float, float] = plot_defaults['mixture_range'], cycle_type='ep',
                       detail_number=plot_defaults['detail_number'],
-                      attribute='dv', base_arguments: dict = base_args, savefig: bool = False):
+                      attribute='dv', base_arguments: dict = base_args, savefig: bool = False, show_opt: bool = True):
     cycle, extra_arguments, title, attribute_function, z_label = set_attribute_cycle(attribute, cycle_type)
     mmr_range = np.linspace(*mixture_range, detail_number)
     pcc_range = np.logspace(*np.log10(pressure_range), detail_number) if log else np.linspace(*pressure_range,
                                                                                               detail_number)
-    base_arguments.pop('is_frozen')
-    base_arguments['expansion_ratio'] = 30
-    base_arguments['expansion_ratio_end_cooling'] = 2
+    if engine_kwargs is None:
+        engine_kwargs = {'verbose': False}
+    combined_kwargs = base_arguments | extra_arguments | engine_kwargs
+
     attributes = [[attribute_function(cycle(mass_mixture_ratio=mmr,
                                             combustion_chamber_pressure=pcc,
                                             thrust=thrust,
                                             burn_time=burn_time,
-                                            is_frozen=is_frozen,
-                                            verbose=verbose,
-                                            **base_arguments,
-                                            **extra_arguments
+                                            **combined_kwargs
                                             ))
                    for pcc in pcc_range]
                   for mmr in mmr_range]
     X, Y = np.meshgrid(pcc_range, mmr_range)
     Z = np.array(attributes)
 
+
+
+
+
+
     fig = plt.figure()
-    ax = plt.axes(projection='3d')
+    ax = fig.add_subplot(projection='3d')
+
+    if show_opt:
+        pcc_bounds = tuple(x * 1e-5 for x in pressure_range)
+        mmr_bounds = tuple(x * 1e1 for x in mmr_range)
+        bounds = (pcc_bounds, mmr_bounds)
+        z, x, y = fast_optimize(cycle_type=cycle_type,
+                                thrust=thrust,
+                                burn_time=burn_time,
+                                engine_kwargs=engine_kwargs,
+                                attribute=attribute,
+                                bounds=bounds,
+                                full_output=True)
+        def x_func(x):
+            if log:
+                return np.log10(x)
+            else:
+                return x
+
+        x_opt, y_opt, z_opt = x_func(x * 1e5), y * 1e-1, abs(z)
+        text_loc = x_func(np.amin(X) * 1.15), np.amax(Y), np.amax(Z) * .90
+        ax.text(x_opt, y_opt, z_opt, 'X', color='red', zorder=20, fontsize=15)
+        ax.text(
+            *text_loc,
+            f'({z_opt * 1e-3:.2f} km/s, {x*1e-1:.2f} MPa, {y_opt:.2f} -)',
+            color='red',
+            zorder=20,
+            zdir='x',
+            fontsize=13,
+        )
+
+
     if log:
         ax.plot_surface(np.log10(X), Y, Z, cmap='viridis', edgecolor='none')
         ticks = np.log10(np.logspace(*np.log10(pressure_range), 5))
@@ -90,13 +124,18 @@ def threed_plot_cycle(thrust: float, burn_time: float, is_frozen: bool = False, 
     ax.set_xlabel('$p_{cc}$ [MPa] (log)') if log else ax.set_xlabel('$p_{cc}$ [MPa]')
     ax.set_ylabel('$O/F$-ratio [-]')
     ax.set_zlabel(z_label)
+    is_frozen = combined_kwargs['is_frozen']
     mode_name = 'Frozen at Throat' if is_frozen else 'Shifting Equilibrium'
     ax.set_title(
         f'{cycle_type.upper()}-Cycle {title} - {mode_name} \n' + r'$F_T$=' + f'{thrust * 1E-3:.1f}kN ' + r'$t_b$=' + f'{burn_time:.0f}s')
+
+
+
     if savefig:
         plt.savefig(
-            'plots/3Dplots/' +
-            f'Base_{attribute.upper()}_{cycle_type}_FT{thrust * 1e-3:.0f}_tb{burn_time}_{"frozen" if is_frozen else "equilibrium"}'
+            '3Dplots/New/' +
+            f'Base_{attribute.upper()}_{cycle_type}_FT{thrust * 1e-3:.0f}_tb{burn_time}_{"frozen" if is_frozen else "equilibrium"}',
+            dpi=600
         )
     plt.show()
 
@@ -120,7 +159,6 @@ def threed_plot_comparison_cycle(thrust: float, burn_time: float, is_frozen: boo
     mmr_range = np.linspace(*mixture_range, detail_number)
     pcc_range = np.logspace(*np.log10(pressure_range), detail_number) if log else np.linspace(*pressure_range,
                                                                                               detail_number)
-    base_arguments.pop('is_frozen')
     compare_attributes = [[attribute_function(cycle(mass_mixture_ratio=mmr,
                                                     combustion_chamber_pressure=pcc,
                                                     thrust=thrust,
@@ -170,7 +208,7 @@ def threed_plot_comparison_cycle(thrust: float, burn_time: float, is_frozen: boo
         plt.savefig(
             'plots/3Dplots/' +
             fr'Comparison_{attribute.upper()}_ep_{cycle_type}_FT{thrust * 1e-3:.0f}_tb{burn_time}_{"frozen" if is_frozen else "equilibrium"}_{"log" if log else ""}',
-        dpi=600)
+            dpi=600)
     plt.show()
 
 
@@ -250,12 +288,15 @@ if __name__ == '__main__':
 
     threed_plot_cycle(thrust=100E3,
                       burn_time=300,
+                      engine_kwargs={
+                          'exit_pressure_forced': 0.002e6,
+                          'expansion_ratio_end_cooling': 10,
+                          'verbose': True,
+                      },
                       pressure_range=(5E5, 2E7),
                       mixture_range=(1.5, 3.5),
-                      cycle_type='ep',
+                      cycle_type='oe',
                       attribute='dv',
-                      detail_number=10,
+                      detail_number=5,
                       log=True,
-                      is_frozen=True,
-                      savefig=)
-    # threed_plot_cycle_opt(detail_number=2, attribute='dv')
+                      savefig=True)

@@ -1,6 +1,6 @@
 import numpy as np
 import pygmo as pg
-
+from typing import Optional
 import scipy.optimize
 
 from EngineCycles.Abstract.EngineCycle import EngineCycle
@@ -152,25 +152,24 @@ def set_attribute_cycle(attribute: str, cycle_type: str):
     return cycle, extra_arguments, attribute_function
 
 
-def fast_optimize(cycle_type: str, thrust: float, burn_time: float, is_frozen: bool = False,
-                  verbose: bool = False, attribute: str = 'dv', x0=np.array([10, 25]), bounds=((1, 300), (15, 40)),
-                  eps: float = 1e-2, basin_hop: int = 0, full_output: bool = False):
+def fast_optimize(cycle_type: str, thrust: float, burn_time: float, engine_kwargs: Optional[dict] = None, attribute: str = 'dv', x0=np.array([10, 25]), bounds=((1, 300), (15, 40)),
+                  eps: float = 1e-2, basin_hop: int = 0, full_output: bool = False, verbose: bool = True):
     base_args = args.base_arguments_o
     cycle, extra_arguments, attribute_function = set_attribute_cycle(attribute, cycle_type)
 
-    base_args.pop('is_frozen')
-    base_args['expansion_ratio'] = 50
-    base_args['expansion_ratio_end_cooling'] = 5
+    if engine_kwargs is None:
+        engine_kwargs = {
+            'is_frozen': True,
+            'verbose': False,
+        }
+    combined_kwargs = base_args | extra_arguments | engine_kwargs
     def optimize_function(x):
         engine_cycle = cycle(
             combustion_chamber_pressure=x[0] * 1e5,
             mass_mixture_ratio=x[1] * 1e-1,
             thrust=thrust,
             burn_time=burn_time,
-            is_frozen=is_frozen,
-            verbose=verbose,
-            **base_args,
-            **extra_arguments
+            **combined_kwargs,
         )
         return attribute_function(engine_cycle)
 
@@ -195,18 +194,22 @@ def fast_optimize(cycle_type: str, thrust: float, burn_time: float, is_frozen: b
                                            bounds=bounds,
                                            options={'eps': eps})
     if full_output:
-        return solution
+        return solution.fun, *solution.x
     return abs(solution.fun)
 
 
 if __name__ == '__main__':
     solution1 = fast_optimize(cycle_type='gg',
-                              thrust=10E3,
-                              burn_time=600,
-                              is_frozen=True,
-                              verbose=False,
+                              engine_kwargs={
+                                  'exit_pressure_forced': 0.002e6,
+                                  'expansion_ratio_end_cooling': 10,
+                                  'verbose': False,
+                              },
+                              thrust=100E3,
+                              burn_time=300,
                               attribute='dv',
-                              full_output=True
+                              full_output=True,
+                              bounds=((5,200),(15,35)),
                               )
     print(solution1)
 # plot_optimal_mmr_pcc(thrust=10e3, mode='shifting', cycles=(ElectricPumpCycle,))

@@ -112,7 +112,7 @@ class EngineCycle:
     _fuel_pump_pressure_factor_first_guess: float = 1.55  # [Pa]
     _is_temp_calc_needed: bool = True
     _ignore_cooling: bool = False
-    iteration_accuracy: float = 0.0001
+    iteration_accuracy: float = 1e-3
 
     # Values always calculated by program, but need to be saved as attributes, not properties
     heat_flow_rate: float = field(init=False, repr=False, default=0)

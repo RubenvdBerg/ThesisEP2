@@ -125,8 +125,9 @@ def threed_plot_cycle(cycle: EngineCycle,
 
     if savefig:
         plt.savefig(
-            'plots/3Dplots/' +
-            f'Base_{attribute.upper()}_{cycle_acronym}_FT{kwargs["thrust"] * 1e-3:.0f}_tb{kwargs["burn_time"]}_{"frozen" if kwargs["is_frozen"] else "equilibrium"}'
+            'plots/3Dplots/New/' +
+            f'Base_{attribute.upper()}_{cycle_acronym}_FT{kwargs["thrust"] * 1e-3:.0f}_tb{kwargs["burn_time"]}_{"frozen" if kwargs["is_frozen"] else "equilibrium"}',
+            dpi=600
         )
     plt.show()
 
@@ -145,7 +146,7 @@ if __name__ == '__main__':
     engine_kwargs.pop('combustion_chamber_pressure')
     for burn_time in [300,1200]:
         design_variables = {
-            'thrust': 25e3,
+            'thrust': 100e3,
             'burn_time': burn_time,
         }
         zlim = (5, 10.5) if design_variables['burn_time'] == 300 else (6.5, 11)
@@ -154,8 +155,8 @@ if __name__ == '__main__':
             threed_plot_cycle(cycle=cycle,
                               attribute='change_in_velocity_km',
                               log=True,
-                              detail_number=3,
-                              savefig=False,
+                              detail_number=30,
+                              savefig=True,
                               pressure_range=(5e5, 2e7),
                               mixture_range=(1.5, 3.5),
                               zlim=zlim,
